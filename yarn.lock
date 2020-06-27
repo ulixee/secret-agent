@@ -3795,10 +3795,10 @@ available-typed-arrays@^1.0.0, available-typed-arrays@^1.0.2:
   dependencies:
     array-filter "^1.0.0"
 
-awaited-dom@^1.0.4:
-  version "1.0.4"
-  resolved "https://registry.yarnpkg.com/awaited-dom/-/awaited-dom-1.0.4.tgz#0050750cb3c541fea53cb4d3fa9898e06b562c62"
-  integrity sha512-keQxINKqOVf10JggQNQcf3MqeKibShL0lf2b+XlPedNdYwJH05+Q3o3ff5//6ZNjZ6SrMpPBQo+PJDTYZhR4/g==
+awaited-dom@^1.0.5:
+  version "1.0.5"
+  resolved "https://registry.yarnpkg.com/awaited-dom/-/awaited-dom-1.0.5.tgz#c6e84032d7e68ac5f2acd26c5f71364299340175"
+  integrity sha512-t+ZC/GxLEAI3tfjBP5i+IEJ5aY4uymR2nlaKfBtvXGliaTpsxhOE9GzS3ywTkn3BXHSCqV5Y7jVhTIJH6/gguA==
 
 aws-sign2@~0.7.0:
   version "0.7.0"

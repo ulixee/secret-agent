@@ -7,6 +7,9 @@
     "@secret-agent/core": "^1.0.0-alpha.1"
   },
   "devDependencies": {
-    "@types/node": "^12.7.11"
+    "@types/node": "^12.7.11",
+    "@secret-agent/commons": "^1.0.0-alpha.1",
+    "@secret-agent/core-interfaces": "^1.0.0-alpha.1",
+    "@secret-agent/shared-testing": "^1.0.0-alpha.1"
   }
 }

@@ -3,10 +3,12 @@
   "version": "1.0.0-alpha.1",
   "description": "SecretAgent client that runs remotely",
   "dependencies": {
-    "@secret-agent/commons": "^1.0.0-alpha.1"
+    "@secret-agent/commons": "^1.0.0-alpha.1",
+    "@secret-agent/client": "^1.0.0-alpha.1"
   },
   "devDependencies": {
     "@secret-agent/shared-testing": "^1.0.0-alpha.1",
+    "@secret-agent/remote-interfaces": "^1.0.0-alpha.1",
     "@types/node": "^12.7.11"
   }
 }
