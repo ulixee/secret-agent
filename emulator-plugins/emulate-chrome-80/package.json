@@ -5,6 +5,7 @@
   "main": "index.js",
   "devDependencies": {
     "@secret-agent/commons": "^1.0.0-alpha.0",
-    "@secret-agent/emulators": "^1.0.0-alpha.0"
+    "@secret-agent/emulators": "^1.0.0-alpha.0",
+    "@secret-agent/emulator-plugins-shared": "^1.0.0-alpha.0"
   }
 }

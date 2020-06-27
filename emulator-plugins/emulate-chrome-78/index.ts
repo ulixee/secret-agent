@@ -2,9 +2,9 @@ import { EmulatorPlugin, EmulatorPluginStatics, UserAgents } from '@secret-agent
 import IHttpRequestModifierDelegate from '@secret-agent/commons/interfaces/IHttpRequestModifierDelegate';
 import headerProfiles from './headers.json';
 import pkg from './package.json';
-import modifyHeaders from '../shared/modifyHeaders';
-import tcpVars from '../shared/tcpVars';
-import chromePageOverrides from '../shared/chromePageOverrides';
+import modifyHeaders from '@secret-agent/emulator-plugins-shared/modifyHeaders';
+import tcpVars from '@secret-agent/emulator-plugins-shared/tcpVars';
+import chromePageOverrides from '@secret-agent/emulator-plugins-shared/chromePageOverrides';
 import codecs from './codecs.json';
 import chrome from './chrome.json';
 import defaultPolyfills from './polyfill.json';
