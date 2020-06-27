@@ -7,7 +7,8 @@
     "@secret-agent/commons": "^1.0.0-alpha.0",
     "@secret-agent/core-interfaces": "^1.0.0-alpha.0",
     "@secret-agent/emulators": "^1.0.0-alpha.0",
-    "tough-cookie": "^4.0.0"
+    "tough-cookie": "^4.0.0",
+    "@secret-agent/emulator-plugins-shared": "^1.0.0-alpha.0"
   },
   "devDependencies": {
     "@types/tough-cookie": "^4.0.0",

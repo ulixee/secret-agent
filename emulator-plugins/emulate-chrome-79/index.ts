@@ -2,8 +2,8 @@ import { EmulatorPlugin, EmulatorPluginStatics, UserAgents } from '@secret-agent
 import IHttpRequestModifierDelegate from '@secret-agent/commons/interfaces/IHttpRequestModifierDelegate';
 import headerProfiles from './headers.json';
 import pkg from './package.json';
-import modifyHeaders from '../shared/modifyHeaders';
-import tcpVars from '../shared/tcpVars';
+import modifyHeaders from '@secret-agent/emulator-plugins-shared/modifyHeaders';
+import tcpVars from '@secret-agent/emulator-plugins-shared/tcpVars';
 import { randomBytes } from 'crypto';
 import codecs from './codecs.json';
 import chrome from './chrome.json';
@@ -11,7 +11,7 @@ import defaultPolyfills from './polyfill.json';
 import windows7Polyfills from './polyfill_windows_7_0.json';
 import windows10Polyfills from './polyfill_windows_10_0.json';
 import navigator from './navigator.json';
-import chromePageOverrides from '../shared/chromePageOverrides';
+import chromePageOverrides from '@secret-agent/emulator-plugins-shared/chromePageOverrides';
 
 @EmulatorPluginStatics
 export default class Chrome79 extends EmulatorPlugin {

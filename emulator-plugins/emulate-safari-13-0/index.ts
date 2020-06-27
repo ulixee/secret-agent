@@ -3,8 +3,8 @@ import { URL } from 'url';
 import pkg from './package.json';
 import IHttpRequestModifierDelegate from '@secret-agent/commons/interfaces/IHttpRequestModifierDelegate';
 import headerProfiles from './headers.json';
-import modifyHeaders from '../shared/modifyHeaders';
-import tcpVars from '../shared/tcpVars';
+import modifyHeaders from '@secret-agent/emulator-plugins-shared/modifyHeaders';
+import tcpVars from '@secret-agent/emulator-plugins-shared/tcpVars';
 import {
   canonicalDomain,
   Cookie,
