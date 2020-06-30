@@ -13,6 +13,7 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "allowJs": true,
+    "rootDir": ".",
     "outDir": "./build",
     "preserveSymlinks": false,
     "experimentalDecorators": true
@@ -33,6 +34,7 @@
   "exclude": [
     "**/tsconfig*.json",
     "node_modules",
+    "**/node_modules",
     "**/dist",
     "**/build",
     "build",
