@@ -5,6 +5,7 @@
   "dependencies": {
     "awaited-dom": "^1.1.3",
     "@secret-agent/commons": "^1.0.0-alpha.2",
+    "@secret-agent/core-interfaces": "^1.0.0-alpha.2",
     "@secret-agent/emulators": "^1.0.0-alpha.2",
     "@secret-agent/humanoids": "^1.0.0-alpha.2",
     "@secret-agent/injected-scripts": "^1.0.0-alpha.2",
@@ -17,7 +18,6 @@
     "uuid": "^3.3.3"
   },
   "devDependencies": {
-    "@secret-agent/core-interfaces": "^1.0.0-alpha.2",
     "@secret-agent/shared-testing": "^1.0.0-alpha.2",
     "@types/node": "^12.7.11",
     "@types/puppeteer": "~2.0.1",

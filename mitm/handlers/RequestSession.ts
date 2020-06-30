@@ -12,6 +12,8 @@ import IHttpResourceLoadDetails from '@secret-agent/commons/interfaces/IHttpReso
 import { URL } from 'url';
 import IHttpOrH2Response from '../interfaces/IHttpOrH2Response';
 import IResourceRequest from '@secret-agent/core-interfaces/IResourceRequest';
+import Protocol from 'devtools-protocol';
+import Network = Protocol.Network;
 
 interface IRequestUpgradeLookup {
   sessionId: string;
@@ -123,7 +125,7 @@ export default class RequestSession {
     browserRequestId: string;
     url: string;
     method: string;
-    resourceType: string;
+    resourceType: Network.ResourceType;
     hasUserGesture: boolean;
     documentUrl: string;
     isUserNavigation: boolean;
