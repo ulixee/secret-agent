@@ -16,7 +16,6 @@ const runtimeFunction = '__saPageListenerCallback';
 
 export default class PageEventsListener {
   public onNewContext?: (contextId: number) => Promise<any>;
-  private isClosing: boolean = false;
   private readonly devtoolsClient: IDevtoolsClient;
   private readonly frameTracker: FrameTracker;
   private readonly onResults: (frameId: string, ...args: PageRecorderResultSet) => Promise<any>;
@@ -32,9 +31,17 @@ export default class PageEventsListener {
   }
 
   public async listen() {
+    // add binding to every new context automatically
+    await this.devtoolsClient.send('Runtime.addBinding', {
+      name: runtimeFunction,
+    });
     await this.devtoolsClient.send('Page.addScriptToEvaluateOnNewDocument', {
       source: `(function(runtimeFunction) { \n\n ${domObserver.toString()} \n\n })('${runtimeFunction}');`,
       worldName: DomEnv.installedDomWorldName,
+    });
+    // delete binding from every context also
+    await this.devtoolsClient.send('Page.addScriptToEvaluateOnNewDocument', {
+      source: `delete window.${runtimeFunction}`,
     });
 
     await this.devtoolsClient.on(
@@ -56,13 +63,6 @@ export default class PageEventsListener {
         await this.onResults(frameId, ...result);
       },
     );
-
-    await this.devtoolsClient.on('Runtime.executionContextCreated', async ctx => {
-      if (ctx.context.name !== DomEnv.installedDomWorldName) return;
-      const contextId = ctx.context.id;
-
-      setImmediate(this.addBindingToContext.bind(this), contextId);
-    });
   }
 
   public async setCommandIdForPage(commandId: number) {
@@ -82,10 +82,6 @@ export default class PageEventsListener {
       .catch(err => log.warn('NewContext.setCommandIdError', err));
   }
 
-  public close() {
-    this.isClosing = true;
-  }
-
   public async flush() {
     const results = await this.frameTracker.runInActiveFrames(
       `window.flushPageRecorder()`,
@@ -95,27 +91,6 @@ export default class PageEventsListener {
       if (result.value) {
         await this.onResults(frameId, ...(result.value as PageRecorderResultSet));
       }
-    }
-  }
-
-  private async addBindingToContext(contextId: number, retries = 5) {
-    if (this.isClosing) return;
-
-    try {
-      await this.devtoolsClient.send('Runtime.addBinding', {
-        name: runtimeFunction,
-        contextId,
-      });
-    } catch (err) {
-      if (retries > 0 && err?.message.includes('Cannot find context with specified id')) {
-        await new Promise(resolve => setTimeout(resolve, 10 * (2 ^ (retries -= 1))));
-        return this.addBindingToContext(contextId);
-      }
-      throw err;
-    }
-
-    if (this.onNewContext) {
-      await this.onNewContext(contextId);
     }
   }
 }
