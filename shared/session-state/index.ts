@@ -267,6 +267,7 @@ export default class SessionState {
   }
 
   public async saveBeforeWindowClose() {
+    this.pageEventsListener.close();
     await this.flush();
     this.db.session.update(this.sessionId, {
       closeDate: new Date(),
