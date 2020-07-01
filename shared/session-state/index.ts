@@ -158,9 +158,11 @@ export default class SessionState {
   ) {
     const resourceId = this.browserRequestIdToResourceId[browserRequestId];
     if (!resourceId) {
-      throw new Error(
-        `Websocket Message broadcast for unknown request id: (browserRequestId: ${browserRequestId})`,
-      );
+      log.error(`Websocket Message broadcast for unknown request id`, {
+        browserRequestId,
+        message,
+      });
+      return;
     }
 
     const resourceMessage = {

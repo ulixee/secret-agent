@@ -246,6 +246,7 @@ export default class MitmRequestHandler {
   }
 
   private async makeProxyToServerRequest(ctx: IMitmRequestContext, isUpgrade: boolean) {
+    let session: RequestSession;
     try {
       ctx.clientToProxyRequest.on(
         'error',
@@ -253,12 +254,12 @@ export default class MitmRequestHandler {
       );
 
       const requestSettings = ctx.proxyToServerRequestSettings;
-      const session = (ctx.requestSession = await RequestSession.getSession(
+      session = ctx.requestSession = await RequestSession.getSession(
         requestSettings.headers,
         requestSettings.method,
         isUpgrade,
         isUpgrade ? 10e3 : undefined,
-      ));
+      );
 
       if (!session) {
         log.error('Mitm.RequestHandler:NoSessionForRequest', {
@@ -329,6 +330,9 @@ export default class MitmRequestHandler {
 
       return connectResult;
     } catch (err) {
+      if (session?.isClosing) {
+        return;
+      }
       this.handleError('PROXY_TO_SERVER_REQUEST_ERROR', ctx, err);
     }
   }

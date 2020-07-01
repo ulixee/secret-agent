@@ -74,8 +74,11 @@ export default class SocketConnectDriver {
     const promise = createPromise(30e3);
     child.on('exit', code => {
       promise.reject(new Error('Socket process exited during connect'));
-      if (this.socket) this.socket.end();
-      this.cleanupSocket();
+      if (this.socket) {
+        this.socket.removeAllListeners();
+        this.socket.end();
+        this.cleanupSocket();
+      }
     });
 
     child.on('error', err => {

@@ -29,6 +29,7 @@ export default class RequestSession {
 
   public delegate: IHttpRequestModifierDelegate = {};
 
+  public isClosing = false;
   public blockImages: boolean = false;
   public blockUrls: string[] = [];
   public blockResponseHandlerFn?: (
@@ -186,6 +187,7 @@ export default class RequestSession {
   }
 
   public async close() {
+    this.isClosing = true;
     delete RequestSession.sessions[this.sessionId];
     for (const headersKey of Object.keys(RequestSession.requestUpgradeSessionLookup)) {
       const wsSession = RequestSession.requestUpgradeSessionLookup[headersKey];
