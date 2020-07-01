@@ -85,7 +85,6 @@ export default class Window {
     // tslint:disable-next-line:no-this-assignment
     const { devtoolsClient } = this;
     await Window.installEmulator(devtoolsClient, this.session.emulator);
-    await this.frameTracker.init();
     // must be installed before window scripts
     await this.sessionState.listenForPageEvents(devtoolsClient, this.frameTracker);
     this.events.listen();
@@ -268,6 +267,11 @@ export default class Window {
     this.session.requestMitmProxySession?.recordDocumentUserActivity(documentUrl);
   }
 
+  public async getLocationHref() {
+    await this.waitForLoad('READY');
+    return this.domEnv.locationHref();
+  }
+
   public async getPageCookies(): Promise<ICookie[]> {
     await this.waitForLoad('READY');
     return (await this.puppPage.cookies()).map(
@@ -282,6 +286,8 @@ export default class Window {
   public async close() {
     if (this.isClosing) return;
     this.isClosing = true;
+    this.frameTracker.close();
+    this.domEnv.close();
     log.info('WindowClosing', { windowId: this.id, sessionId: this.session.id });
     try {
       // clear any pending timeouts
@@ -373,7 +379,7 @@ export default class Window {
           jsonValue = null;
         }
         timer.throwIfExpired('Timeout waiting for element to be visible');
-        await new Promise(setImmediate);
+        await new Promise(resolve => setTimeout(resolve, 50));
       } while (!jsonValue);
     } finally {
       timer.clear();
@@ -419,6 +425,7 @@ export default class Window {
     await puppPage.setExtraHTTPHeaders(session.requestMitmProxySession.getTrackingHeaders());
 
     const window = new Window(sessionState, puppPage, session);
+    await window.frameTracker.init();
     log.info('CreatedWindow', null, logid);
     return window;
   }

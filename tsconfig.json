@@ -6,7 +6,7 @@
     "module": "commonjs",
     "lib": ["es2018"],
     "noImplicitAny": false,
-    "inlineSourceMap": true,
+    "sourceMap": true,
     "esModuleInterop": true,
     "declaration": true,
     "moduleResolution": "node",

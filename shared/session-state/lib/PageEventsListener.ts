@@ -16,6 +16,7 @@ const runtimeFunction = '__saPageListenerCallback';
 
 export default class PageEventsListener {
   public onNewContext?: (contextId: number) => Promise<any>;
+  private isClosing: boolean = false;
   private readonly devtoolsClient: IDevtoolsClient;
   private readonly frameTracker: FrameTracker;
   private readonly onResults: (frameId: string, ...args: PageRecorderResultSet) => Promise<any>;
@@ -60,16 +61,7 @@ export default class PageEventsListener {
       if (ctx.context.name !== DomEnv.installedDomWorldName) return;
       const contextId = ctx.context.id;
 
-      process.nextTick(async id => {
-        await this.devtoolsClient.send('Runtime.addBinding', {
-          name: runtimeFunction,
-          contextId: id,
-        });
-
-        if (this.onNewContext) {
-          await this.onNewContext(id);
-        }
-      }, contextId);
+      setImmediate(this.addBindingToContext.bind(this), contextId);
     });
   }
 
@@ -90,6 +82,10 @@ export default class PageEventsListener {
       .catch(err => log.warn('NewContext.setCommandIdError', err));
   }
 
+  public close() {
+    this.isClosing = true;
+  }
+
   public async flush() {
     const results = await this.frameTracker.runInActiveFrames(
       `window.flushPageRecorder()`,
@@ -99,6 +95,27 @@ export default class PageEventsListener {
       if (result.value) {
         await this.onResults(frameId, ...(result.value as PageRecorderResultSet));
       }
+    }
+  }
+
+  private async addBindingToContext(contextId: number, retries = 5) {
+    if (this.isClosing) return;
+
+    try {
+      await this.devtoolsClient.send('Runtime.addBinding', {
+        name: runtimeFunction,
+        contextId,
+      });
+    } catch (err) {
+      if (retries > 0 && err?.message.includes('Cannot find context with specified id')) {
+        await new Promise(resolve => setTimeout(resolve, 10 * (2 ^ (retries -= 1))));
+        return this.addBindingToContext(contextId);
+      }
+      throw err;
+    }
+
+    if (this.onNewContext) {
+      await this.onNewContext(contextId);
     }
   }
 }

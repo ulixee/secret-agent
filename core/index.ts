@@ -91,6 +91,10 @@ export default class Core implements ICore {
     return this.window.runCommand<IExecJsPathResult<T>>('execJsPath', jsPath, propertiesToExtract);
   }
 
+  public async getLocationHref() {
+    return this.window.runCommand<string>('getLocationHref');
+  }
+
   public async interact(...interactionGroups: IInteractionGroups) {
     await this.window.runCommand('interact', interactionGroups);
   }
