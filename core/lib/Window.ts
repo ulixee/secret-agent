@@ -87,7 +87,7 @@ export default class Window {
     await Window.installEmulator(devtoolsClient, this.session.emulator);
     // must be installed before window scripts
     await this.sessionState.listenForPageEvents(devtoolsClient, this.frameTracker);
-    this.events.listen();
+    await this.events.listen();
     await this.domEnv.install();
   }
 
