@@ -2868,6 +2868,11 @@
   resolved "https://registry.yarnpkg.com/@types/unist/-/unist-2.0.3.tgz#9c088679876f374eb5983f150d4787aa6fb32d7e"
   integrity sha512-FvUupuM3rlRsRtCN+fDudtmytGO6iHJuuRKS1Ss0pG5z8oX0diNEw94UEL7hgDbpN94rgaK5R7sWm6RrSkZuAQ==
 
+"@types/useragent@^2.1.1":
+  version "2.1.1"
+  resolved "https://registry.yarnpkg.com/@types/useragent/-/useragent-2.1.1.tgz#e7e897f867941b03c41144f659c8f8f412a72d06"
+  integrity sha1-5+iX+GeUGwPEEUT2Wcj49BKnLQY=
+
 "@types/vfile-message@*":
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/@types/vfile-message/-/vfile-message-2.0.0.tgz#690e46af0fdfc1f9faae00cd049cc888957927d5"
