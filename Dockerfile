@@ -62,6 +62,5 @@ RUN cd /app/secret-agent && yarn \
     && chown -R sagent:sagent /home/sagent \
     && chown -R sagent:sagent /app
 
-
 # Add below to run as unprivileged user.
 ## USER sagent

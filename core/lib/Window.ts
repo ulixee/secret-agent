@@ -1,4 +1,4 @@
-import uuid from 'uuid/v1';
+import { v1 as uuidv1 } from 'uuid';
 import Log from '@secret-agent/commons/Logger';
 import puppeteer from 'puppeteer';
 import IWindowOptions from '@secret-agent/core-interfaces/IWindowOptions';
@@ -36,7 +36,7 @@ import DomEnv from './DomEnv';
 const { log } = Log(module);
 
 export default class Window {
-  public readonly id: string = uuid();
+  public readonly id: string = uuidv1();
   public readonly session: Session;
   public readonly sessionState: SessionState;
   public readonly locationTracker: LocationTracker;
