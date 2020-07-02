@@ -5,3 +5,4 @@ replay
 **/node_modules
 .sessions
 .mitm-ca
+**socket/connect

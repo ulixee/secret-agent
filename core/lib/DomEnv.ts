@@ -173,10 +173,9 @@ ${domStorageScript}
 }
 
 const typesonScript = fs.readFileSync(require.resolve('typeson/dist/typeson.min.js'), 'utf8');
-const typesonRegistryScript = fs.readFileSync(
-  require.resolve('typeson-registry/dist/presets/builtin.js'),
-  'utf8',
-);
+const typesonRegistryScript = fs
+  .readFileSync(require.resolve('typeson-registry/dist/presets/builtin.js'), 'utf8')
+  .replace(/\/\/# sourceMappingURL=.+\.map/g, '');
 
 const domStorageScript = fs.readFileSync(
   require.resolve(`@secret-agent/injected-scripts/scripts/domStorage.js`),
