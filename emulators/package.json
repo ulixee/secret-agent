@@ -19,6 +19,7 @@
   },
   "devDependencies": {
     "@secret-agent/core-interfaces": "^1.0.0-alpha.2",
+    "@types/useragent": "^2.1.1",
     "axios": "^0.19.2",
     "csv-parser": "^2.3.2"
   }

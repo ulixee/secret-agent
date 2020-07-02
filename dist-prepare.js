@@ -2,6 +2,7 @@ const fs = require('fs');
 const buildDistDir = `${__dirname}/build-dist`;
 
 const rootPackageJson = require('./package.json');
+const { execSync } = require('child_process');
 
 const defaults = {
   repository: rootPackageJson.repository,
@@ -61,7 +62,7 @@ function processPackageJson(packagePath) {
 
 function processDir(path) {
   for (const dirname of fs.readdirSync(path)) {
-    if (dirname === 'node_modules') break;
+    if (dirname === 'node_modules' || dirname.startsWith('.')) break;
     const fullpath = `${path}/${dirname}`;
     if (fs.existsSync(`${fullpath}/package.json`)) {
       processPackageJson(fullpath);

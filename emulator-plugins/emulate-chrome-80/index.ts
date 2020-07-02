@@ -12,28 +12,40 @@ import windows10Polyfills from './polyfill_windows_10_0.json';
 import navigator from './navigator.json';
 import chromePageOverrides from '@secret-agent/emulator-plugins-shared/chromePageOverrides';
 import { randomBytes } from 'crypto';
+import { pickRandom } from '@secret-agent/emulators/lib/Utils';
+import IUserAgent from '../../emulators/interfaces/IUserAgent';
 
 @EmulatorPluginStatics
 export default class Chrome80 extends EmulatorPlugin {
   public static emulatorId = pkg.name;
   public static browser = 'Chrome 80.0';
   public static chromiumEngines = [80];
-  public static agents = UserAgents.getList({
+
+  protected static agents = UserAgents.getList({
     deviceCategory: 'desktop',
     vendor: 'Google Inc.',
     family: 'Chrome',
     versionMajor: 80,
+    operatingSystems: [
+      {
+        family: 'Windows',
+      },
+      {
+        family: 'Mac OS X',
+      },
+    ],
   });
 
+  public readonly userAgent: IUserAgent;
   public delegate: IHttpRequestModifierDelegate;
 
-  constructor(os?: { family: string; major: string }) {
-    const randomAgent = EmulatorPlugin.pickRandomUseragent(Chrome80.agents, os);
-    super(randomAgent);
+  constructor() {
+    super();
+    this.userAgent = pickRandom(Chrome80.agents);
     this.delegate = {
       modifyHeadersBeforeSend: modifyHeaders.bind(this, this.userAgent, headerProfiles),
       tlsProfileId: 'Chrome72',
-      tcpVars: tcpVars(os),
+      tcpVars: tcpVars(this.userAgent.os),
     };
   }
 

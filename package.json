@@ -8,6 +8,7 @@
     "bump-version": "lerna version patch --no-git-tag-version",
     "build:copy": "copyfiles 'shared/testing/html/**' 'yarn.lock' 'mitm/socket/**' 'mitm/socket/.checksum' 'mitm/test/certs/**' build && cp package.build.json build/package.json",
     "build:dist": "rm -rf build-dist && tsc -b tsconfig.dist.json && copyfiles 'mitm/socket/**' 'mitm/socket/.checksum' build-dist && node dist-prepare.js",
+    "build:linked": "yarn build:dist && node dist-link.js",
     "tsc": "tsc -b tsconfig.json && yarn build:copy",
     "tsc-modules": "ln -sf node_modules build/node_modules",
     "build": "yarn tsc && yarn workspace @secret-agent/replay build && cd build && yarn",

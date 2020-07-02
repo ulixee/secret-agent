@@ -4,7 +4,7 @@ export interface IEmulatorPluginStatics {
   emulatorId: string;
   browser: string;
   chromiumEngines: number[];
-  new (os?: { family: string; major: string }): EmulatorPlugin;
+  new (): EmulatorPlugin;
 }
 
 // decorator for emulator plugins. hacky way to check the class implements statics we need

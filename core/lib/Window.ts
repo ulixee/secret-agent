@@ -378,7 +378,7 @@ export default class Window {
         } catch (err) {
           jsonValue = null;
         }
-        timer.throwIfExpired('Timeout waiting for element to be visible');
+        timer.throwIfExpired(`Timeout waiting for element ${jsPath} to be visible`);
         await new Promise(resolve => setTimeout(resolve, 50));
       } while (!jsonValue);
     } finally {
