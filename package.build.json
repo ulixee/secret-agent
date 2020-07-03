@@ -1,5 +1,5 @@
 {
-  "name": "secret-agent",
+  "name": "@secret-agent/monorepo",
   "private": true,
   "scripts": {
     "start:website": "yarn workspace @secret-agent/website start",

@@ -7,6 +7,7 @@
     "lib": ["es2018"],
     "noImplicitAny": false,
     "sourceMap": true,
+    "inlineSourceMap": false,
     "esModuleInterop": true,
     "declaration": true,
     "moduleResolution": "node",
