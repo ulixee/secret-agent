@@ -162,18 +162,13 @@ export default class RequestSession {
     }
 
     const key = headersKey.join(',');
-    if (RequestSession.requestUpgradeSessionLookup[key]) {
-      RequestSession.requestUpgradeSessionLookup[key].resolve({
-        sessionId: this.sessionId,
-        browserRequestId,
-      });
-    } else {
+    if (!RequestSession.requestUpgradeSessionLookup[key]) {
       RequestSession.requestUpgradeSessionLookup[key] = createPromise<IRequestUpgradeLookup>();
-      RequestSession.requestUpgradeSessionLookup[key].resolve({
-        sessionId: this.sessionId,
-        browserRequestId,
-      });
     }
+    RequestSession.requestUpgradeSessionLookup[key].resolve({
+      sessionId: this.sessionId,
+      browserRequestId,
+    });
   }
 
   public async getUpstreamProxyUrl() {
@@ -308,12 +303,13 @@ export default class RequestSession {
       headersKey.push(`${key}=${headers[key]}`);
     }
     const key = headersKey.join(',');
-    if (RequestSession.requestUpgradeSessionLookup[key]) {
-      return RequestSession.requestUpgradeSessionLookup[key].promise;
+    if (!RequestSession.requestUpgradeSessionLookup[key]) {
+      RequestSession.requestUpgradeSessionLookup[key] = createPromise<IRequestUpgradeLookup>(
+        timeout,
+      );
     }
-    const promise = createPromise<IRequestUpgradeLookup>(timeout);
-    RequestSession.requestUpgradeSessionLookup[key] = promise;
-    return promise.promise;
+
+    return RequestSession.requestUpgradeSessionLookup[key].promise;
   }
 }
 
