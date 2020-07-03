@@ -77,6 +77,7 @@ export default class MitmRequestHandler {
     clientSocket.pause();
 
     const ctx = this.createContext('ws', isSSL, upgradeRequest);
+    ctx.resourceType = 'Websocket';
 
     try {
       clientSocket.on(
@@ -281,10 +282,6 @@ export default class MitmRequestHandler {
       if (BlockHandler.shouldBlockRequest(session, ctx)) {
         // already wrote reply
         return;
-      }
-
-      if (isUpgrade) {
-        ctx.resourceType = 'Websocket';
       }
 
       await HeadersHandler.waitForResource(ctx);
