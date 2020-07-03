@@ -5,11 +5,12 @@
   "main": "index.js",
   "dependencies": {
     "@secret-agent/commons": "^1.0.0-alpha.1",
-    "@secret-agent/core-interfaces": "^1.0.0-alpha.1",
     "@secret-agent/injected-scripts": "^1.0.0-alpha.1",
+    "@secret-agent/mitm": "^1.0.0-alpha.1",
     "better-sqlite3": "^7.0.1"
   },
   "devDependencies": {
+    "@secret-agent/core-interfaces": "^1.0.0-alpha.1",
     "@koa/router": "^8.0.8",
     "@types/better-sqlite3": "^5.4.0",
     "koa": "^2.11.0"
