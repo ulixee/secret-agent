@@ -13,7 +13,7 @@ import windows10Polyfills from './polyfill_windows_10_0.json';
 import navigator from './navigator.json';
 import { randomBytes } from 'crypto';
 import { pickRandom } from '@secret-agent/emulators/lib/Utils';
-import IUserAgent from '../../emulators/interfaces/IUserAgent';
+import IUserAgent from '@secret-agent/emulators/interfaces/IUserAgent';
 
 @EmulatorPluginStatics
 export default class Chrome78 extends EmulatorPlugin {
@@ -38,9 +38,9 @@ export default class Chrome78 extends EmulatorPlugin {
   public readonly userAgent: IUserAgent;
   public readonly delegate: IHttpRequestModifierDelegate;
 
-  constructor() {
+  constructor(userAgent?: IUserAgent) {
     super();
-    this.userAgent = pickRandom(Chrome78.agents);
+    this.userAgent = userAgent ?? pickRandom(Chrome78.agents);
     this.delegate = {
       modifyHeadersBeforeSend: modifyHeaders.bind(this, this.userAgent, headerProfiles),
       tlsProfileId: 'Chrome72',

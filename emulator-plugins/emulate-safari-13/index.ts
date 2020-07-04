@@ -20,7 +20,7 @@ import pageOverrides from './pageOverrides';
 import { randomBytes } from 'crypto';
 import IUserProfile from '@secret-agent/core-interfaces/IUserProfile';
 import { pickRandom } from '@secret-agent/emulators/lib/Utils';
-import IUserAgent from '../../emulators/interfaces/IUserAgent';
+import IUserAgent from '@secret-agent/emulators/interfaces/IUserAgent';
 
 @EmulatorPluginStatics
 export default class Safari13 extends EmulatorPlugin {
@@ -54,10 +54,10 @@ export default class Safari13 extends EmulatorPlugin {
     [site: string]: IResolvablePromise;
   } = {};
 
-  constructor() {
+  constructor(userAgent?: IUserAgent) {
     super();
 
-    this.userAgent = pickRandom(Safari13.agents);
+    this.userAgent = userAgent ?? pickRandom(Safari13.agents);
     this.cookieJar = new CookieJar(null, { rejectPublicSuffixes: false });
     this.delegate = {
       modifyHeadersBeforeSend: modifyHeaders.bind(this, this.userAgent, headerProfiles),

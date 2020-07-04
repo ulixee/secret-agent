@@ -13,7 +13,7 @@ import navigator from './navigator.json';
 import chromePageOverrides from '@secret-agent/emulator-plugins-shared/chromePageOverrides';
 import { randomBytes } from 'crypto';
 import { pickRandom } from '@secret-agent/emulators/lib/Utils';
-import IUserAgent from '../../emulators/interfaces/IUserAgent';
+import IUserAgent from '@secret-agent/emulators/interfaces/IUserAgent';
 
 @EmulatorPluginStatics
 export default class Chrome80 extends EmulatorPlugin {
@@ -39,9 +39,9 @@ export default class Chrome80 extends EmulatorPlugin {
   public readonly userAgent: IUserAgent;
   public delegate: IHttpRequestModifierDelegate;
 
-  constructor() {
+  constructor(userAgent?: IUserAgent) {
     super();
-    this.userAgent = pickRandom(Chrome80.agents);
+    this.userAgent = userAgent ?? pickRandom(Chrome80.agents);
     this.delegate = {
       modifyHeadersBeforeSend: modifyHeaders.bind(this, this.userAgent, headerProfiles),
       tlsProfileId: 'Chrome72',
