@@ -1,0 +1,261 @@
+{
+  "removals": [
+    "window.Navigator.prototype.userAgentData",
+    "window.navigator.userAgentData",
+    "window.NavigatorUAData"
+  ],
+  "additions": [
+    {
+      "path": "window.XRFrame.prototype",
+      "propertyName": "trackedAnchors",
+      "prevProperty": "session",
+      "property": {
+        "_$flags": "ce",
+        "_$accessException": "TypeError: Illegal invocation",
+        "_$get": "function get trackedAnchors() { [native code] }",
+        "_$getToStringToString": "function toString() { [native code] }"
+      }
+    },
+    {
+      "path": "window.XRFrame.prototype",
+      "propertyName": "createAnchor",
+      "prevProperty": "trackedAnchors",
+      "property": {
+        "length": {
+          "_$type": "number",
+          "_$flags": "c",
+          "_$value": 2
+        },
+        "name": {
+          "_$type": "string",
+          "_$flags": "c",
+          "_$value": ""
+        },
+        "_$type": "function",
+        "_$function": "function () { [native code] }",
+        "_$invocation": "TypeError: Failed to execute 'createAnchor' on 'XRFrame': Illegal invocation",
+        "_$flags": "cew"
+      }
+    },
+    {
+      "path": "window",
+      "propertyName": "XRAnchor",
+      "prevProperty": "XRWebGLLayer",
+      "property": {
+        "length": {
+          "_$type": "number",
+          "_$flags": "c",
+          "_$value": 0
+        },
+        "name": {
+          "_$type": "string",
+          "_$flags": "c",
+          "_$value": "XRAnchor"
+        },
+        "arguments": {
+          "_$type": "object",
+          "_$flags": "",
+          "_$value": null
+        },
+        "caller": {
+          "_$type": "object",
+          "_$flags": "",
+          "_$value": null
+        },
+        "prototype": {
+          "_$protos": ["Object.prototype"],
+          "anchorSpace": {
+            "_$flags": "ce",
+            "_$accessException": "TypeError: Illegal invocation",
+            "_$get": "function get anchorSpace() { [native code] }",
+            "_$getToStringToString": "function toString() { [native code] }"
+          },
+          "delete": {
+            "length": {
+              "_$type": "number",
+              "_$flags": "c",
+              "_$value": 0
+            },
+            "name": {
+              "_$type": "string",
+              "_$flags": "c",
+              "_$value": ""
+            },
+            "_$type": "function",
+            "_$function": "function () { [native code] }",
+            "_$invocation": "TypeError: Illegal invocation",
+            "_$flags": "cew"
+          },
+          "Symbol(Symbol.toStringTag)": {
+            "_$type": "string",
+            "_$flags": "c",
+            "_$value": "XRAnchor"
+          },
+          "_$type": "object",
+          "_$flags": ""
+        },
+        "new()": {
+          "_$type": "constructor",
+          "_$constructorException": "TypeError: Illegal constructor"
+        },
+        "_$type": "function",
+        "_$function": "function XRAnchor() { [native code] }",
+        "_$flags": "cw"
+      }
+    },
+    {
+      "path": "window",
+      "propertyName": "XRAnchorSet",
+      "prevProperty": "XRAnchor",
+      "property": {
+        "length": {
+          "_$type": "number",
+          "_$flags": "c",
+          "_$value": 0
+        },
+        "name": {
+          "_$type": "string",
+          "_$flags": "c",
+          "_$value": "XRAnchorSet"
+        },
+        "arguments": {
+          "_$type": "object",
+          "_$flags": "",
+          "_$value": null
+        },
+        "caller": {
+          "_$type": "object",
+          "_$flags": "",
+          "_$value": null
+        },
+        "prototype": {
+          "_$protos": ["Object.prototype"],
+          "values": {
+            "length": {
+              "_$type": "number",
+              "_$flags": "c",
+              "_$value": 0
+            },
+            "name": {
+              "_$type": "string",
+              "_$flags": "c",
+              "_$value": "values"
+            },
+            "_$type": "function",
+            "_$function": "function values() { [native code] }",
+            "_$invocation": "TypeError: Illegal invocation",
+            "_$flags": "cew"
+          },
+          "size": {
+            "_$flags": "c",
+            "_$accessException": "TypeError: Illegal invocation",
+            "_$get": "function get size() { [native code] }",
+            "_$getToStringToString": "function toString() { [native code] }"
+          },
+          "keys": {
+            "length": {
+              "_$type": "number",
+              "_$flags": "c",
+              "_$value": 0
+            },
+            "name": {
+              "_$type": "string",
+              "_$flags": "c",
+              "_$value": ""
+            },
+            "_$type": "function",
+            "_$function": "function () { [native code] }",
+            "_$invocation": "TypeError: Illegal invocation",
+            "_$flags": "cew"
+          },
+          "entries": {
+            "length": {
+              "_$type": "number",
+              "_$flags": "c",
+              "_$value": 0
+            },
+            "name": {
+              "_$type": "string",
+              "_$flags": "c",
+              "_$value": ""
+            },
+            "_$type": "function",
+            "_$function": "function () { [native code] }",
+            "_$invocation": "TypeError: Illegal invocation",
+            "_$flags": "cew"
+          },
+          "forEach": {
+            "length": {
+              "_$type": "number",
+              "_$flags": "c",
+              "_$value": 1
+            },
+            "name": {
+              "_$type": "string",
+              "_$flags": "c",
+              "_$value": ""
+            },
+            "_$type": "function",
+            "_$function": "function () { [native code] }",
+            "_$invocation": "TypeError: Illegal invocation",
+            "_$flags": "cew"
+          },
+          "has": {
+            "length": {
+              "_$type": "number",
+              "_$flags": "c",
+              "_$value": 1
+            },
+            "name": {
+              "_$type": "string",
+              "_$flags": "c",
+              "_$value": ""
+            },
+            "_$type": "function",
+            "_$function": "function () { [native code] }",
+            "_$invocation": "TypeError: Illegal invocation",
+            "_$flags": "cew"
+          },
+          "Symbol(Symbol.toStringTag)": {
+            "_$type": "string",
+            "_$flags": "c",
+            "_$value": "XRAnchorSet"
+          },
+          "Symbol(Symbol.iterator)": "REF: window.XRAnchorSet.prototype.values",
+          "_$type": "object",
+          "_$flags": ""
+        },
+        "new()": {
+          "_$type": "constructor",
+          "_$constructorException": "TypeError: Illegal constructor"
+        },
+        "_$type": "function",
+        "_$function": "function XRAnchorSet() { [native code] }",
+        "_$flags": "cw"
+      }
+    },
+    {
+      "path": "window.XRHitTestResult.prototype",
+      "propertyName": "createAnchor",
+      "prevProperty": "getPose",
+      "property": {
+        "length": {
+          "_$type": "number",
+          "_$flags": "c",
+          "_$value": 0
+        },
+        "name": {
+          "_$type": "string",
+          "_$flags": "c",
+          "_$value": ""
+        },
+        "_$type": "function",
+        "_$function": "function () { [native code] }",
+        "_$invocation": "TypeError: Failed to execute 'createAnchor' on 'XRHitTestResult': Illegal invocation",
+        "_$flags": "cew"
+      }
+    }
+  ],
+  "order": [],
+  "changes": []
+}

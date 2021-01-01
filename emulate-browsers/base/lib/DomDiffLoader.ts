@@ -14,7 +14,7 @@ export default class DomDiffLoader {
 
   public get(operatingSystemId: string) {
     if (!this.dataMap[operatingSystemId]) {
-      const dir = `${this.dataDir}/${operatingSystemId}`;
+      const dir = `${this.dataDir}/as-${operatingSystemId}`;
       const filename = extractFilename(Fs.readdirSync(dir));
       const data = JSON.parse(Fs.readFileSync(`${dir}/${filename}`, 'utf8'));
       this.dataMap[operatingSystemId] = data;
@@ -28,7 +28,7 @@ function extractFilename(filenames: string[]) {
   const localOsVersion = localOsMeta.version;
   const filenameMap = {};
   for (const filename of filenames) {
-    const matches = filename.match(/^dom-diffs-when-using-([a-z-]+)(-([0-9-]+))?.json$/);
+    const matches = filename.match(/^dom-diffs-when-runtime-([a-z-]+)(-([0-9-]+))?.json$/);
     if (!matches) continue;
 
     const [osName, _, osVersion] = matches.slice(1); // eslint-disable-line @typescript-eslint/naming-convention,@typescript-eslint/no-unused-vars

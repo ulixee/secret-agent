@@ -1,0 +1,205 @@
+{
+  "removals": [
+    "window.Notification.prototype.image",
+    "window.Text.prototype.getDestinationInsertionPoints",
+    "window.Element.prototype.getDestinationInsertionPoints"
+  ],
+  "additions": [
+    {
+      "path": "window.Navigator.prototype",
+      "propertyName": "getInstalledRelatedApps",
+      "prevProperty": "unregisterProtocolHandler",
+      "property": {
+        "length": {
+          "_$type": "number",
+          "_$flags": "c",
+          "_$value": 0
+        },
+        "name": {
+          "_$type": "string",
+          "_$flags": "c",
+          "_$value": "getInstalledRelatedApps"
+        },
+        "_$type": "function",
+        "_$function": "function getInstalledRelatedApps() { [native code] }",
+        "_$invocation": "TypeError: Failed to execute 'getInstalledRelatedApps' on 'Navigator': Illegal invocation",
+        "_$flags": "cew"
+      }
+    },
+    {
+      "path": "window.Navigator.prototype",
+      "propertyName": "clearAppBadge",
+      "prevProperty": "getInstalledRelatedApps",
+      "property": {
+        "length": {
+          "_$type": "number",
+          "_$flags": "c",
+          "_$value": 0
+        },
+        "name": {
+          "_$type": "string",
+          "_$flags": "c",
+          "_$value": "clearAppBadge"
+        },
+        "_$type": "function",
+        "_$function": "function clearAppBadge() { [native code] }",
+        "_$invocation": "TypeError: Failed to execute 'clearAppBadge' on 'Navigator': Illegal invocation",
+        "_$flags": "cew"
+      }
+    },
+    {
+      "path": "window.Navigator.prototype",
+      "propertyName": "setAppBadge",
+      "prevProperty": "clearAppBadge",
+      "property": {
+        "length": {
+          "_$type": "number",
+          "_$flags": "c",
+          "_$value": 0
+        },
+        "name": {
+          "_$type": "string",
+          "_$flags": "c",
+          "_$value": "setAppBadge"
+        },
+        "_$type": "function",
+        "_$function": "function setAppBadge() { [native code] }",
+        "_$invocation": "TypeError: Failed to execute 'setAppBadge' on 'Navigator': Illegal invocation",
+        "_$flags": "cew"
+      }
+    },
+    {
+      "path": "window.HTMLVideoElement.prototype",
+      "propertyName": "cancelVideoFrameCallback",
+      "prevProperty": "disablePictureInPicture",
+      "property": {
+        "length": {
+          "_$type": "number",
+          "_$flags": "c",
+          "_$value": 1
+        },
+        "name": {
+          "_$type": "string",
+          "_$flags": "c",
+          "_$value": "cancelVideoFrameCallback"
+        },
+        "_$type": "function",
+        "_$function": "function cancelVideoFrameCallback() { [native code] }",
+        "_$invocation": "TypeError: Illegal invocation",
+        "_$flags": "cew"
+      }
+    },
+    {
+      "path": "window.HTMLVideoElement.prototype",
+      "propertyName": "requestVideoFrameCallback",
+      "prevProperty": "cancelVideoFrameCallback",
+      "property": {
+        "length": {
+          "_$type": "number",
+          "_$flags": "c",
+          "_$value": 1
+        },
+        "name": {
+          "_$type": "string",
+          "_$flags": "c",
+          "_$value": "requestVideoFrameCallback"
+        },
+        "_$type": "function",
+        "_$function": "function requestVideoFrameCallback() { [native code] }",
+        "_$invocation": "TypeError: Illegal invocation",
+        "_$flags": "cew"
+      }
+    },
+    {
+      "path": "window.HTMLVideoElement.prototype",
+      "propertyName": "getVideoPlaybackQuality",
+      "prevProperty": "requestPictureInPicture",
+      "property": {
+        "length": {
+          "_$type": "number",
+          "_$flags": "c",
+          "_$value": 0
+        },
+        "name": {
+          "_$type": "string",
+          "_$flags": "c",
+          "_$value": "getVideoPlaybackQuality"
+        },
+        "_$type": "function",
+        "_$function": "function getVideoPlaybackQuality() { [native code] }",
+        "_$invocation": "TypeError: Illegal invocation",
+        "_$flags": "cew"
+      }
+    },
+    {
+      "path": "window",
+      "propertyName": "VideoPlaybackQuality",
+      "prevProperty": "ResizeObserverSize",
+      "property": {
+        "length": {
+          "_$type": "number",
+          "_$flags": "c",
+          "_$value": 0
+        },
+        "name": {
+          "_$type": "string",
+          "_$flags": "c",
+          "_$value": "VideoPlaybackQuality"
+        },
+        "arguments": {
+          "_$type": "object",
+          "_$flags": "",
+          "_$value": null
+        },
+        "caller": {
+          "_$type": "object",
+          "_$flags": "",
+          "_$value": null
+        },
+        "prototype": {
+          "_$protos": ["Object.prototype"],
+          "creationTime": {
+            "_$flags": "ce",
+            "_$accessException": "TypeError: Illegal invocation",
+            "_$get": "function get creationTime() { [native code] }",
+            "_$getToStringToString": "function toString() { [native code] }"
+          },
+          "totalVideoFrames": {
+            "_$flags": "ce",
+            "_$accessException": "TypeError: Illegal invocation",
+            "_$get": "function get totalVideoFrames() { [native code] }",
+            "_$getToStringToString": "function toString() { [native code] }"
+          },
+          "droppedVideoFrames": {
+            "_$flags": "ce",
+            "_$accessException": "TypeError: Illegal invocation",
+            "_$get": "function get droppedVideoFrames() { [native code] }",
+            "_$getToStringToString": "function toString() { [native code] }"
+          },
+          "corruptedVideoFrames": {
+            "_$flags": "ce",
+            "_$accessException": "TypeError: Illegal invocation",
+            "_$get": "function get corruptedVideoFrames() { [native code] }",
+            "_$getToStringToString": "function toString() { [native code] }"
+          },
+          "Symbol(Symbol.toStringTag)": {
+            "_$type": "string",
+            "_$flags": "c",
+            "_$value": "VideoPlaybackQuality"
+          },
+          "_$type": "object",
+          "_$flags": ""
+        },
+        "new()": {
+          "_$type": "constructor",
+          "_$constructorException": "TypeError: Illegal constructor"
+        },
+        "_$type": "function",
+        "_$function": "function VideoPlaybackQuality() { [native code] }",
+        "_$flags": "cw"
+      }
+    }
+  ],
+  "order": [],
+  "changes": []
+}

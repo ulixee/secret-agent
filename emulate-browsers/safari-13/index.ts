@@ -28,7 +28,7 @@ import IWindowFraming from "@secret-agent/core-interfaces/IWindowFraming";
 import pkg from './package.json';
 import headerProfiles from './data/headers.json';
 import userAgentOptions from './data/user-agent-options.json';
-import config from './data/config.json';
+import config from './config.json';
 import windowFramingBase from './data/window-framing.json';
 
 const windowFramingData = new DataLoader(`${__dirname}/data`, 'window-framing');

@@ -1,0 +1,96 @@
+{
+  "removals": [],
+  "additions": [
+    {
+      "path": "window.LayoutShift.prototype",
+      "propertyName": "sources",
+      "prevProperty": "toJSON",
+      "property": {
+        "_$flags": "ce",
+        "_$accessException": "TypeError: Illegal invocation",
+        "_$get": "function get sources() { [native code] }",
+        "_$getToStringToString": "function toString() { [native code] }"
+      }
+    },
+    {
+      "path": "window",
+      "propertyName": "LayoutShiftAttribution",
+      "prevProperty": "FeaturePolicy",
+      "property": {
+        "length": {
+          "_$type": "number",
+          "_$flags": "c",
+          "_$value": 0
+        },
+        "name": {
+          "_$type": "string",
+          "_$flags": "c",
+          "_$value": "LayoutShiftAttribution"
+        },
+        "arguments": {
+          "_$type": "object",
+          "_$flags": "",
+          "_$value": null
+        },
+        "caller": {
+          "_$type": "object",
+          "_$flags": "",
+          "_$value": null
+        },
+        "prototype": {
+          "_$protos": ["Object.prototype"],
+          "node": {
+            "_$flags": "ce",
+            "_$accessException": "TypeError: Illegal invocation",
+            "_$get": "function get node() { [native code] }",
+            "_$getToStringToString": "function toString() { [native code] }"
+          },
+          "previousRect": {
+            "_$flags": "ce",
+            "_$accessException": "TypeError: Illegal invocation",
+            "_$get": "function get previousRect() { [native code] }",
+            "_$getToStringToString": "function toString() { [native code] }"
+          },
+          "currentRect": {
+            "_$flags": "ce",
+            "_$accessException": "TypeError: Illegal invocation",
+            "_$get": "function get currentRect() { [native code] }",
+            "_$getToStringToString": "function toString() { [native code] }"
+          },
+          "toJSON": {
+            "length": {
+              "_$type": "number",
+              "_$flags": "c",
+              "_$value": 0
+            },
+            "name": {
+              "_$type": "string",
+              "_$flags": "c",
+              "_$value": "toJSON"
+            },
+            "_$type": "function",
+            "_$function": "function toJSON() { [native code] }",
+            "_$invocation": "TypeError: Illegal invocation",
+            "_$flags": "cew"
+          },
+          "Symbol(Symbol.toStringTag)": {
+            "_$type": "string",
+            "_$flags": "c",
+            "_$value": "LayoutShiftAttribution"
+          },
+          "_$type": "object",
+          "_$flags": ""
+        },
+        "new()": {
+          "_$type": "constructor",
+          "_$constructorException": "TypeError: Illegal constructor"
+        },
+        "_$type": "function",
+        "_$function": "function LayoutShiftAttribution() { [native code] }",
+        "_$flags": "cw"
+      }
+    }
+  ],
+  "order": [],
+  "changes": []
+}

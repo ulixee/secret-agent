@@ -1,0 +1,11 @@
+{
+  "name": "@secret-agent/emulate-chrome-84",
+  "version": "1.2.0-alpha.5",
+  "description": "BrowserEmulator for Chrome version 84.0",
+  "main": "index.js",
+  "dependencies": {
+    "@secret-agent/commons": "1.2.0-alpha.4",
+    "@secret-agent/core-interfaces": "1.2.0-alpha.4",
+    "@secret-agent/emulate-browsers-base": "1.2.0-alpha.5"
+  }
+}

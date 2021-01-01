@@ -1,0 +1,60 @@
+{
+  "removals": [],
+  "additions": [
+    {
+      "path": "window.Navigator.prototype",
+      "propertyName": "setAppBadge",
+      "prevProperty": "xr",
+      "property": {
+        "length": {
+          "_$type": "number",
+          "_$flags": "c",
+          "_$value": 0
+        },
+        "name": {
+          "_$type": "string",
+          "_$flags": "c",
+          "_$value": ""
+        },
+        "_$type": "function",
+        "_$function": "function () { [native code] }",
+        "_$invocation": "TypeError: Failed to execute 'setAppBadge' on 'Navigator': Illegal invocation",
+        "_$flags": "cew"
+      }
+    },
+    {
+      "path": "window.Navigator.prototype",
+      "propertyName": "clearAppBadge",
+      "prevProperty": "setAppBadge",
+      "property": {
+        "length": {
+          "_$type": "number",
+          "_$flags": "c",
+          "_$value": 0
+        },
+        "name": {
+          "_$type": "string",
+          "_$flags": "c",
+          "_$value": ""
+        },
+        "_$type": "function",
+        "_$function": "function () { [native code] }",
+        "_$invocation": "TypeError: Failed to execute 'clearAppBadge' on 'Navigator': Illegal invocation",
+        "_$flags": "cew"
+      }
+    }
+  ],
+  "order": [],
+  "changes": [
+    {
+      "path": "window.console.memory.jsHeapSizeLimit",
+      "propertyName": "_$value",
+      "property": 2190000000
+    },
+    {
+      "path": "window.performance.memory.jsHeapSizeLimit",
+      "propertyName": "_$value",
+      "property": 2172649472
+    }
+  ]
+}

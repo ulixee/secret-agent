@@ -1,0 +1,575 @@
+{
+  "removals": ["window.HTMLIFrameElement.prototype.disallowDocumentAccess"],
+  "additions": [
+    {
+      "path": "window.TextMetrics.prototype",
+      "propertyName": "fontBoundingBoxAscent",
+      "prevProperty": "actualBoundingBoxRight",
+      "property": {
+        "_$flags": "ce",
+        "_$accessException": "TypeError: Illegal invocation",
+        "_$get": "function get fontBoundingBoxAscent() { [native code] }",
+        "_$getToStringToString": "function toString() { [native code] }"
+      }
+    },
+    {
+      "path": "window.TextMetrics.prototype",
+      "propertyName": "fontBoundingBoxDescent",
+      "prevProperty": "fontBoundingBoxAscent",
+      "property": {
+        "_$flags": "ce",
+        "_$accessException": "TypeError: Illegal invocation",
+        "_$get": "function get fontBoundingBoxDescent() { [native code] }",
+        "_$getToStringToString": "function toString() { [native code] }"
+      }
+    },
+    {
+      "path": "window.Navigator.prototype",
+      "propertyName": "scheduling",
+      "prevProperty": "webdriver",
+      "property": {
+        "_$flags": "ce",
+        "_$accessException": "TypeError: Illegal invocation",
+        "_$get": "function get scheduling() { [native code] }",
+        "_$getToStringToString": "function toString() { [native code] }"
+      }
+    },
+    {
+      "path": "window.FontFace.prototype",
+      "propertyName": "ascentOverride",
+      "prevProperty": "load",
+      "property": {
+        "_$flags": "ce",
+        "_$accessException": "TypeError: Illegal invocation",
+        "_$get": "function get ascentOverride() { [native code] }",
+        "_$set": "function set ascentOverride() { [native code] }",
+        "_$getToStringToString": "function toString() { [native code] }",
+        "_$setToStringToString": "function toString() { [native code] }"
+      }
+    },
+    {
+      "path": "window.FontFace.prototype",
+      "propertyName": "descentOverride",
+      "prevProperty": "ascentOverride",
+      "property": {
+        "_$flags": "ce",
+        "_$accessException": "TypeError: Illegal invocation",
+        "_$get": "function get descentOverride() { [native code] }",
+        "_$set": "function set descentOverride() { [native code] }",
+        "_$getToStringToString": "function toString() { [native code] }",
+        "_$setToStringToString": "function toString() { [native code] }"
+      }
+    },
+    {
+      "path": "window.FontFace.prototype",
+      "propertyName": "lineGapOverride",
+      "prevProperty": "descentOverride",
+      "property": {
+        "_$flags": "ce",
+        "_$accessException": "TypeError: Illegal invocation",
+        "_$get": "function get lineGapOverride() { [native code] }",
+        "_$set": "function set lineGapOverride() { [native code] }",
+        "_$getToStringToString": "function toString() { [native code] }",
+        "_$setToStringToString": "function toString() { [native code] }"
+      }
+    },
+    {
+      "path": "window.document.documentElement.style",
+      "propertyName": "ascentOverride",
+      "prevProperty": "appearance",
+      "property": {
+        "_$type": "string",
+        "_$flags": "cew",
+        "_$value": ""
+      }
+    },
+    {
+      "path": "window.document.documentElement.style",
+      "propertyName": "descentOverride",
+      "prevProperty": "d",
+      "property": {
+        "_$type": "string",
+        "_$flags": "cew",
+        "_$value": ""
+      }
+    },
+    {
+      "path": "window.document.documentElement.style",
+      "propertyName": "lineGapOverride",
+      "prevProperty": "lineBreak",
+      "property": {
+        "_$type": "string",
+        "_$flags": "cew",
+        "_$value": ""
+      }
+    },
+    {
+      "path": "window.document.documentElement.style",
+      "propertyName": "textDecorationThickness",
+      "prevProperty": "textDecorationStyle",
+      "property": {
+        "_$type": "string",
+        "_$flags": "cew",
+        "_$value": ""
+      }
+    },
+    {
+      "path": "window.document.documentElement.style",
+      "propertyName": "textUnderlineOffset",
+      "prevProperty": "textTransform",
+      "property": {
+        "_$type": "string",
+        "_$flags": "cew",
+        "_$value": ""
+      }
+    },
+    {
+      "path": "window.document.fonts",
+      "propertyName": "ready",
+      "prevProperty": "onloadingerror",
+      "property": {
+        "_$value": "Promise",
+        "_$type": "object"
+      }
+    },
+    {
+      "path": "window.ServiceWorkerRegistration.prototype",
+      "propertyName": "cookies",
+      "prevProperty": "periodicSync",
+      "property": {
+        "_$flags": "ce",
+        "_$accessException": "TypeError: Illegal invocation",
+        "_$get": "function get cookies() { [native code] }",
+        "_$getToStringToString": "function toString() { [native code] }"
+      }
+    },
+    {
+      "path": "window",
+      "propertyName": "CookieChangeEvent",
+      "prevProperty": "XRTransientInputHitTestSource",
+      "property": {
+        "length": {
+          "_$type": "number",
+          "_$flags": "c",
+          "_$value": 1
+        },
+        "name": {
+          "_$type": "string",
+          "_$flags": "c",
+          "_$value": "CookieChangeEvent"
+        },
+        "arguments": {
+          "_$type": "object",
+          "_$flags": "",
+          "_$value": null
+        },
+        "caller": {
+          "_$type": "object",
+          "_$flags": "",
+          "_$value": null
+        },
+        "prototype": {
+          "_$protos": ["Event.prototype", "Object.prototype"],
+          "changed": {
+            "_$flags": "ce",
+            "_$accessException": "TypeError: Illegal invocation",
+            "_$get": "function get changed() { [native code] }",
+            "_$getToStringToString": "function toString() { [native code] }"
+          },
+          "deleted": {
+            "_$flags": "ce",
+            "_$accessException": "TypeError: Illegal invocation",
+            "_$get": "function get deleted() { [native code] }",
+            "_$getToStringToString": "function toString() { [native code] }"
+          },
+          "Symbol(Symbol.toStringTag)": {
+            "_$type": "string",
+            "_$flags": "c",
+            "_$value": "CookieChangeEvent"
+          },
+          "NONE": {
+            "_$type": "number",
+            "_$value": 0
+          },
+          "CAPTURING_PHASE": {
+            "_$type": "number",
+            "_$value": 1
+          },
+          "AT_TARGET": {
+            "_$type": "number",
+            "_$value": 2
+          },
+          "BUBBLING_PHASE": {
+            "_$type": "number",
+            "_$value": 3
+          },
+          "_$type": "object",
+          "_$flags": ""
+        },
+        "NONE": {
+          "_$type": "number",
+          "_$value": 0
+        },
+        "CAPTURING_PHASE": {
+          "_$type": "number",
+          "_$value": 1
+        },
+        "AT_TARGET": {
+          "_$type": "number",
+          "_$value": 2
+        },
+        "BUBBLING_PHASE": {
+          "_$type": "number",
+          "_$value": 3
+        },
+        "new()": {
+          "_$type": "constructor",
+          "_$constructorException": "TypeError: Failed to construct 'CookieChangeEvent': 1 argument required, but only 0 present."
+        },
+        "_$type": "function",
+        "_$function": "function CookieChangeEvent() { [native code] }",
+        "_$flags": "cw"
+      }
+    },
+    {
+      "path": "window",
+      "propertyName": "CookieStore",
+      "prevProperty": "CookieChangeEvent",
+      "property": {
+        "length": {
+          "_$type": "number",
+          "_$flags": "c",
+          "_$value": 0
+        },
+        "name": {
+          "_$type": "string",
+          "_$flags": "c",
+          "_$value": "CookieStore"
+        },
+        "arguments": {
+          "_$type": "object",
+          "_$flags": "",
+          "_$value": null
+        },
+        "caller": {
+          "_$type": "object",
+          "_$flags": "",
+          "_$value": null
+        },
+        "prototype": {
+          "_$protos": ["EventTarget.prototype", "Object.prototype"],
+          "delete": {
+            "length": {
+              "_$type": "number",
+              "_$flags": "c",
+              "_$value": 1
+            },
+            "name": {
+              "_$type": "string",
+              "_$flags": "c",
+              "_$value": "delete"
+            },
+            "_$type": "function",
+            "_$function": "function delete() { [native code] }",
+            "_$invocation": "TypeError: Failed to execute 'delete' on 'CookieStore': 1 argument required, but only 0 present.",
+            "_$flags": "cew"
+          },
+          "get": {
+            "length": {
+              "_$type": "number",
+              "_$flags": "c",
+              "_$value": 0
+            },
+            "name": {
+              "_$type": "string",
+              "_$flags": "c",
+              "_$value": "get"
+            },
+            "_$type": "function",
+            "_$function": "function get() { [native code] }",
+            "_$invocation": "TypeError: Failed to execute 'get' on 'CookieStore': Illegal invocation",
+            "_$flags": "cew"
+          },
+          "getAll": {
+            "length": {
+              "_$type": "number",
+              "_$flags": "c",
+              "_$value": 0
+            },
+            "name": {
+              "_$type": "string",
+              "_$flags": "c",
+              "_$value": "getAll"
+            },
+            "_$type": "function",
+            "_$function": "function getAll() { [native code] }",
+            "_$invocation": "TypeError: Failed to execute 'getAll' on 'CookieStore': Illegal invocation",
+            "_$flags": "cew"
+          },
+          "set": {
+            "length": {
+              "_$type": "number",
+              "_$flags": "c",
+              "_$value": 1
+            },
+            "name": {
+              "_$type": "string",
+              "_$flags": "c",
+              "_$value": "set"
+            },
+            "_$type": "function",
+            "_$function": "function set() { [native code] }",
+            "_$invocation": "TypeError: Failed to execute 'set' on 'CookieStore': 1 argument required, but only 0 present.",
+            "_$flags": "cew"
+          },
+          "onchange": {
+            "_$flags": "ce",
+            "_$accessException": "TypeError: Illegal invocation",
+            "_$get": "function get onchange() { [native code] }",
+            "_$set": "function set onchange() { [native code] }",
+            "_$getToStringToString": "function toString() { [native code] }",
+            "_$setToStringToString": "function toString() { [native code] }"
+          },
+          "Symbol(Symbol.toStringTag)": {
+            "_$type": "string",
+            "_$flags": "c",
+            "_$value": "CookieStore"
+          }
+        },
+        "new()": {
+          "_$type": "constructor",
+          "_$constructorException": "TypeError: Illegal constructor"
+        },
+        "_$type": "function",
+        "_$function": "function CookieStore() { [native code] }",
+        "_$flags": "cw"
+      }
+    },
+    {
+      "path": "window",
+      "propertyName": "CookieStoreManager",
+      "prevProperty": "CookieStore",
+      "property": {
+        "length": {
+          "_$type": "number",
+          "_$flags": "c",
+          "_$value": 0
+        },
+        "name": {
+          "_$type": "string",
+          "_$flags": "c",
+          "_$value": "CookieStoreManager"
+        },
+        "arguments": {
+          "_$type": "object",
+          "_$flags": "",
+          "_$value": null
+        },
+        "caller": {
+          "_$type": "object",
+          "_$flags": "",
+          "_$value": null
+        },
+        "prototype": {
+          "_$protos": ["Object.prototype"],
+          "getSubscriptions": {
+            "length": {
+              "_$type": "number",
+              "_$flags": "c",
+              "_$value": 0
+            },
+            "name": {
+              "_$type": "string",
+              "_$flags": "c",
+              "_$value": "getSubscriptions"
+            },
+            "_$type": "function",
+            "_$function": "function getSubscriptions() { [native code] }",
+            "_$invocation": "TypeError: Failed to execute 'getSubscriptions' on 'CookieStoreManager': Illegal invocation",
+            "_$flags": "cew"
+          },
+          "subscribe": {
+            "length": {
+              "_$type": "number",
+              "_$flags": "c",
+              "_$value": 1
+            },
+            "name": {
+              "_$type": "string",
+              "_$flags": "c",
+              "_$value": "subscribe"
+            },
+            "_$type": "function",
+            "_$function": "function subscribe() { [native code] }",
+            "_$invocation": "TypeError: Failed to execute 'subscribe' on 'CookieStoreManager': Illegal invocation",
+            "_$flags": "cew"
+          },
+          "unsubscribe": {
+            "length": {
+              "_$type": "number",
+              "_$flags": "c",
+              "_$value": 1
+            },
+            "name": {
+              "_$type": "string",
+              "_$flags": "c",
+              "_$value": "unsubscribe"
+            },
+            "_$type": "function",
+            "_$function": "function unsubscribe() { [native code] }",
+            "_$invocation": "TypeError: Failed to execute 'unsubscribe' on 'CookieStoreManager': Illegal invocation",
+            "_$flags": "cew"
+          },
+          "Symbol(Symbol.toStringTag)": {
+            "_$type": "string",
+            "_$flags": "c",
+            "_$value": "CookieStoreManager"
+          },
+          "_$type": "object",
+          "_$flags": ""
+        },
+        "new()": {
+          "_$type": "constructor",
+          "_$constructorException": "TypeError: Illegal constructor"
+        },
+        "_$type": "function",
+        "_$function": "function CookieStoreManager() { [native code] }",
+        "_$flags": "cw"
+      }
+    },
+    {
+      "path": "window",
+      "propertyName": "Scheduling",
+      "prevProperty": "XRAnchorSet",
+      "property": {
+        "length": {
+          "_$type": "number",
+          "_$flags": "c",
+          "_$value": 0
+        },
+        "name": {
+          "_$type": "string",
+          "_$flags": "c",
+          "_$value": "Scheduling"
+        },
+        "arguments": {
+          "_$type": "object",
+          "_$flags": "",
+          "_$value": null
+        },
+        "caller": {
+          "_$type": "object",
+          "_$flags": "",
+          "_$value": null
+        },
+        "prototype": {
+          "_$protos": ["Object.prototype"],
+          "isInputPending": {
+            "length": {
+              "_$type": "number",
+              "_$flags": "c",
+              "_$value": 0
+            },
+            "name": {
+              "_$type": "string",
+              "_$flags": "c",
+              "_$value": "isInputPending"
+            },
+            "_$type": "function",
+            "_$function": "function isInputPending() { [native code] }",
+            "_$invocation": "TypeError: Illegal invocation",
+            "_$flags": "cew"
+          },
+          "Symbol(Symbol.toStringTag)": {
+            "_$type": "string",
+            "_$flags": "c",
+            "_$value": "Scheduling"
+          }
+        },
+        "new()": {
+          "_$type": "constructor",
+          "_$constructorException": "TypeError: Illegal constructor"
+        },
+        "_$type": "function",
+        "_$function": "function Scheduling() { [native code] }",
+        "_$flags": "cw"
+      }
+    },
+    {
+      "path": "window",
+      "propertyName": "crossOriginIsolated",
+      "prevProperty": "trustedTypes",
+      "property": {
+        "_$type": "boolean",
+        "_$flags": "ce",
+        "_$value": false,
+        "_$get": "function get crossOriginIsolated() { [native code] }",
+        "_$getToStringToString": "function toString() { [native code] }"
+      }
+    },
+    {
+      "path": "window.navigator",
+      "propertyName": "scheduling",
+      "prevProperty": "webdriver",
+      "property": {
+        "_$protos": ["Scheduling.prototype", "Object.prototype"],
+        "_$type": "object"
+      }
+    },
+    {
+      "path": "window",
+      "propertyName": "cookieStore",
+      "prevProperty": "ondeviceorientationabsolute",
+      "property": {
+        "_$protos": ["CookieStore.prototype", "EventTarget.prototype", "Object.prototype"],
+        "onchange": {
+          "_$type": "object",
+          "_$value": null
+        },
+        "_$type": "object",
+        "_$flags": "ce",
+        "_$get": "function get cookieStore() { [native code] }",
+        "_$getToStringToString": "function toString() { [native code] }"
+      }
+    }
+  ],
+  "order": [
+    {
+      "path": "window.document.documentElement",
+      "propertyName": "ariaAtomic",
+      "throughProperty": "ariaCurrent",
+      "prevProperty": "nextElementSibling"
+    },
+    {
+      "path": "window.document.documentElement",
+      "propertyName": "ariaDescription",
+      "throughProperty": "ariaDescription",
+      "prevProperty": "ariaCurrent"
+    },
+    {
+      "path": "window.Element.prototype",
+      "propertyName": "ariaAtomic",
+      "throughProperty": "DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC",
+      "prevProperty": "webkitRequestFullscreen"
+    },
+    {
+      "path": "window.Element.prototype",
+      "propertyName": "ariaDescription",
+      "throughProperty": "ariaDescription",
+      "prevProperty": "ariaCurrent"
+    },
+    {
+      "path": "window.ElementInternals.prototype",
+      "propertyName": "ariaAtomic",
+      "throughProperty": "ariaCurrent",
+      "prevProperty": "setValidity"
+    },
+    {
+      "path": "window.ElementInternals.prototype",
+      "propertyName": "ariaDescription",
+      "throughProperty": "ariaDescription",
+      "prevProperty": "ariaCurrent"
+    }
+  ],
+  "changes": []
+}
