@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.4.1-alpha.5](https://github.com/ulixee/secret-agent/compare/v1.4.1-alpha.4...v1.4.1-alpha.5) (2021-05-02)
+
+
+### Bug Fixes
+
+* **deps:** peg awaited dom version ([3e6ffaf](https://github.com/ulixee/secret-agent/commit/3e6ffaf52cdf2933a5608417ee7178ed36512aa8))
+
+
+
+
+
 ## [1.4.1-alpha.4](https://github.com/ulixee/secret-agent/compare/v1.4.1-alpha.3...v1.4.1-alpha.4) (2021-04-20)
 
 **Note:** Version bump only for package @secret-agent/core-interfaces
