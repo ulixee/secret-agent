@@ -12,6 +12,8 @@ import { RequestOptions } from 'https';
 import * as http from 'http';
 import { CanceledPromiseError } from '@secret-agent/commons/interfaces/IPendingWaitEvent';
 import MitmSocketSession from '@secret-agent/mitm-socket/lib/MitmSocketSession';
+import ITcpSettings from '@secret-agent/interfaces/ITcpSettings';
+import ITlsSettings from '@secret-agent/interfaces/ITlsSettings';
 import IMitmRequestContext from '../interfaces/IMitmRequestContext';
 import MitmRequestContext from './MitmRequestContext';
 import RequestSession from '../handlers/RequestSession';
@@ -37,15 +39,24 @@ export default class MitmRequestAgent {
 
   constructor(session: RequestSession) {
     this.session = session;
-    const socketSettings = session.networkEmulation?.socketSettings;
+
+    const tcpSettings: ITcpSettings = {};
+    const tlsSettings: ITlsSettings = {};
+    if (session.networkEmulation.onTcpConfiguration) {
+      session.networkEmulation.onTcpConfiguration(tcpSettings);
+    }
+    if (session.networkEmulation.onTlsConfiguration) {
+      session.networkEmulation.onTlsConfiguration(tlsSettings);
+    }
+
     this.socketSession = new MitmSocketSession(session.sessionId, {
       rejectUnauthorized: allowUnverifiedCertificates === false,
-      clientHelloId: socketSettings?.tlsClientHelloId,
-      tcpTtl: socketSettings?.tcpTtl,
-      tcpWindowSize: socketSettings?.tcpWindowSize,
+      clientHelloId: tlsSettings?.tlsClientHelloId,
+      tcpTtl: tcpSettings?.tcpTtl,
+      tcpWindowSize: tcpSettings?.tcpWindowSize,
     });
     this.maxConnectionsPerOrigin =
-      socketSettings?.socketsPerOrigin ?? MitmRequestAgent.defaultMaxConnectionsPerOrigin;
+      tlsSettings?.socketsPerOrigin ?? MitmRequestAgent.defaultMaxConnectionsPerOrigin;
   }
 
   public async request(

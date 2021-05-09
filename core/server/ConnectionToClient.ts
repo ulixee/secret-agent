@@ -160,17 +160,17 @@ export default class ConnectionToClient extends TypedEventEmitter<{
   public getAgentMeta(meta: ISessionMeta): IAgentMeta {
     const session = Session.get(meta.sessionId);
     const { browserEmulator } = session;
-    const { configuration, userAgentString, osPlatform } = browserEmulator;
+    const { viewport, locale, timezoneId, userAgentString, osPlatform } = browserEmulator;
     return <IAgentMeta>{
       sessionId: session.id,
       sessionName: session.options.sessionName,
       browserEmulatorId: session.browserEmulatorId,
       humanEmulatorId: session.humanEmulatorId,
-      viewport: configuration.viewport,
-      locale: configuration.locale,
-      timezoneId: configuration.timezoneId,
       blockedResourceTypes: session.options.blockedResourceTypes,
       upstreamProxyUrl: session.upstreamProxyUrl,
+      viewport,
+      locale,
+      timezoneId,
       userAgentString,
       osPlatform,
     };

@@ -3,7 +3,8 @@ import IBrowserEmulatorClass from '@secret-agent/interfaces/IBrowserEmulatorClas
 import ChromeLatest from '@secret-agent/emulate-chrome-latest';
 import { pickRandom } from '@secret-agent/commons/utils';
 import IUserAgentMatchMeta from '@secret-agent/interfaces/IUserAgentMatchMeta';
-import IBrowserEmulatorConfiguration from '@secret-agent/interfaces/IBrowserEmulatorConfiguration';
+import IBrowserEmulatorConfig from '@secret-agent/interfaces/IBrowserEmulatorConfig';
+import { Log } from '@secret-agent/commons/Logger';
 import GlobalPool from './GlobalPool';
 
 export default class BrowserEmulators {
@@ -21,10 +22,7 @@ export default class BrowserEmulators {
     if (this.emulatorsById[BrowserEmulatorClass.id]) return;
     this.emulatorsById[BrowserEmulatorClass.id] = BrowserEmulatorClass;
 
-    const usagePct = BrowserEmulatorClass.roundRobinPercent ?? 1;
-    for (let i = 0; i < usagePct; i += 1) {
-      this.emulatorPublicUsageDistribution.push(BrowserEmulatorClass.id);
-    }
+    this.emulatorPublicUsageDistribution.push(BrowserEmulatorClass.id);
   }
 
   public static getClassById(id: string) {
@@ -34,10 +32,11 @@ export default class BrowserEmulators {
     return BrowserEmulator;
   }
 
-  public static createInstance(options: IBrowserEmulatorConfiguration, tmpId?: string) {
+  public static createInstance(config: IBrowserEmulatorConfig, sessionId: string, tmpId?: string) {
     const id = this.getId(tmpId);
+    const log = new Log(module, { sessionId });
     let BrowserEmulator = this.getClassById(id);
-    if (BrowserEmulator) return new BrowserEmulator(options);
+    if (BrowserEmulator) return new BrowserEmulator(config, log);
 
     const uaParser = new UAParser(id);
     const uaBrowser = uaParser.getBrowser();
@@ -45,7 +44,7 @@ export default class BrowserEmulators {
     if (uaBrowser.name) {
       const matchMeta = this.extractUserAgentMatchMetaFromUa(uaBrowser, uaOs);
       BrowserEmulator = this.requireClassFromMatchMeta(matchMeta);
-      return new BrowserEmulator(options, matchMeta);
+      return new BrowserEmulator(config, log, matchMeta);
     }
 
     throw new Error(`BrowserEmulator was not found: ${id}`);

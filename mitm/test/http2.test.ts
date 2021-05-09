@@ -267,7 +267,7 @@ async function createH2Connection(sessionId: string, url: string) {
   const proxyCredentials = session.getProxyCredentials();
   const proxyHost = `http://${proxyCredentials}@localhost:${mitmServer.port}`;
   const mitmSocketSession = new MitmSocketSession(sessionId, {
-    clientHelloId: 'Chrome72',
+    clientHelloId: 'chrome-72',
     rejectUnauthorized: false,
   });
   Helpers.needsClosing.push(mitmSocketSession);

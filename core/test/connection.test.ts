@@ -4,9 +4,10 @@ import * as http from 'http';
 import { Log } from '@secret-agent/commons/Logger';
 import ChromeLatest from '@secret-agent/emulate-chrome-latest';
 import BrowserEmulators from '@secret-agent/core/lib/BrowserEmulators';
-import { DependenciesMissingError } from '@secret-agent/emulate-browsers-installer/lib/DependenciesMissingError';
-import DependencyInstaller from '@secret-agent/emulate-browsers-installer/lib/DependencyInstaller';
-import * as ValidateHostDeps from '@secret-agent/emulate-browsers-installer/lib/validateHostDependencies';
+import { DependenciesMissingError } from '@secret-agent/browser-emulator-installer/lib/DependenciesMissingError';
+import DependencyInstaller from '@secret-agent/browser-emulator-installer/lib/DependencyInstaller';
+import * as ValidateHostDeps from '@secret-agent/browser-emulator-installer/lib/validateHostDependencies';
+import BrowserEngine from '@secret-agent/browser-emulator-utils/lib/BrowserEngine';
 import CoreServer from '../server';
 
 const validate = jest.spyOn(ValidateHostDeps, 'validateHostRequirements');
@@ -84,9 +85,11 @@ describe('basic connection tests', () => {
   });
 
   it('should throw an error informing how to install dependencies', async () => {
+    // @ts-ignore
+    const { pkg, name, fullVersion, executablePathEnvVar } = ChromeLatest.engine;
     class ChromeTest extends ChromeLatest {
       public static id = 'emulate-test';
-      public static engine = { ...ChromeLatest.engine };
+      public static engine = new BrowserEngine(pkg, { name, fullVersion, executablePathEnvVar, id: '', features: [] });
     }
     BrowserEmulators.load(ChromeTest);
 

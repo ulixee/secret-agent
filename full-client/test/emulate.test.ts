@@ -3,7 +3,7 @@ import { GlobalPool } from '@secret-agent/core';
 import { ITestKoaServer } from '@secret-agent/testing/helpers';
 import * as Fs from 'fs';
 import Resolvable from '@secret-agent/commons/Resolvable';
-import Viewports from '@secret-agent/emulate-browsers-base/lib/Viewports';
+import Viewports from '@secret-agent/browser-emulator-utils/lib/Viewports';
 import { Handler } from '../index';
 
 let koaServer: ITestKoaServer;
@@ -23,6 +23,7 @@ describe('basic Emulator tests', () => {
       timezoneId: 'America/Los_Angeles',
     });
     Helpers.needsClosing.push(agent);
+    await new Promise(resolve => setTimeout(resolve, 1e3));
 
     await agent.goto(`${koaServer.baseUrl}`);
 

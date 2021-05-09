@@ -25,10 +25,7 @@ describe('Page.popups', () => {
           ...defaultEmulation,
           userAgentString: 'popupcity',
           osPlatform: 'Windows95',
-          configuration: {
-            ...defaultEmulation.configuration,
-            locale: 'en-GB',
-          },
+          locale: 'en-GB',
         },
         log,
       );

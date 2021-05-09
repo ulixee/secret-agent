@@ -28,11 +28,11 @@ beforeAll(() => {
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.132 Safari/537.36',
     null,
     {
-      socketSettings: {
-        tlsClientHelloId: 'Chrome83',
+      onTlsConfiguration(settings) {
+        settings.tlsClientHelloId = 'chrome-83'
       },
-      dns: {
-        dnsOverTlsConnection: Quad9,
+      onDnsConfiguration(settings) {
+        settings.dnsOverTlsConnection = Quad9;
       },
     } as INetworkEmulation,
   );
@@ -48,7 +48,7 @@ afterAll(() => {
 describe('DnsOverTlsSocket', () => {
   let cloudflareDnsSocket: DnsOverTlsSocket;
   beforeAll(() => {
-    cloudflareDnsSocket = new DnsOverTlsSocket(CloudFlare, requestSession);
+    cloudflareDnsSocket = new DnsOverTlsSocket({ dnsOverTlsConnection: CloudFlare }, requestSession);
   });
   afterAll(() => {
     cloudflareDnsSocket.close();
@@ -76,7 +76,7 @@ describe('DnsOverTlsSocket', () => {
   test('should be able to lookup with google', async () => {
     let socket: DnsOverTlsSocket;
     try {
-      socket = new DnsOverTlsSocket(Google, requestSession);
+      socket = new DnsOverTlsSocket({ dnsOverTlsConnection: Google }, requestSession);
       const response = await socket.lookupARecords('ulixee.org');
       expect(response.answers).toHaveLength(2);
     } finally {

@@ -1,20 +1,14 @@
 import { IPuppetPage } from '@secret-agent/interfaces/IPuppetPage';
 import { IPuppetWorker } from '@secret-agent/interfaces/IPuppetWorker';
 import INetworkEmulation from './INetworkEmulation';
-import IWindowFraming from './IWindowFraming';
-import IBrowserEmulatorConfiguration from './IBrowserEmulatorConfiguration';
+import IBrowserEmulatorConfig from './IBrowserEmulatorConfig';
 
-export default interface IBrowserEmulator extends INetworkEmulation {
+export default interface IBrowserEmulator extends INetworkEmulation, IBrowserEmulatorConfig {
   readonly userAgentString: string;
   readonly osPlatform: string;
-  readonly canPolyfill: boolean;
-  readonly windowFramingBase?: IWindowFraming;
-  readonly windowFraming?: IWindowFraming;
-  configuration: IBrowserEmulatorConfiguration;
-  sessionId: string;
 
-  configure(options: IBrowserEmulatorConfiguration): Promise<void>;
+  configure(options: IBrowserEmulatorConfig): void;
 
-  onNewPuppetPage(page: IPuppetPage): Promise<any>;
+  onNewPuppetPage?(page: IPuppetPage): Promise<any>;
   onNewPuppetWorker?(worker: IPuppetWorker): Promise<any>;
 }

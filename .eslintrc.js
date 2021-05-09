@@ -65,7 +65,7 @@ module.exports = {
       },
     },
     {
-      files: 'emulate-browsers/base/test/*.ts',
+      files: 'emulate-browsers/emulator-utils/test/*.ts',
       rules: {
         'no-console': 'off',
       },

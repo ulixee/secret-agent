@@ -99,7 +99,7 @@ describe('BrowserContext', () => {
         expect(await page.evaluate(`navigator.platform`)).toBe(defaultEmulation.osPlatform);
         expect(await page.evaluate(`navigator.languages`)).toStrictEqual(['en']);
         expect(await page.evaluate('screen.height')).toBe(
-          defaultEmulation.configuration.viewport.height,
+          defaultEmulation.viewport.height,
         );
         await context.close();
       }
@@ -107,16 +107,14 @@ describe('BrowserContext', () => {
         const context = await puppet.newContext(
           {
             ...defaultEmulation,
-            configuration: {
-              locale: 'de',
-              viewport: {
-                screenHeight: 901,
-                screenWidth: 1024,
-                positionY: 1,
-                positionX: 0,
-                height: 900,
-                width: 1024,
-              },
+            locale: 'de',
+            viewport: {
+              screenHeight: 901,
+              screenWidth: 1024,
+              positionY: 1,
+              positionX: 0,
+              height: 900,
+              width: 1024,
             },
             osPlatform: 'Windows',
             userAgentString: 'foobar',

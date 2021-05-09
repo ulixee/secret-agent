@@ -56,7 +56,7 @@ export default class Interactor implements IInteractionsHelper {
   }
 
   public get viewport(): IViewport {
-    return this.frameEnvironment.session.browserEmulator.configuration.viewport;
+    return this.frameEnvironment.session.browserEmulator.viewport;
   }
 
   public logger: IBoundLog;

@@ -8,7 +8,6 @@ import RequestSession, {
   IResourceStateChangeEvent,
   ISocketEvent,
 } from '@secret-agent/mitm/handlers/RequestSession';
-import * as Os from 'os';
 import IPuppetContext, { IPuppetContextEvents } from '@secret-agent/interfaces/IPuppetContext';
 import IUserProfile from '@secret-agent/interfaces/IUserProfile';
 import { IPuppetPage } from '@secret-agent/interfaces/IPuppetPage';
@@ -74,23 +73,13 @@ export default class Session extends TypedEventEmitter<{
     Session.byId[this.id] = this;
     this.logger = log.createChild(module, { sessionId: this.id });
     this.awaitedEventListener = new AwaitedEventListener(this);
-    this.browserEmulator = BrowserEmulators.createInstance(options, options.browserEmulatorId);
-    this.browserEmulator.sessionId = this.id;
+    this.browserEmulator = BrowserEmulators.createInstance(options, this.id, options.browserEmulatorId);
     this.browserEmulatorId = (this.browserEmulator.constructor as IBrowserEmulatorClass).id;
     this.browserEngine = (this.browserEmulator.constructor as IBrowserEmulatorClass).engine;
     if (options.userProfile) {
       this.userProfile = options.userProfile;
     }
     this.upstreamProxyUrl = options.upstreamProxyUrl;
-
-    if (!this.browserEmulator.canPolyfill) {
-      log.info('BrowserEmulators.PolyfillNotSupported', {
-        sessionId: this.id,
-        browserEmulatorId: this.browserEmulatorId,
-        userAgentString: this.browserEmulator.userAgentString,
-        runtimeOs: Os.platform(),
-      });
-    }
 
     this.humanEmulator = HumanEmulators.createInstance(options.humanEmulatorId);
     this.humanEmulatorId = (this.humanEmulator.constructor as IHumanEmulatorClass).id;
@@ -103,9 +92,8 @@ export default class Session extends TypedEventEmitter<{
       options.scriptInstanceMeta,
       this.browserEmulatorId,
       this.humanEmulatorId,
-      this.browserEmulator.canPolyfill,
-      this.browserEmulator.configuration.viewport,
-      this.browserEmulator.configuration.timezoneId,
+      this.browserEmulator.viewport,
+      this.browserEmulator.timezoneId,
     );
     this.mitmRequestSession = new RequestSession(
       this.id,
@@ -131,7 +119,7 @@ export default class Session extends TypedEventEmitter<{
     if (options.userProfile !== undefined) {
       this.userProfile = options.userProfile;
     }
-    await this.browserEmulator.configure(options);
+    this.browserEmulator.configure(options);
   }
 
   public getMitmProxy(): { address: string; password?: string } {
