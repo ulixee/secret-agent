@@ -4,7 +4,7 @@
         <title>SecretAgent Blog</title>
         <link>https://secretagent.dev/</link>
         <description>A blog about scraping, features and experiences developing SecretAgent</description>
-        <lastBuildDate>Mon, 28 Jun 2021 21:49:41 GMT</lastBuildDate>
+        <lastBuildDate>Mon, 28 Jun 2021 22:18:56 GMT</lastBuildDate>
         <docs>https://validator.w3.org/feed/docs/rss2.html</docs>
         <generator>Gridsome Feed Plugin</generator>
         <atom:link href="https://secretagent.dev/feed.xml" rel="self" type="application/rss+xml"/>
