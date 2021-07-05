@@ -1,3 +1,4 @@
+import Protocol from 'devtools-protocol';
 import { ProtocolMapping } from 'devtools-protocol/types/protocol-mapping';
 import ITypedEventEmitter from './ITypedEventEmitter';
 import { FilterFlags, FilterOutFlags } from './AllowedNames';
@@ -28,6 +29,8 @@ export default interface IDevtoolsSession
 
   onMessage(object: IDevtoolsResponseMessage & IDevtoolsEventMessage): void;
 }
+
+export { Protocol };
 
 export interface IDevtoolsResponseMessage {
   sessionId: string;

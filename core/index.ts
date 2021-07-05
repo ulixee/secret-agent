@@ -24,8 +24,8 @@ export default class Core {
   public static server = new CoreServer();
   public static readonly connections: ConnectionToClient[] = [];
   public static pluginMap: {
-    humanEmulatorsById: { [id: string]: IHumanEmulatorClass }
-    browserEmulatorsById: { [id: string]: IBrowserEmulatorClass }
+    humanEmulatorsById: { [id: string]: IHumanEmulatorClass };
+    browserEmulatorsById: { [id: string]: IBrowserEmulatorClass };
     coreExtenders: ICoreExtenderClass[];
   } = {
     humanEmulatorsById: {
@@ -61,7 +61,9 @@ export default class Core {
     } else if (Plugin.pluginType === PluginTypes.BrowserEmulator) {
       this.pluginMap.browserEmulatorsById[Plugin.id] = Plugin;
     } else if (Plugin.pluginType === PluginTypes.CoreExtender) {
-      this.pluginMap.coreExtenders.push(Plugin);
+      if (!this.pluginMap.coreExtenders.includes(Plugin)) {
+        this.pluginMap.coreExtenders.push(Plugin);
+      }
     } else {
       throw new Error('Unknown plugin type');
     }
@@ -166,12 +168,11 @@ export default class Core {
   });
 });
 
-if (process.env.NODE_ENV !== 'test') {
-  process.on('uncaughtExceptionMonitor', async (error: Error) => {
-    await Core.logUnhandledError(error, true);
-    await Core.shutdown();
-  });
-  process.on('unhandledRejection', async (error: Error) => {
-    await Core.logUnhandledError(error, false);
-  });
-}
+process.on('uncaughtExceptionMonitor', async (error: Error) => {
+  await Core.logUnhandledError(error, true);
+
+  if (process.env.NODE_ENV !== 'test') await Core.shutdown();
+});
+process.on('unhandledRejection', async (error: Error) => {
+  await Core.logUnhandledError(error, false);
+});

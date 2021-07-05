@@ -1,0 +1,18 @@
+{
+  "name": "@secret-agent/proxyleaks-plugin",
+  "version": "1.5.1",
+  "description": "Plugin that plugs proxies leaking in Chrome < 91",
+  "main": "index.js",
+  "dependencies": {
+    "@secret-agent/interfaces": "1.5.1",
+    "@secret-agent/plugin-utils": "1.5.1"
+  },
+  "devDependencies": {
+    "@secret-agent/commons": "1.5.1",
+    "@secret-agent/core": "1.5.1",
+    "@secret-agent/client": "1.5.1",
+    "@secret-agent/execute-js-plugin": "1.5.1",
+    "@secret-agent/testing": "1.5.1",
+    "secret-agent": "1.5.1"
+  }
+}
