@@ -44,9 +44,9 @@ export default class Core {
 
   public static onShutdown: () => void;
 
+  public static isClosing: Promise<void>;
   public static allowDynamicPluginLoading = true;
   private static wasManuallyStarted = false;
-  private static isClosing: Promise<void>;
   private static isStarting = false;
 
   public static addConnection(): ConnectionToClient {
@@ -115,6 +115,7 @@ export default class Core {
       coreHost: await Core.server.address,
       sessionId: null,
       parentLogId: startLogId,
+      sessionsDir: GlobalPool.sessionsDir,
     });
     // if started as a subprocess, send back the host
     if (process.send) process.send(host);
@@ -137,7 +138,7 @@ export default class Core {
       await this.server.close(!force).catch(error => shutDownErrors.push(error));
 
       this.wasManuallyStarted = false;
-      if (Core.onShutdown) Core.onShutdown();
+      if (this.onShutdown) this.onShutdown();
       isClosing.resolve();
     } catch (error) {
       isClosing.reject(error);
@@ -148,6 +149,7 @@ export default class Core {
         errors: shutDownErrors.length ? shutDownErrors : undefined,
       });
     }
+    return isClosing.promise;
   }
 
   public static logUnhandledError(clientError: Error, fatalError = false): void {

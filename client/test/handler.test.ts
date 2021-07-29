@@ -1,5 +1,6 @@
 import ICoreRequestPayload from '@secret-agent/interfaces/ICoreRequestPayload';
 import { Helpers } from '@secret-agent/testing/index';
+import ExecuteJsPlugin from '@secret-agent/execute-js-plugin'; // eslint-disable-line import/no-extraneous-dependencies
 import { Handler } from '../index';
 import ConnectionToCore from '../connections/ConnectionToCore';
 
@@ -137,5 +138,48 @@ describe('Handler', () => {
     connection.onMessage({ listenerId: '1', meta: { sessionId: '1' }, eventArgs: [] });
     await new Promise(setImmediate);
     await expect(isAgent3Available()).resolves.toBe(true);
+  });
+
+  it('can use plugins in handlers', async () => {
+    let counter = 0;
+    let listenerId = 0;
+    let createSessionArgs: any;
+    outgoing.mockImplementation(message => {
+      const { command } = message;
+      if (command === 'Session.create') {
+        createSessionArgs = message.args[0];
+        return {
+          data: {
+            tabId: 'tab-id',
+            sessionId: `${(counter += 1)}`,
+            sessionsDataLocation: '',
+          },
+        };
+      }
+      if (command === 'Session.addEventListener') {
+        return {
+          data: { listenerId: (listenerId += 1).toString() },
+        };
+      }
+      if (command === 'close') {
+        return {
+          data: {},
+        };
+      }
+    });
+    const connection = new Piper({
+      maxConcurrency: 2,
+    });
+    const handler = new Handler(connection);
+    Helpers.needsClosing.push(handler);
+
+    handler.dispatchAgent(async agent => {
+      agent.use(ExecuteJsPlugin);
+      await agent.sessionId;
+    });
+
+    await handler.waitForAllDispatches();
+
+    expect(createSessionArgs.dependencyMap[ExecuteJsPlugin.ClientPlugin.id]).toBeTruthy();
   });
 });

@@ -31,6 +31,7 @@ const logProcessExit = process.env.NODE_ENV !== 'test';
 export default async function launchProcess(
   executablePath: string,
   processArguments: string[],
+  onClose?: () => any,
   env?: NodeJS.ProcessEnv,
 ): Promise<ILaunchedProcess> {
   const stdio: StdioOptions = ['ignore', 'pipe', 'pipe'];
@@ -79,20 +80,35 @@ export default async function launchProcess(
     log.warn(`${exe}.stderr`, { message: line, sessionId: null });
   });
 
+  let hasRunOnClose = false;
+  const runOnClose = () => {
+    if (hasRunOnClose) return;
+    if (onClose) onClose();
+    hasRunOnClose = true;
+  };
   let processKilled = false;
+  let transport: WebSocketTransport;
   launchedProcess.once('exit', (exitCode, signal) => {
     processKilled = true;
 
     if (!websocketEndpointResolvable.isResolved) {
       websocketEndpointResolvable.reject(new Error('Chrome exited during launch'));
+    } else {
+      try {
+        transport?.close();
+      } catch (error) {
+        // drown
+      }
     }
     if (logProcessExit) {
       log.stats(`${exe}.ProcessExited`, { exitCode, signal, sessionId: null });
     }
+    runOnClose();
+    if (dataDir) cleanDataDir(dataDir);
   });
 
   const wsEndpoint = await websocketEndpointResolvable.promise;
-  const transport = new WebSocketTransport(wsEndpoint);
+  transport = new WebSocketTransport(wsEndpoint);
   await transport.waitForOpen;
 
   return Promise.resolve(<ILaunchedProcess>{
@@ -100,7 +116,7 @@ export default async function launchProcess(
     close,
   });
 
-  function close(): Promise<void> {
+  async function close(): Promise<void> {
     if (launchedProcess.killed || processKilled) return;
 
     try {
@@ -116,7 +132,8 @@ export default async function launchProcess(
         launchedProcess.kill('SIGKILL');
       }
       if (dataDir) cleanDataDir(dataDir);
-      return closed;
+      await closed;
+      runOnClose();
     } catch (error) {
       // might have already been kill off
     }
