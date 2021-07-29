@@ -2,9 +2,10 @@ import { createPromise, pickRandom } from '@secret-agent/commons/utils';
 import ShutdownHandler from '@secret-agent/commons/ShutdownHandler';
 import Log, { hasBeenLoggedSymbol } from '@secret-agent/commons/Logger';
 import { CanceledPromiseError } from '@secret-agent/commons/interfaces/IPendingWaitEvent';
+import StateMachine from 'awaited-dom/base/StateMachine';
 import IAgentCreateOptions from '../interfaces/IAgentCreateOptions';
 import IConnectionToCoreOptions from '../interfaces/IConnectionToCoreOptions';
-import Agent from './Agent';
+import Agent, { IState } from './Agent';
 import ConnectionToCore from '../connections/ConnectionToCore';
 import ConnectionFactory from '../connections/ConnectionFactory';
 import DisconnectedFromCoreError from '../connections/DisconnectedFromCoreError';
@@ -27,6 +28,7 @@ type PendingDispatch = {
 };
 
 const { log } = Log(module);
+const { getState } = StateMachine<Agent, IState>();
 
 export default class Handler {
   public disconnectedDispatchRetries = 3;
@@ -216,8 +218,11 @@ export default class Handler {
     dispatched.resolution = connection
       .useAgent(options, async agent => {
         try {
-          dispatched.sessionId = await agent.sessionId;
-          dispatched.options.name = await agent.sessionName;
+          // set session id once connected
+          getState(agent).connection.onConnected = session => {
+            dispatched.sessionId = session.sessionId;
+            dispatched.options.name = session.sessionName;
+          };
           await runFn(agent);
         } finally {
           await agent.close();

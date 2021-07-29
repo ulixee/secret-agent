@@ -483,6 +483,8 @@ class SessionConnection {
     });
   }
 
+  public onConnected?: (session: CoreSession) => void;
+
   private _connection: ConnectionToCore;
   private _coreSession: Promise<CoreSession | Error>;
   private _activeTab: Tab;
@@ -553,7 +555,10 @@ class SessionConnection {
     }
 
     const coreSession = this._coreSession.then(value => {
-      if (value instanceof CoreSession) return value;
+      if (value instanceof CoreSession) {
+        if (this.onConnected) this.onConnected(value);
+        return value;
+      }
       throw value;
     });
 
