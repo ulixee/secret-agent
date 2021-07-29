@@ -74,6 +74,13 @@ export default class CertificateGenerator extends BaseIpcHandler {
     const pending = this.pendingCertsById.get(message.id);
     this.pendingCertsById.delete(message.id);
 
+    if (!pending) {
+      this.logger.warn('CertificateGenerator.unprocessableMessage:notFound', {
+        message,
+      });
+      return;
+    }
+
     if (message.status === 'error') {
       pending.reject(new Error(message.error));
     } else if (message.status === 'certs') {
