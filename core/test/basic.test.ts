@@ -3,7 +3,9 @@ import Core, { GlobalPool } from '../index';
 import Session from '../lib/Session';
 
 const shutdownSpy = jest.spyOn(Core, 'shutdown');
-
+beforeEach(() => {
+  GlobalPool.maxConcurrentAgentsCount = 10;
+});
 afterEach(Helpers.afterEach);
 afterAll(Helpers.afterAll);
 
@@ -29,6 +31,7 @@ describe('basic Core tests', () => {
     expect(GlobalPool.activeSessionCount).toBe(1);
 
     await Core.shutdown();
+    expect(GlobalPool.activeSessionCount).toBe(0);
   });
 
   it('shuts down if connect set to be not persistent and Core.start not called', async () => {
@@ -48,6 +51,7 @@ describe('basic Core tests', () => {
     expect(shutdownSpy).toHaveBeenCalledTimes(1);
     expect(connectionCloseSpy).toHaveBeenCalled();
     await Core.shutdown();
+    expect(GlobalPool.activeSessionCount).toBe(0);
   });
 
   it('will not shutdown if start called and there are no open connections', async () => {
@@ -66,57 +70,6 @@ describe('basic Core tests', () => {
     expect(shutdownSpy).toHaveBeenCalledTimes(0);
     expect(connectionCloseSpy).toHaveBeenCalledTimes(1);
     await Core.shutdown();
+    expect(GlobalPool.activeSessionCount).toBe(0);
   });
-
-  it('should be able to get multiple entries out of the pool', async () => {
-    const connection = Core.addConnection();
-    Helpers.onClose(() => connection.disconnect());
-    GlobalPool.maxConcurrentAgentsCount = 3;
-    await connection.connect({ maxConcurrentAgentsCount: 3 });
-    const httpServer = await Helpers.runHttpServer({
-      addToResponse: response => {
-        response.setHeader('Set-Cookie', 'ulixee=test1');
-      },
-    });
-    expect(GlobalPool.maxConcurrentAgentsCount).toBe(3);
-    expect(GlobalPool.activeSessionCount).toBe(0);
-
-    const tab1 = Session.getTab(await connection.createSession());
-    Helpers.needsClosing.push(tab1.session);
-    // #1
-    await tab1.goto(httpServer.url);
-    expect(GlobalPool.activeSessionCount).toBe(1);
-
-    const tab2 = Session.getTab(await connection.createSession());
-    Helpers.needsClosing.push(tab2.session);
-
-    // #2
-    await tab2.goto(httpServer.url);
-    expect(GlobalPool.activeSessionCount).toBe(2);
-
-    const tab3 = Session.getTab(await connection.createSession());
-    Helpers.needsClosing.push(tab3.session);
-
-    // #3
-    await tab3.goto(httpServer.url);
-    expect(GlobalPool.activeSessionCount).toBe(3);
-
-    // #4
-    const tab4Promise = connection.createSession();
-    expect(GlobalPool.activeSessionCount).toBe(3);
-    await tab1.session.close();
-    const tab4Meta = await tab4Promise;
-    const tab4 = Session.getTab(tab4Meta);
-    Helpers.needsClosing.push(tab4.session);
-
-    // should give straight to this waiting promise
-    expect(GlobalPool.activeSessionCount).toBe(3);
-    await tab4.goto(httpServer.url);
-    await tab4.session.close();
-    expect(GlobalPool.activeSessionCount).toBe(2);
-
-    await Promise.all([tab1.session.close(), tab2.session.close(), tab3.session.close()]);
-    expect(GlobalPool.activeSessionCount).toBe(0);
-    await httpServer.close();
-  }, 15e3);
 });

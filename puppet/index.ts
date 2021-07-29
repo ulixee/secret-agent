@@ -8,13 +8,15 @@ import ICorePlugins from '@secret-agent/interfaces/ICorePlugins';
 import IProxyConnectionOptions from '@secret-agent/interfaces/IProxyConnectionOptions';
 import IPuppetLaunchArgs from '@secret-agent/interfaces/IPuppetLaunchArgs';
 import IPuppetContext from '@secret-agent/interfaces/IPuppetContext';
+import { TypedEventEmitter } from '@secret-agent/commons/eventUtils';
+import IDevtoolsSession from '@secret-agent/interfaces/IDevtoolsSession';
 import launchProcess from './lib/launchProcess';
 import PuppetLaunchError from './lib/PuppetLaunchError';
 
 const { log } = Log(module);
 
 let puppBrowserCounter = 1;
-export default class Puppet {
+export default class Puppet extends TypedEventEmitter<{ close: void }> {
   public readonly id: number;
   public readonly browserEngine: IBrowserEngine;
   public supportsBrowserContextProxy: boolean;
@@ -24,6 +26,7 @@ export default class Puppet {
   private browser: IPuppetBrowser;
 
   constructor(browserEngine: IBrowserEngine, args: IPuppetLaunchArgs = {}) {
+    super();
     this.browserEngine = browserEngine;
     this.id = puppBrowserCounter;
     if (browserEngine.name === 'chrome') {
@@ -36,7 +39,9 @@ export default class Puppet {
     puppBrowserCounter += 1;
   }
 
-  public async start(): Promise<Puppet> {
+  public async start(
+    attachToDevtools?: (session: IDevtoolsSession) => Promise<any>,
+  ): Promise<Puppet> {
     try {
       this.isStarted = true;
 
@@ -47,9 +52,11 @@ export default class Puppet {
       const launchedProcess = await launchProcess(
         this.browserEngine.executablePath,
         this.browserEngine.launchArguments,
+        this.browserDidClose.bind(this),
       );
 
       this.browser = await this.launcher.createPuppet(launchedProcess, this.browserEngine);
+      this.browser.onDevtoolsAttached = attachToDevtools;
 
       const features = await this.browser.getFeatures();
       this.supportsBrowserContextProxy = features?.supportsPerBrowserContextProxy ?? false;
@@ -95,7 +102,12 @@ export default class Puppet {
     } catch (error) {
       log.error('Puppet.Closing:Error', { sessionId: null, error });
     } finally {
-      log.stats('Puppet.closed');
+      this.emit('close');
+      log.stats('Puppet.Closed');
     }
+  }
+
+  private browserDidClose() {
+    this.emit('close');
   }
 }

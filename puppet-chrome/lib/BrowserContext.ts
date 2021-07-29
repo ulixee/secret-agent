@@ -34,7 +34,8 @@ import TargetInfo = Protocol.Target.TargetInfo;
 
 export class BrowserContext
   extends TypedEventEmitter<IPuppetContextEvents>
-  implements IPuppetContext {
+  implements IPuppetContext
+{
   public logger: IBoundLog;
 
   public workersById = new Map<string, IPuppetWorker>();
@@ -219,13 +220,15 @@ export class BrowserContext
     if (this.isClosing) return;
     this.isClosing = true;
 
-    await Promise.all([...this.pagesById.values()].map(x => x.close()));
-    await this.sendWithBrowserDevtoolsSession('Target.disposeBrowserContext', {
-      browserContextId: this.id,
-    }).catch(err => {
-      if (err instanceof CanceledPromiseError) return;
-      throw err;
-    });
+    if (this.browser.devtoolsSession.isConnected()) {
+      await Promise.all([...this.pagesById.values()].map(x => x.close()));
+      await this.sendWithBrowserDevtoolsSession('Target.disposeBrowserContext', {
+        browserContextId: this.id,
+      }).catch(err => {
+        if (err instanceof CanceledPromiseError) return;
+        throw err;
+      });
+    }
     removeEventListeners(this.eventListeners);
     this.browser.browserContextsById.delete(this.id);
   }

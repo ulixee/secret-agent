@@ -7,11 +7,13 @@ import { MitmProxy } from '@secret-agent/mitm';
 import ISessionCreateOptions from '@secret-agent/interfaces/ISessionCreateOptions';
 import Puppet from '@secret-agent/puppet';
 import * as Os from 'os';
+import { TypedEventEmitter } from '@secret-agent/commons/eventUtils';
 import IBrowserEngine from '@secret-agent/interfaces/IBrowserEngine';
 import { CanceledPromiseError } from '@secret-agent/commons/interfaces/IPendingWaitEvent';
 import IPuppetLaunchArgs from '@secret-agent/interfaces/IPuppetLaunchArgs';
 import SessionsDb from '../dbs/SessionsDb';
 import Session from './Session';
+import DevtoolsPreferences from './DevtoolsPreferences';
 
 const { log } = Log(module);
 let sessionsDir = process.env.SA_SESSIONS_DIR || Path.join(Os.tmpdir(), '.secret-agent'); // transferred to GlobalPool below class definition
@@ -28,6 +30,12 @@ export default class GlobalPool {
     return this.activeSessionCount < GlobalPool.maxConcurrentAgentsCount;
   }
 
+  public static events = new TypedEventEmitter<{
+    'browser-has-no-open-windows': { puppet: Puppet };
+    'all-browsers-closed': void;
+  }>();
+
+  private static isClosing = false;
   private static defaultLaunchArgs: IPuppetLaunchArgs;
   private static _activeSessionCount = 0;
   private static puppets: Puppet[] = [];
@@ -38,15 +46,15 @@ export default class GlobalPool {
     promise: IResolvablePromise<Session>;
   }[] = [];
 
-  public static async start() {
+  public static async start(): Promise<void> {
+    this.isClosing = false;
     log.info('StartingGlobalPool', {
       sessionId: null,
     });
     await this.startMitm();
-    this.resolveWaitingConnection();
   }
 
-  public static createSession(options: ISessionCreateOptions) {
+  public static createSession(options: ISessionCreateOptions): Promise<Session> {
     log.info('AcquiringChrome', {
       sessionId: null,
       activeSessionCount: this.activeSessionCount,
@@ -63,6 +71,8 @@ export default class GlobalPool {
   }
 
   public static close(): Promise<void> {
+    if (this.isClosing) return Promise.resolve();
+    this.isClosing = true;
     const logId = log.stats('GlobalPool.Closing');
 
     for (const { promise } of this.waitingForAvailability) {
@@ -94,15 +104,23 @@ export default class GlobalPool {
     const args = this.getPuppetLaunchArgs();
     const puppet = new Puppet(browserEngine, args);
 
-    const existing = this.puppets.find(x => x.isSameEngine(puppet));
+    const existing = this.puppets.find(x =>
+      this.isSameEngine(puppet.browserEngine, x.browserEngine),
+    );
     if (existing) return Promise.resolve(existing);
 
     this.puppets.push(puppet);
+    puppet.once('close', this.onEngineClosed.bind(this, browserEngine));
+    const browserDir = browserEngine.executablePath.split(browserEngine.fullVersion).shift();
 
-    return puppet.start();
+    const preferencesInterceptor = new DevtoolsPreferences(
+      `${browserDir}/devtoolsPreferences.json`,
+    );
+
+    return puppet.start(preferencesInterceptor.installOnConnect);
   }
 
-  private static async startMitm() {
+  private static async startMitm(): Promise<void> {
     if (this.mitmServer || disableMitm === true) return;
     if (this.mitmStartPromise) await this.mitmStartPromise;
     else {
@@ -133,6 +151,8 @@ export default class GlobalPool {
       );
       await session.initialize(browserContext);
 
+      session.on('all-tabs-closed', this.checkForInactiveBrowserEngine.bind(this, session));
+
       session.once('closing', this.releaseConnection.bind(this));
       return session;
     } catch (err) {
@@ -142,7 +162,44 @@ export default class GlobalPool {
     }
   }
 
-  private static releaseConnection() {
+  private static async onEngineClosed(engine: IBrowserEngine): Promise<void> {
+    if (this.isClosing) return;
+    for (const session of Session.sessionsWithBrowserEngine(this.isSameEngine.bind(this, engine))) {
+      await session.close();
+    }
+    log.info('PuppetEngine.closed', {
+      engine,
+      sessionId: null,
+    });
+    const idx = this.puppets.findIndex(x => this.isSameEngine(engine, x.browserEngine));
+    if (idx >= 0) this.puppets.splice(idx, 1);
+    if (this.puppets.length === 0) {
+      this.events.emit('all-browsers-closed');
+    }
+  }
+
+  private static checkForInactiveBrowserEngine(session: Session): void {
+    const sessionsUsingEngine = Session.sessionsWithBrowserEngine(
+      this.isSameEngine.bind(this, session.browserEngine),
+    );
+    const hasWindows = sessionsUsingEngine.some(x => x.tabsById.size > 0);
+
+    log.info('Session.allTabsClosed', {
+      sessionId: session.id,
+      engineHasOtherOpenTabs: hasWindows,
+    });
+    if (hasWindows) return;
+
+    const puppet = this.puppets.find(x =>
+      this.isSameEngine(session.browserEngine, x.browserEngine),
+    );
+
+    if (puppet) {
+      this.events.emit('browser-has-no-open-windows', { puppet });
+    }
+  }
+
+  private static releaseConnection(): void {
     this._activeSessionCount -= 1;
 
     const wasTransferred = this.resolveWaitingConnection();
@@ -155,7 +212,7 @@ export default class GlobalPool {
     }
   }
 
-  private static resolveWaitingConnection() {
+  private static resolveWaitingConnection(): boolean {
     if (!this.waitingForAvailability.length) {
       return false;
     }
@@ -169,7 +226,7 @@ export default class GlobalPool {
     return true;
   }
 
-  private static getPuppetLaunchArgs() {
+  private static getPuppetLaunchArgs(): IPuppetLaunchArgs {
     this.defaultLaunchArgs ??= {
       showBrowser: Boolean(
         JSON.parse(process.env.SA_SHOW_BROWSER ?? process.env.SHOW_BROWSER ?? 'false'),
@@ -183,6 +240,13 @@ export default class GlobalPool {
       ...this.defaultLaunchArgs,
       proxyPort: this.mitmServer?.port,
     };
+  }
+
+  private static isSameEngine(engineA: IBrowserEngine, engineB: IBrowserEngine): boolean {
+    return (
+      engineA.executablePath === engineB.executablePath &&
+      engineA.launchArguments.toString() === engineB.launchArguments.toString()
+    );
   }
 
   public static get sessionsDir(): string {
