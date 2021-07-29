@@ -3,6 +3,29 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.5.5](https://github.com/ulixee/secret-agent/compare/v1.5.4...v1.5.5) (2021-07-29)
+
+
+### Bug Fixes
+
+* **client:** allow plugins in handlers ([5371d99](https://github.com/ulixee/secret-agent/commit/5371d99dbb7968b55b895444203e7b204acfa19c))
+* **core:** fix headed browser size/viewport docs ([c1623be](https://github.com/ulixee/secret-agent/commit/c1623be023d8aa02a554231cd98d2ce6cb00216f))
+* **mitm:** certs message invalid ([b6b0a5c](https://github.com/ulixee/secret-agent/commit/b6b0a5c63f6ddab0f5a4523bf9698b75e4620485)), closes [#309](https://github.com/ulixee/secret-agent/issues/309)
+* change userAgent example to remove asterisk ([f268ae8](https://github.com/ulixee/secret-agent/commit/f268ae8ab65510a008e6b4112330c89b23e9ff8c))
+* cherrypick bug fixes from hero ([a3e8fbf](https://github.com/ulixee/secret-agent/commit/a3e8fbfa42570df605487f53b5b0cc784eaf6423))
+* lerna hero reference wrong ([de13ab7](https://github.com/ulixee/secret-agent/commit/de13ab7c33301ff69575a4d43ce75378f6bcb4f1))
+* restructure issues ([186bc06](https://github.com/ulixee/secret-agent/commit/186bc0661fcacf541fb1577510c37e03c4f8eb70))
+* reversed the reorg from two days ago ([aa5fddd](https://github.com/ulixee/secret-agent/commit/aa5fddddbb66645bef9f6ab1b2d469bc9501f892))
+
+
+### Features
+
+* **plugins:** chrome 88 emulator data ([f537be2](https://github.com/ulixee/secret-agent/commit/f537be23fa2d101f275d01671e3f0d12ac1374a6))
+
+
+
+
+
 ## [1.5.4](https://github.com/ulixee/secret-agent/compare/v1.5.3...v1.5.4) (2021-07-14)
 
 

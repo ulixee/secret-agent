@@ -3,6 +3,19 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.5.5](https://github.com/ulixee/secret-agent/compare/v1.5.4...v1.5.5) (2021-07-29)
+
+
+### Bug Fixes
+
+* **client:** allow plugins in handlers ([5371d99](https://github.com/ulixee/secret-agent/commit/5371d99dbb7968b55b895444203e7b204acfa19c))
+* cherrypick bug fixes from hero ([a3e8fbf](https://github.com/ulixee/secret-agent/commit/a3e8fbfa42570df605487f53b5b0cc784eaf6423))
+* reversed the reorg from two days ago ([aa5fddd](https://github.com/ulixee/secret-agent/commit/aa5fddddbb66645bef9f6ab1b2d469bc9501f892))
+
+
+
+
+
 ## [1.5.4](https://github.com/ulixee/secret-agent/compare/v1.5.3...v1.5.4) (2021-07-14)
 
 

@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.5.5](https://github.com/ulixee/secret-agent/compare/v1.5.4...v1.5.5) (2021-07-29)
+
+
+### Bug Fixes
+
+* **core:** fix headed browser size/viewport docs ([c1623be](https://github.com/ulixee/secret-agent/commit/c1623be023d8aa02a554231cd98d2ce6cb00216f))
+
+
+
+
+
 ## [1.5.4](https://github.com/ulixee/secret-agent/compare/v1.5.3...v1.5.4) (2021-07-14)
 
 
