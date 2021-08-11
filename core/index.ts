@@ -13,6 +13,7 @@ import DefaultHumanEmulator from '@secret-agent/default-human-emulator';
 import extractPlugins from '@secret-agent/plugin-utils/lib/utils/extractPlugins';
 import requirePlugins from '@secret-agent/plugin-utils/lib/utils/requirePlugins';
 import { IPluginClass } from '@secret-agent/interfaces/IPlugin';
+import ShutdownHandler from '@secret-agent/commons/ShutdownHandler';
 import ConnectionToClient from './server/ConnectionToClient';
 import CoreServer from './server';
 import CoreProcess from './lib/CoreProcess';
@@ -118,7 +119,10 @@ export default class Core {
       sessionsDir: GlobalPool.sessionsDir,
     });
     // if started as a subprocess, send back the host
-    if (process.send) process.send(host);
+    if (process.send && process.connected) {
+      ShutdownHandler.exitOnSignal = true;
+      process.send(host);
+    }
   }
 
   public static async shutdown(force = false): Promise<void> {

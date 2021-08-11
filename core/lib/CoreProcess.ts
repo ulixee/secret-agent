@@ -37,8 +37,11 @@ export default class CoreProcess {
   public static kill(signal?: NodeJS.Signals) {
     const child = this.child;
     if (child) {
+      child.unref();
       const closed = new Promise<void>(resolve => child.once('exit', () => setImmediate(resolve)));
-      if (!child.killed) child.kill(signal);
+      if (!child.killed) {
+        child.kill(signal);
+      }
       return closed;
     }
   }
