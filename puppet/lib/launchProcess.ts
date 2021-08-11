@@ -22,6 +22,7 @@ import Log from '@secret-agent/commons/Logger';
 import ILaunchedProcess from '@secret-agent/interfaces/ILaunchedProcess';
 import Resolvable from '@secret-agent/commons/Resolvable';
 import * as Fs from 'fs';
+import ShutdownHandler from '@secret-agent/commons/ShutdownHandler';
 import { WebSocketTransport } from './WebSocketTransport';
 
 const { log } = Log(module);
@@ -106,6 +107,8 @@ export default async function launchProcess(
     runOnClose();
     if (dataDir) cleanDataDir(dataDir);
   });
+  process.on('uncaughtExceptionMonitor', () => close());
+  ShutdownHandler.register(close);
 
   const wsEndpoint = await websocketEndpointResolvable.promise;
   transport = new WebSocketTransport(wsEndpoint);

@@ -6,7 +6,7 @@ type ShutdownSignal = NodeJS.Signals | 'exit';
 const { log } = logger(module);
 
 export default class ShutdownHandler {
-  public static exitOnSignal = true;
+  public static exitOnSignal = false;
 
   private static isRegistered = false;
   private static hasRunHandlers = false;
