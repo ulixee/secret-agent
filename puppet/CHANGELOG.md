@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.5.6](https://github.com/ulixee/secret-agent/compare/v1.5.5...v1.5.6) (2021-08-15)
+
+
+### Bug Fixes
+
+* **puppet:** always shut down chrome ([b16ed81](https://github.com/ulixee/secret-agent/commit/b16ed81715ef02630ab0f8f48f12c60b7a0f12ee))
+
+
+
+
+
 ## [1.5.5](https://github.com/ulixee/secret-agent/compare/v1.5.4...v1.5.5) (2021-07-29)
 
 

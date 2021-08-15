@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.5.6](https://github.com/ulixee/secret-agent/compare/v1.5.5...v1.5.6) (2021-08-15)
+
+
+### Bug Fixes
+
+* **puppet:** catch errors in indexedDb export ([a787b1d](https://github.com/ulixee/secret-agent/commit/a787b1d94da81cb3ed768fb0b1587d96739a23e7))
+
+
+
+
+
 ## [1.5.5](https://github.com/ulixee/secret-agent/compare/v1.5.4...v1.5.5) (2021-07-29)
 
 
