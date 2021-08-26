@@ -150,13 +150,19 @@ export class Browser extends TypedEventEmitter<IBrowserEvents> implements IPuppe
 
   private async onTargetCreated(event: Protocol.Target.TargetCreatedEvent) {
     const { targetInfo } = event;
-    if (targetInfo.type === 'page' && !targetInfo.attached) {
-      const context = this.browserContextsById.get(targetInfo.browserContextId);
-      await context?.attachToTarget(targetInfo.targetId);
-    }
-    if (targetInfo.type === 'shared_worker') {
-      const context = this.browserContextsById.get(targetInfo.browserContextId);
-      await context?.attachToWorker(targetInfo);
+    try {
+      if (targetInfo.type === 'page' && !targetInfo.attached) {
+        const context = this.browserContextsById.get(targetInfo.browserContextId);
+        await context?.attachToTarget(targetInfo.targetId);
+      }
+      if (targetInfo.type === 'shared_worker') {
+        const context = this.browserContextsById.get(targetInfo.browserContextId);
+        await context?.attachToWorker(targetInfo);
+      }
+    } catch (error) {
+      // target went away too quickly
+      if (String(error).includes('No target with given id found')) return;
+      throw error;
     }
   }
 
