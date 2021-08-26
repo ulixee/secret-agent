@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.5.7](https://github.com/ulixee/secret-agent/compare/v1.5.6...v1.5.7) (2021-08-26)
+
+
+### Bug Fixes
+
+* **mitm:** disable upstream proxy for dns lookup ([bacfb10](https://github.com/ulixee/secret-agent/commit/bacfb1020ff7e27c91dc53894ecb6572ff97b878))
+
+
+
+
+
 ## [1.5.6](https://github.com/ulixee/secret-agent/compare/v1.5.5...v1.5.6) (2021-08-15)
 
 **Note:** Version bump only for package @secret-agent/mitm-socket

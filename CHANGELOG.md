@@ -3,6 +3,23 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.5.7](https://github.com/ulixee/secret-agent/compare/v1.5.6...v1.5.7) (2021-08-26)
+
+
+### Bug Fixes
+
+* **mitm:** disable upstream proxy for dns lookup ([bacfb10](https://github.com/ulixee/secret-agent/commit/bacfb1020ff7e27c91dc53894ecb6572ff97b878))
+* track frame network events before create ([56f924d](https://github.com/ulixee/secret-agent/commit/56f924d9c2d815e09f1b1cd80ca9e3af41734450))
+
+
+### Features
+
+* move back to pipeTransport ([e13f048](https://github.com/ulixee/secret-agent/commit/e13f048b22776bf847bddb870f921d148f243b10))
+
+
+
+
+
 ## [1.5.6](https://github.com/ulixee/secret-agent/compare/v1.5.5...v1.5.6) (2021-08-15)
 
 
