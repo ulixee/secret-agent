@@ -17,7 +17,10 @@ export class Dns {
   }
 
   public async lookupIp(host: string, retries = 3): Promise<string> {
-    if (!this.dnsSettings.dnsOverTlsConnection || host === 'localhost' || net.isIP(host)) return host;
+    // disable dns lookups when using a proxy
+    if (this.requestSession.upstreamProxyUrl) return host;
+    if (!this.dnsSettings.dnsOverTlsConnection || host === 'localhost' || net.isIP(host))
+      return host;
 
     try {
       // get cached (or in process resolver)

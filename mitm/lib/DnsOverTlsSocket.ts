@@ -4,7 +4,7 @@ import IResolvablePromise from '@secret-agent/interfaces/IResolvablePromise';
 import { createPromise } from '@secret-agent/commons/utils';
 import MitmSocket from '@secret-agent/mitm-socket/index';
 import { CanceledPromiseError } from '@secret-agent/commons/interfaces/IPendingWaitEvent';
-import IDnsSettings from "@secret-agent/interfaces/IDnsSettings";
+import IDnsSettings from '@secret-agent/interfaces/IDnsSettings';
 import { addTypedEventListener, removeEventListeners } from '@secret-agent/commons/eventUtils';
 import { IBoundLog } from '@secret-agent/interfaces/ILog';
 import Log from '@secret-agent/commons/Logger';
@@ -70,12 +70,7 @@ export default class DnsOverTlsSocket {
       keepAlive: true,
       debug: true,
     });
-    if (this.dnsSettings.useUpstreamProxy) {
-      const upstreamProxy = this.requestSession.upstreamProxyUrl;
-      if (upstreamProxy) {
-        this.mitmSocket.setProxyUrl(upstreamProxy);
-      }
-    }
+
     await this.mitmSocket.connect(this.requestSession.requestAgent.socketSession, 10e3);
 
     this.mitmSocket.socket.on('data', this.onData.bind(this));
