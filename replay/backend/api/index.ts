@@ -11,6 +11,7 @@ import getResolvable from '~shared/utils/promise';
 import ReplayTabState from '~backend/api/ReplayTabState';
 import ReplayTime from '~backend/api/ReplayTime';
 import ReplayOutput from '~backend/api/ReplayOutput';
+import storage from '~backend/storage';
 
 export default class ReplayApi {
   public static serverProcess: ChildProcess;
@@ -285,7 +286,7 @@ export default class ReplayApi {
   }
 
   public static async connect(replay: IReplayMeta) {
-    await ReplayApi.startServer();
+    await ReplayApi.startServer(replay);
 
     const replayApiUrl = replay.replayApiUrl ? new URL(replay.replayApiUrl) : this.localApiHost;
 
@@ -307,14 +308,47 @@ export default class ReplayApi {
     return api;
   }
 
-  private static async startServer() {
+  private static async startServer(replayMeta: IReplayMeta) {
     if (this.localApiHost || this.serverProcess) return;
 
     const args = [];
+    // look in script instance directory first
+    if (!this.serverStartPath && replayMeta.scriptEntrypoint) {
+      this.serverStartPath = findCoreForScript(replayMeta.scriptEntrypoint);
+      console.log('Looking for core path for script entrypoint', {
+        scriptEntrypoint: replayMeta.scriptEntrypoint,
+        serverStartPath: this.serverStartPath,
+      });
+    }
+
+    // load a previous script
+    if (!this.serverStartPath) {
+      const history = storage.fetchHistory();
+      for (const item of history) {
+        if (item.scriptEntrypoint) {
+          this.serverStartPath = findCoreForScript(item.scriptEntrypoint);
+          console.log('Looking for core path from previously loaded script', {
+            scriptEntrypoint: item.scriptEntrypoint,
+            serverStartPath: this.serverStartPath,
+          });
+        }
+        if (this.serverStartPath) break;
+      }
+    }
+
+    // check workspace?
     if (!this.serverStartPath) {
       const replayDir = __dirname.split(`${Path.sep}replay${Path.sep}`).shift();
       this.serverStartPath = Path.resolve(replayDir, 'core', 'start');
+      console.log('Looking for core path from monorepo', {
+        serverStartPath: this.serverStartPath,
+      });
+      if (!Fs.existsSync(this.serverStartPath) && !Fs.existsSync(`${this.serverStartPath}.js`)) {
+        this.serverStartPath = null;
+        return;
+      }
     }
+
     if (!this.nodePath) {
       this.nodePath = 'node';
     }
@@ -349,6 +383,20 @@ export default class ReplayApi {
     this.localApiHost = new URL(`${await promise}/replay`);
     return child;
   }
+}
+
+function findCoreForScript(scriptEntrypoint: string) {
+  let startDir = Path.dirname(scriptEntrypoint);
+  do {
+    const startPath = `${startDir}/node_modules/@secret-agent/core/start.js`;
+    if (Fs.existsSync(startPath)) {
+      return startPath;
+    }
+
+    if (Path.dirname(startDir) === startDir) return null;
+
+    startDir = Path.dirname(startDir);
+  } while (startDir && Fs.existsSync(startDir));
 }
 
 function parseJSON(data: WebSocket.Data) {
