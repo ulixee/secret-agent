@@ -38,7 +38,7 @@ export default class Timer {
   }
 
   public isExpired(): boolean {
-    return this.elapsedMillis() > this.timeoutMillis;
+    return this.elapsedMillis() >= this.timeoutMillis;
   }
 
   public isResolved(): boolean {
