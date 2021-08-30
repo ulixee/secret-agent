@@ -3,6 +3,23 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.5.8](https://github.com/ulixee/secret-agent/compare/v1.5.7...v1.5.8) (2021-08-30)
+
+
+### Bug Fixes
+
+* **core:** throw invalid selectors, fix wait x/y ([2025f27](https://github.com/ulixee/secret-agent/commit/2025f27d749011730609202cbf5798496a3fccc1))
+* **plugins:** fix versions not sorting correctly ([b9e7620](https://github.com/ulixee/secret-agent/commit/b9e76205c9c615f2639ca39e0f1e589c8bf15adf))
+
+
+### Features
+
+* **replay:** use old scripts for path to start core ([c1f893d](https://github.com/ulixee/secret-agent/commit/c1f893de9a871d3e94450a721ac7c05fcc17ceee))
+
+
+
+
+
 ## [1.5.7](https://github.com/ulixee/secret-agent/compare/v1.5.6...v1.5.7) (2021-08-26)
 
 

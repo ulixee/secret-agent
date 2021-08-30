@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.5.8](https://github.com/ulixee/secret-agent/compare/v1.5.7...v1.5.8) (2021-08-30)
+
+
+### Features
+
+* **replay:** use old scripts for path to start core ([c1f893d](https://github.com/ulixee/secret-agent/commit/c1f893de9a871d3e94450a721ac7c05fcc17ceee))
+
+
+
+
+
 ## [1.5.7](https://github.com/ulixee/secret-agent/compare/v1.5.6...v1.5.7) (2021-08-26)
 
 **Note:** Version bump only for package @secret-agent/replay
