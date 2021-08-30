@@ -236,7 +236,7 @@ NOTE: this method should NOT be called in a Frame Document that has no visible e
 
 #### **Returns**: `Promise<void>`
 
-### frameEnvironment.waitForElement*(element)* {#wait-for-element}
+### frameEnvironment.waitForElement*(element, options)* {#wait-for-element}
 
 Wait until a specific element is present in the dom.
 
@@ -284,6 +284,7 @@ The following are possible statuses and their meanings:
 | `HttpResponded`       | The http response has been retrieved                                                     |
 | `HttpRedirected`      | The original http request was redirected                                                 |
 | `DomContentLoaded`    | The dom content has been received and loaded into the document                           |
+| `AllContentLoaded`    | The page load event has triggered. NOTE: this does not ALWAYS trigger in browser.        |
 | `PaintingStable`      | The page has loaded the main content above the fold. Works on javascript-rendered pages. |
 
 ### frameEnvironment.waitForLocation*(trigger, options)* {#wait-for-location}

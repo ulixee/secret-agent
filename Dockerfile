@@ -40,6 +40,7 @@ RUN mkdir -p "$GOPATH/src" "$GOPATH/bin" && chmod -R 777 "$GOPATH"
 
 WORKDIR /app/secret-agent
 
+# NOTE: You must run yarn build:docker from root for this to work
 COPY ./build-dist /app/secret-agent/
 
 RUN cat /etc/*-release
