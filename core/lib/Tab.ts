@@ -439,7 +439,9 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
 
   public async waitForNewTab(options: IWaitForOptions = {}): Promise<Tab> {
     // last command is the one running right now
-    const startCommandId = options?.sinceCommandId ?? this.lastCommandId - 1;
+    const startCommandId = Number.isInteger(options.sinceCommandId)
+      ? options.sinceCommandId
+      : this.lastCommandId - 1;
     let newTab: Tab;
     const startTime = new Date();
     if (startCommandId >= 0) {
@@ -519,7 +521,10 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
   }
 
   public async waitForFileChooser(options?: IWaitForOptions): Promise<IFileChooserPrompt> {
-    let startCommandId = options?.sinceCommandId;
+    let startCommandId =
+      options?.sinceCommandId && Number.isInteger(options.sinceCommandId)
+        ? options.sinceCommandId
+        : null;
 
     if (!startCommandId && this.sessionState.commands.length >= 2) {
       startCommandId = this.sessionState.commands[this.sessionState.commands.length - 2]?.id;
