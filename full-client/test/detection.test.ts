@@ -98,6 +98,17 @@ test('widevine detection', async () => {
   expect(accessKey).toBe('MediaKeys');
 });
 
+test('plays m3u8', async () => {
+  const agent = await handler.createAgent();
+  Helpers.needsClosing.push(agent);
+  await agent.goto(koaServer.baseUrl);
+
+  const isSupported = await agent
+    .getJsValue(`MediaSource.isTypeSupported('video/mp4; codecs="avc1.42E01E,mp4a.40.2"')`)
+    .catch(err => err);
+  expect(isSupported).toBe(true);
+});
+
 test('should pass FpScanner', async () => {
   const analyzePromise = new Promise(resolve => {
     koaServer.post('/analyze', async ctx => {
