@@ -1,19 +1,19 @@
 {
   "name": "@secret-agent/plugin-utils",
-  "version": "1.5.8",
+  "version": "1.5.9",
   "description": "SecretAgent client that runs remotely",
   "scripts": {},
   "dependencies": {
     "@secret-agent/chrome-app": "1.0.0",
-    "@secret-agent/commons": "1.5.8",
-    "@secret-agent/interfaces": "1.5.8",
+    "@secret-agent/commons": "1.5.9",
+    "@secret-agent/interfaces": "1.5.9",
     "progress": "^2.0.3",
     "tar": "^6.1.0"
   },
   "devDependencies": {
-    "@secret-agent/core": "1.5.8",
-    "@secret-agent/default-browser-emulator": "1.5.8",
-    "@secret-agent/puppet": "1.5.8",
-    "@secret-agent/testing": "1.5.8"
+    "@secret-agent/core": "1.5.9",
+    "@secret-agent/default-browser-emulator": "1.5.9",
+    "@secret-agent/puppet": "1.5.9",
+    "@secret-agent/testing": "1.5.9"
   }
 }

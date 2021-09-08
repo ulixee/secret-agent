@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.5.9](https://github.com/ulixee/secret-agent/compare/v1.5.8...v1.5.9) (2021-09-08)
+
+
+### Features
+
+* **core:** only use valid sinceCommandIds ([75056c3](https://github.com/ulixee/secret-agent/commit/75056c3ba343b89de8be0536743343b1a3bea238))
+
+
+
+
+
 ## [1.5.8](https://github.com/ulixee/secret-agent/compare/v1.5.7...v1.5.8) (2021-08-30)
 
 

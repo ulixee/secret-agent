@@ -3,6 +3,25 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.5.9](https://github.com/ulixee/secret-agent/compare/v1.5.8...v1.5.9) (2021-09-08)
+
+
+### Bug Fixes
+
+* **plugin:** export ClientPlugin/CorePlugin ([882674c](https://github.com/ulixee/secret-agent/commit/882674c9397d878922ce9863429f5e156d3df9e4))
+* **plugins:** iframe content window wrong ([7381189](https://github.com/ulixee/secret-agent/commit/7381189f44cf28738e50dab40546b9b83141c31d))
+
+
+### Features
+
+* **core:** only use valid sinceCommandIds ([75056c3](https://github.com/ulixee/secret-agent/commit/75056c3ba343b89de8be0536743343b1a3bea238))
+* **docs:** tweak docs ([39632b5](https://github.com/ulixee/secret-agent/commit/39632b5a51b97eb708fa8f26ac7d247725474926))
+* **plugins:** remove codecs overrides for chrome ([17a16a5](https://github.com/ulixee/secret-agent/commit/17a16a515de3dfa65d6624f5c3f5244a744755d1))
+
+
+
+
+
 ## [1.5.8](https://github.com/ulixee/secret-agent/compare/v1.5.7...v1.5.8) (2021-08-30)
 
 

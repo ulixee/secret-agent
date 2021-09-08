@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.5.9](https://github.com/ulixee/secret-agent/compare/v1.5.8...v1.5.9) (2021-09-08)
+
+
+### Bug Fixes
+
+* **plugin:** export ClientPlugin/CorePlugin ([882674c](https://github.com/ulixee/secret-agent/commit/882674c9397d878922ce9863429f5e156d3df9e4))
+
+
+
+
+
 ## [1.5.8](https://github.com/ulixee/secret-agent/compare/v1.5.7...v1.5.8) (2021-08-30)
 
 **Note:** Version bump only for package @secret-agent/plugin-utils
