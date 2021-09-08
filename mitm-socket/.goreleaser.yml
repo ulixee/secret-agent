@@ -28,3 +28,4 @@ changelog:
   skip: true
 release:
   prerelease: auto
+  draft: true

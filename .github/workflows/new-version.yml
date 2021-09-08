@@ -69,7 +69,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v2
         with:
           version: v0.160.0
-          args: release --rm-dist --debug
+          args: release --rm-dist --debug --skip-validate
           workdir: ${{ github.workspace }}/mitm-socket
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
