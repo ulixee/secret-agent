@@ -70,14 +70,14 @@ Use this property to specify a list of core pluginIds that your ClientPlugin nee
 The following methods are all optional. Use them when you want to hook into a specific SecretAgent flow:
 
 ### onAgent<em>(agent, sendToCore)</em> *optional*
-This method is called every time a new Agent in initialized.
+This method is called every time a new Agent is initialized.
 #### **Arguments**:
 - agent `Agent`
 - sendToCore: `(toPluginId: string, ...args: any[]) => Promise<any>`
 #### **Returns** `void`
 
 ### onTab<em>(agent, tab, sendToCore)</em> *optional*
-This method is called every time a new Tab in initialized.
+This method is called every time a new Tab is initialized.
 #### **Arguments**:
 - agent `Agent`
 - tab `Tab`

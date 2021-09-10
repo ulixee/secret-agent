@@ -1,12 +1,11 @@
 import { PluginTypes } from './IPluginTypes';
-import IAgent from './IAgent';
-import ITab from './ITab';
+import type { Agent, Tab } from '../client';
 
 export default interface IClientPlugin {
   id: string;
 
-  onAgent?(agent: IAgent, sendToCore: ISendToCoreFn): void;
-  onTab?(agent: IAgent, tab: ITab, sendToCore: ISendToCoreFn): void;
+  onAgent?(agent: Agent, sendToCore: ISendToCoreFn): void;
+  onTab?(agent: Agent, tab: Tab, sendToCore: ISendToCoreFn): void;
 }
 
 export interface IClientPluginClass {
