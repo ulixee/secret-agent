@@ -32,10 +32,13 @@ async function exportIndexedDbs(dbNames: string[]) {
         };
       });
       const objectStoreNames = Array.from(idbDatabase.objectStoreNames);
+      if (!objectStoreNames.length) return;
 
       const transaction = idbDatabase.transaction(objectStoreNames, 'readonly');
       // eslint-disable-next-line promise/param-names
-      const rejectPromise = new Promise<IIndexedDB>((_, reject) => (transaction.onerror = reject));
+      const rejectPromise = new Promise<void>(
+        (_, reject) => (transaction.onerror = () => reject()),
+      );
 
       const db: IIndexedDB = {
         name,
@@ -61,9 +64,12 @@ async function exportIndexedDbs(dbNames: string[]) {
           autoIncrement: store.autoIncrement,
         });
 
-        db.data[objectStoreName] = await readStoreData(store);
+        db.data[objectStoreName] = (await Promise.race([
+          readStoreData(store),
+          rejectPromise,
+        ])) as string[];
       }
-      return Promise.race([db, rejectPromise]);
+      return db;
     }),
   );
 }
