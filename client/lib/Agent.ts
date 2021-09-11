@@ -28,7 +28,6 @@ import IAgentMeta from '@secret-agent/interfaces/IAgentMeta';
 import IScreenshotOptions from '@secret-agent/interfaces/IScreenshotOptions';
 import { INodeVisibility } from '@secret-agent/interfaces/INodeVisibility';
 import IClientPlugin, { IClientPluginClass } from '@secret-agent/interfaces/IClientPlugin';
-import IAgent from '@secret-agent/interfaces/IAgent';
 import { PluginTypes } from '@secret-agent/interfaces/IPluginTypes';
 import requirePlugins from '@secret-agent/plugin-utils/lib/utils/requirePlugins';
 import filterPlugins from '@secret-agent/plugin-utils/lib/utils/filterPlugins';
@@ -93,7 +92,7 @@ const propertyKeys: (keyof Agent)[] = [
   'Request',
 ];
 
-export default class Agent extends AwaitedEventTarget<{ close: void }> implements IAgent {
+export default class Agent extends AwaitedEventTarget<{ close: void }> {
   protected static options: IAgentDefaults = { ...DefaultOptions };
 
   public readonly input: { command?: string } & any;
@@ -322,7 +321,7 @@ export default class Agent extends AwaitedEventTarget<{ close: void }> implement
   // PLUGINS
 
   public use(PluginObject: string | IClientPluginClass | { [name: string]: IPluginClass }): Agent {
-    const { clientPlugins, options } = getState(this);
+    const { clientPlugins, options, connection } = getState(this);
     const ClientPluginsById: { [id: string]: IClientPluginClass } = {};
 
     if (typeof PluginObject === 'string') {
@@ -344,6 +343,9 @@ export default class Agent extends AwaitedEventTarget<{ close: void }> implement
     Object.values(ClientPluginsById).forEach(ClientPlugin => {
       const clientPlugin = new ClientPlugin();
       clientPlugins.push(clientPlugin);
+      if (connection.hasConnected && clientPlugin.onAgent) {
+        clientPlugin.onAgent(this, connection.sendToActiveTab);
+      }
       options.dependencyMap[ClientPlugin.id] = ClientPlugin.coreDependencyIds || [];
     });
 
@@ -490,7 +492,9 @@ class SessionConnection {
   private _activeTab: Tab;
   private _tabs: Tab[] = [];
 
-  constructor(private agent: Agent) {}
+  constructor(private agent: Agent) {
+    this.sendToActiveTab = this.sendToActiveTab.bind(this);
+  }
 
   public async refreshedTabs(): Promise<Tab[]> {
     const session = await this.getCoreSessionOrReject();
@@ -526,11 +530,13 @@ class SessionConnection {
     this._tabs.push(tab);
   }
 
-  public async getCoreSessionOrReject(): Promise<CoreSession> {
+  // NOTE: needs to be synchronous so _activeTab can resolve
+  public getCoreSessionOrReject(): Promise<CoreSession> {
     if (this.hasConnected) {
-      const coreSession = await this._coreSession;
-      if (coreSession instanceof CoreSession) return coreSession;
-      throw coreSession;
+      return this._coreSession.then(x => {
+        if (x instanceof CoreSession) return x;
+        throw x;
+      });
     }
     this.hasConnected = true;
 
@@ -567,13 +573,12 @@ class SessionConnection {
     this._tabs = [this._activeTab];
 
     for (const clientPlugin of clientPlugins) {
-      await clientPlugin.onAgent(this.agent, this.sendToActiveTab.bind(this));
+      if (clientPlugin.onAgent) clientPlugin.onAgent(this.agent, this.sendToActiveTab);
     }
-
-    return await coreSession;
+    return coreSession;
   }
 
-  private async sendToActiveTab(toPluginId: string, ...args: any[]): Promise<any> {
+  public async sendToActiveTab(toPluginId: string, ...args: any[]): Promise<any> {
     const coreSession = (await this._coreSession) as CoreSession;
     const coreTab = coreSession.tabsById.get(await this._activeTab.tabId);
     return coreTab.commandQueue.run('Tab.runPluginCommand', toPluginId, args);

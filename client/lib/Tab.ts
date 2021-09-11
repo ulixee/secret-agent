@@ -21,7 +21,6 @@ import {
 import IScreenshotOptions from '@secret-agent/interfaces/IScreenshotOptions';
 import AwaitedPath from 'awaited-dom/base/AwaitedPath';
 import { INodeVisibility } from '@secret-agent/interfaces/INodeVisibility';
-import ITab from '@secret-agent/interfaces/ITab';
 import * as Util from 'util';
 import CoreTab from './CoreTab';
 import Resource, { createResource } from './Resource';
@@ -68,7 +67,7 @@ const propertyKeys: (keyof Tab)[] = [
   'Request',
 ];
 
-export default class Tab extends AwaitedEventTarget<IEventType> implements ITab {
+export default class Tab extends AwaitedEventTarget<IEventType> {
   constructor(agent: Agent, coreTab: Promise<CoreTab>) {
     super(() => {
       return { target: coreTab };
@@ -90,7 +89,7 @@ export default class Tab extends AwaitedEventTarget<IEventType> implements ITab 
     }
 
     for (const clientPlugin of agentState.getState(agent).clientPlugins) {
-      clientPlugin.onTab(agent, this, sendToTab);
+      if (clientPlugin.onTab) clientPlugin.onTab(agent, this, sendToTab);
     }
   }
 
