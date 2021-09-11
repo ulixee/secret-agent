@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.5.10](https://github.com/ulixee/secret-agent/compare/v1.5.9...v1.5.10) (2021-09-11)
+
+**Note:** Version bump only for package @secret-agent/execute-js-plugin
+
+
+
+
+
 ## [1.5.9](https://github.com/ulixee/secret-agent/compare/v1.5.8...v1.5.9) (2021-09-08)
 
 **Note:** Version bump only for package @secret-agent/execute-js-plugin

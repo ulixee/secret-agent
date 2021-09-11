@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.5.10](https://github.com/ulixee/secret-agent/compare/v1.5.9...v1.5.10) (2021-09-11)
+
+
+### Bug Fixes
+
+* **plugins:** not calling initialization in time ([1ecebed](https://github.com/ulixee/secret-agent/commit/1ecebed990f70fc61250b779b15b8dcbc1e4c2c7))
+* **user-profile:** handle empty database ([c9abf9a](https://github.com/ulixee/secret-agent/commit/c9abf9ab846df0d9df3ccd3b952379e8f79d9dfe))
+
+
+
+
+
 ## [1.5.9](https://github.com/ulixee/secret-agent/compare/v1.5.8...v1.5.9) (2021-09-08)
 
 
