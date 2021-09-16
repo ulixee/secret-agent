@@ -1,5 +1,6 @@
 import { ISendToCoreFn } from '@secret-agent/interfaces/IClientPlugin';
 import ClientPlugin from '@secret-agent/plugin-utils/lib/ClientPlugin';
+import type { Agent, Tab } from 'secret-agent';
 
 const { name: pluginId } = require('../package.json');
 
@@ -7,13 +8,13 @@ export default class ExecuteJsClientPlugin extends ClientPlugin {
   public static id = pluginId;
   public static coreDependencyIds = [pluginId];
 
-  public onAgent(agent, sendToCore: ISendToCoreFn) {
+  public onAgent(agent: Agent, sendToCore: ISendToCoreFn) {
     agent.executeJs = (fn, ...args) => {
       return this.executeJs(fn, sendToCore, args);
     };
   }
 
-  public onTab(tab, sendToCore: ISendToCoreFn) {
+  public onTab(agent: Agent, tab: Tab, sendToCore: ISendToCoreFn) {
     tab.executeJs = (fn, ...args) => {
       return this.executeJs(fn, sendToCore, args);
     };

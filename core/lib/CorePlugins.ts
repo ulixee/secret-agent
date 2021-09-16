@@ -109,11 +109,11 @@ export default class CorePlugins implements ICorePlugins {
     Object.values(Core.pluginMap.corePluginsById).forEach(x => this.use(x));
 
     if (Core.allowDynamicPluginLoading) {
-      if (dependencyMap) {
-        this.loadDependencies(dependencyMap);
-      }
       if (corePluginPaths) {
         this.loadCorePluginPaths(corePluginPaths);
+      }
+      if (dependencyMap) {
+        this.loadDependencies(dependencyMap);
       }
     }
   }
