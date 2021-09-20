@@ -2,7 +2,7 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
     <id>https://secretagent.dev/</id>
     <title>SecretAgent Blog</title>
-    <updated>2021-09-11T16:10:48.305Z</updated>
+    <updated>2021-09-20T13:38:46.810Z</updated>
     <generator>Gridsome Feed Plugin</generator>
     <link rel="alternate" href="https://secretagent.dev/"/>
     <link rel="self" href="https://secretagent.dev/feed.atom"/>
