@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.5.12](https://github.com/ulixee/secret-agent/compare/v1.5.11...v1.5.12) (2021-09-26)
+
+
+### Bug Fixes
+
+* **mitm:** waitForLocation reload on post ([fb3e3d7](https://github.com/ulixee/secret-agent/commit/fb3e3d7819cdf472d00370f5bcbdbd262e961a67))
+
+
+
+
+
 ## [1.5.11](https://github.com/ulixee/secret-agent/compare/v1.5.10...v1.5.11) (2021-09-20)
 
 
