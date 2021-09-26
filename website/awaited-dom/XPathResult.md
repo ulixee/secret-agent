@@ -32,6 +32,14 @@ A <code>number</code> code representing the type of the result, as defined by th
 
 A <code>Node</code> representing the value of the single node result, which may be <code>null</code>.
 
+NOTE: The returned SuperNode will behave like all AwaitedDom SuperNodes: nothing will be retrieved until you await the node or child property.
+
+ ```js
+  await result.singleNodeResult === null; // null if not present
+  await result.singleNodeResult.textContent; // gets text
+ ```
+
+
 #### **Type**: [`SuperNode`](/docs/awaited-dom/super-node)
 
 ### .snapshotLength <div class="specs"><i>W3C</i></div> {#snapshotLength}
@@ -51,6 +59,14 @@ A <code>string</code> representing the value of the result if <code>resultType</
 ### .iterateNext*()* <div class="specs"><i>W3C</i></div> {#iterateNext}
 
 If the result is a node set, this method iterates over it and returns the next node from it or <code>null</code> if there are no more nodes.
+
+NOTE: The iterated SuperNodes will behave like all AwaitedDom SuperNodes: nothing will be retrieved until you await the node or child property.
+
+ ```js
+  await result.iterateNext() === null; // null if not present
+  await result.iterateNext().textContent; // gets text
+ ```
+
 
 #### **Returns**: [`SuperNode`](/docs/awaited-dom/super-node)
 

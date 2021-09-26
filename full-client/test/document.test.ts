@@ -222,6 +222,44 @@ describe('basic Document tests', () => {
     expect(element).toBe(null);
   });
 
+  it("returns null for xpath elements that don't exist", async () => {
+    const agent = await openBrowser(`/`);
+    const { document } = agent;
+    const element = await document.evaluate(
+      '//div[@id="this-element-aint-there"]',
+      agent.document,
+      null,
+      XPathResult.FIRST_ORDERED_NODE_TYPE,
+      null,
+    ).singleNodeValue;
+    expect(element).toBe(null);
+  });
+
+  it('returns null while iterating nodes', async () => {
+    koaServer.get('/xpath-nodes', ctx => {
+      ctx.body = `
+        <body>
+          <div id="div1">Div 1</div>
+          <div id="div2">Div 2</div>
+          <div id="div3">Div 3</div>
+        </body>
+      `;
+    });
+    const agent = await openBrowser(`/xpath-nodes`);
+    const { document } = agent;
+    const iterator = await document.evaluate(
+      '//div',
+      agent.document,
+      null,
+      XPathResult.ORDERED_NODE_ITERATOR_TYPE,
+      null,
+    );
+    await expect(iterator.iterateNext()).resolves.toBeTruthy();
+    await expect(iterator.iterateNext()).resolves.toBeTruthy();
+    await expect(iterator.iterateNext()).resolves.toBeTruthy();
+    await expect(iterator.iterateNext()).resolves.toBe(null);
+  });
+
   it('can determine if an element is visible', async () => {
     koaServer.get('/isVisible', ctx => {
       ctx.body = `
