@@ -5,7 +5,7 @@ import type {
   IPipelineStatus,
 } from '@secret-agent/interfaces/Location';
 import { LocationStatus, LocationTrigger, PipelineStatus } from '@secret-agent/interfaces/Location';
-import { LoadStatus, NavigationReason } from '@secret-agent/interfaces/INavigation';
+import INavigation, { LoadStatus, NavigationReason } from '@secret-agent/interfaces/INavigation';
 import type ICommandMeta from '@secret-agent/interfaces/ICommandMeta';
 import type IWaitForOptions from '@secret-agent/interfaces/IWaitForOptions';
 import type IResolvablePromise from '@secret-agent/interfaces/IResolvablePromise';
@@ -214,25 +214,33 @@ export default class FrameNavigationsObserver {
   }
 
   private hasLocationTrigger(trigger: ILocationTrigger, sinceCommandId: number) {
-    let previousLoadedUrl: string;
+    let previousLoadedNavigation: INavigation;
     for (const history of this.navigations.history) {
       const isMatch = history.startCommandId >= sinceCommandId;
       if (isMatch) {
         let isLocationChange = false;
         if (trigger === LocationTrigger.reload) {
           isLocationChange = FrameNavigationsObserver.isNavigationReload(history.navigationReason);
+          if (
+            !isLocationChange &&
+            !history.stateChanges.has(LoadStatus.HttpRedirected) &&
+            previousLoadedNavigation &&
+            previousLoadedNavigation.finalUrl === history.finalUrl
+          ) {
+            isLocationChange = previousLoadedNavigation.loaderId !== history.loaderId;
+          }
         }
 
         // if there was a previously loaded url, use this change
         if (
           trigger === LocationTrigger.change &&
-          previousLoadedUrl &&
-          previousLoadedUrl !== history.finalUrl
+          previousLoadedNavigation &&
+          previousLoadedNavigation.finalUrl !== history.finalUrl
         ) {
           // Don't accept adding a slash as a page change
           const isInPageUrlAdjust =
             history.navigationReason === 'inPage' &&
-            history.finalUrl.replace(previousLoadedUrl, '').length <= 1;
+            history.finalUrl.replace(previousLoadedNavigation.finalUrl, '').length <= 1;
 
           if (!isInPageUrlAdjust) isLocationChange = true;
         }
@@ -252,7 +260,7 @@ export default class FrameNavigationsObserver {
           history.stateChanges.has(LoadStatus.DomContentLoaded)) &&
         !history.stateChanges.has(LoadStatus.HttpRedirected)
       ) {
-        previousLoadedUrl = history.finalUrl;
+        previousLoadedNavigation = history;
       }
     }
     return false;

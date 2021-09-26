@@ -159,4 +159,54 @@ describe('basic waitForLocation change detections', () => {
     );
     await agent.close();
   });
+
+  it('can wait for a reload', async () => {
+    let counter = 0;
+    koaServer.get('/refresh', ctx => {
+      if (counter === 0) {
+        ctx.body = `
+        <head><meta http-equiv = "refresh" content = "0; url = ${koaServer.baseUrl}/refresh" /></head>
+        <body><h1>Hi</h1></body>
+      `;
+      } else {
+        ctx.body = `
+        <body><h1>Loaded</h1></body>
+      `;
+      }
+      counter += 1;
+    });
+    const agent = await handler.createAgent();
+    await agent.goto(`${koaServer.baseUrl}/refresh`);
+
+    await expect(agent.waitForLocation('reload')).resolves.toBe(undefined);
+  });
+
+  it('will trigger reload if the same page is loaded again', async () => {
+    let counter = 0;
+
+    koaServer.post('/postback', ctx => {
+      ctx.redirect('/postback');
+    });
+
+    koaServer.get('/postback', ctx => {
+      if (counter === 0) {
+        ctx.body = `
+        <body>
+        <h1>Hi</h1>
+        <form action="/postback" method="post">
+          <input type="submit" name="submit">
+        </form>
+        </body>
+      `;
+      } else {
+        ctx.body = `<body><h1>Loaded</h1></body>`;
+      }
+      counter += 1;
+    });
+    const agent = await handler.createAgent();
+    await agent.goto(`${koaServer.baseUrl}/postback`);
+    await agent.click(agent.activeTab.document.querySelector('input'));
+
+    await expect(agent.waitForLocation('reload')).resolves.toBe(undefined);
+  });
 });
