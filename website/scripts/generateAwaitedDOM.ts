@@ -90,8 +90,6 @@ function saveDoc(doc: IDoc, filePath: string) {
     markup.push({ table: linksTable });
   }
 
-  if (doc.name !== 'XPathResult') return;
-
   if (doc.name === 'XPathResult') {
     for (const p of doc.properties) {
       if (p.name === 'singleNodeValue') {
