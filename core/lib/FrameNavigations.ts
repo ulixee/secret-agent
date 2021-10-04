@@ -190,6 +190,16 @@ export default class FrameNavigations extends TypedEventEmitter<IFrameNavigation
     statusChangeDate?: Date,
   ): void {
     if (url === 'about:blank') return;
+    // if this is a painting stable, it probably won't come from a loader event for the page
+    if (!loaderId) {
+      for (let i = this.history.length - 1; i >= 0; i -= 1) {
+        const nav = this.history[i];
+        if (nav && nav.finalUrl === url && nav.stateChanges.has(LoadStatus.HttpResponded)) {
+          loaderId = nav.loaderId;
+          break;
+        }
+      }
+    }
     this.changeNavigationState(incomingStatus, loaderId, statusChangeDate);
   }
 
@@ -293,8 +303,12 @@ export default class FrameNavigations extends TypedEventEmitter<IFrameNavigation
   ): void {
     const navigation = this.findMatchingNavigation(loaderId);
     if (!navigation) return;
-    if (navigation.stateChanges.has(newStatus)) return;
-
+    if (navigation.stateChanges.has(newStatus)) {
+      if (statusChangeDate && statusChangeDate < navigation.stateChanges.get(newStatus)) {
+        navigation.stateChanges.set(newStatus, statusChangeDate);
+      }
+      return;
+    }
     this.recordStatusChange(navigation, newStatus, statusChangeDate);
     if (loaderId) this.loaderIds.add(loaderId);
   }
