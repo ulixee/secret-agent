@@ -331,6 +331,13 @@ export default class Agent extends AwaitedEventTarget<{ close: void }> {
       if (CorePlugins.length) {
         options.corePluginPaths.push(PluginObject);
       }
+
+      if (connection.hasConnected) {
+        throw new Error(
+          'You muse call .use before any Agent "await" calls (ie, before the Agent connects to Core).',
+        );
+      }
+
       ClientPlugins.forEach(ClientPlugin => (ClientPluginsById[ClientPlugin.id] = ClientPlugin));
     } else {
       const ClientPlugins = extractPlugins<IClientPluginClass>(
