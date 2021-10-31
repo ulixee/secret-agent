@@ -45,6 +45,7 @@ export default class ResourcesTable extends SqliteTable<IResourcesRecord> {
         ['browserLoadFailure', 'TEXT'],
         ['browserBlockedReason', 'TEXT'],
         ['browserCanceled', 'INTEGER'],
+        ['documentUrl', 'TEXT'],
       ],
       true,
     );
@@ -106,6 +107,7 @@ export default class ResourcesTable extends SqliteTable<IResourcesRecord> {
       record.browserLoadFailure,
       record.browserBlockedReason,
       record.browserCanceled ? 1 : 0,
+      record.documentUrl,
     ]);
   }
 
@@ -172,6 +174,7 @@ export default class ResourcesTable extends SqliteTable<IResourcesRecord> {
       meta.response?.browserLoadFailure,
       extras.browserBlockedReason,
       extras.browserCanceled ? 1 : 0,
+      meta.documentUrl,
     ]);
   }
 
@@ -256,4 +259,5 @@ export interface IResourcesRecord {
   browserLoadFailure?: string;
   browserBlockedReason?: string;
   browserCanceled?: boolean;
+  documentUrl: string;
 }
