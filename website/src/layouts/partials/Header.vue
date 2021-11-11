@@ -18,8 +18,6 @@
               | Repository
             a(href="//github.com/ulixee/secret-agent/issues" rel="noopener noreferrer" target="_blank")
               | Issues
-            a(href="//github.com/ulixee/secret-agent/projects/1" rel="noopener noreferrer" target="_blank")
-              | Roadmap
 </template>
 
 <static-query>
