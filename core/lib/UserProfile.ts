@@ -12,7 +12,9 @@ export default class UserProfile {
   public static async export(session: Session) {
     const cookies = await session.browserContext.getCookies();
 
-    const storage: IDomStorage = {};
+    // start with previous storage
+    const storage: IDomStorage = session.options.userProfile?.storage ?? {};
+
     for (const tab of session.tabsById.values()) {
       const page = tab.puppetPage;
 

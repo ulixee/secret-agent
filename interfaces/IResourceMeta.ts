@@ -9,6 +9,7 @@ export default interface IResourceMeta {
   request: IResourceRequest;
   response?: IResourceResponse;
   type: ResourceType;
+  documentUrl: string;
   isRedirect?: boolean;
   receivedAtCommandId?: number;
   seenAtCommandId?: number;

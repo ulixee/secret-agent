@@ -365,6 +365,7 @@ export default class SessionState {
       receivedAtCommandId: this.lastCommand?.id,
       type: resourceType,
       isRedirect: !!redirectedToUrl,
+      documentUrl: resourceEvent.documentUrl,
       request: {
         ...request,
         postData: request.postData?.toString(),

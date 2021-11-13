@@ -24,6 +24,12 @@ Retrieve the network request used to retrieve this resource.
 
 The requested url
 
+### documentUrl
+
+The document (if applicable) that requested this resource.
+
+#### **Returns** `string`
+
 #### **Returns** `string`
 
 ### type
