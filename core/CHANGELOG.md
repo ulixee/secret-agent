@@ -3,6 +3,22 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.5.14](https://github.com/ulixee/secret-agent/compare/v1.5.13...v1.5.14) (2021-11-15)
+
+
+### Bug Fixes
+
+* **core:** don't lose old user-profile storage ([9fe9ae4](https://github.com/ulixee/secret-agent/commit/9fe9ae4d6827a93f6b681dc10455d4695369b37f)), closes [#342](https://github.com/ulixee/secret-agent/issues/342)
+
+
+### Features
+
+* **mitm:** add documentUrl to resources ([7fcbf8f](https://github.com/ulixee/secret-agent/commit/7fcbf8faf84a72360d490f14c72910ea54619dc6))
+
+
+
+
+
 
 
 **Note:** Version bump only for package @secret-agent/core

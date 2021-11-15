@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.5.14](https://github.com/ulixee/secret-agent/compare/v1.5.13...v1.5.14) (2021-11-15)
+
+
+### Bug Fixes
+
+* **human-emulator:** fix updated traget point ([98eabd1](https://github.com/ulixee/secret-agent/commit/98eabd183660fd2cbbc44575f2703ae86e5e2950))
+
+
+
+
+
 
 
 **Note:** Version bump only for package @secret-agent/default-human-emulator

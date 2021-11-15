@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.5.14](https://github.com/ulixee/secret-agent/compare/v1.5.13...v1.5.14) (2021-11-15)
+
+
+### Features
+
+* **mitm:** add documentUrl to resources ([7fcbf8f](https://github.com/ulixee/secret-agent/commit/7fcbf8faf84a72360d490f14c72910ea54619dc6))
+
+
+
+
+
 
 
 **Note:** Version bump only for package @secret-agent/client

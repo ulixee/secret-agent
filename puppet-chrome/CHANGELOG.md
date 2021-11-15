@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.5.14](https://github.com/ulixee/secret-agent/compare/v1.5.13...v1.5.14) (2021-11-15)
+
+
+### Bug Fixes
+
+* **puppet:** fix stack trace for protocol error ([8a5b4bf](https://github.com/ulixee/secret-agent/commit/8a5b4bf16b53268509b0ad93d3db74559f6de699))
+
+
+
+
+
 
 
 **Note:** Version bump only for package @secret-agent/puppet-chrome

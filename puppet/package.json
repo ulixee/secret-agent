@@ -1,16 +1,16 @@
 {
   "name": "@secret-agent/puppet",
-  "version": "1.5.13",
+  "version": "1.5.14",
   "description": "Puppet driver",
   "dependencies": {
-    "@secret-agent/commons": "1.5.13",
-    "@secret-agent/interfaces": "1.5.13",
-    "@secret-agent/puppet-chrome": "1.5.13",
+    "@secret-agent/commons": "1.5.14",
+    "@secret-agent/interfaces": "1.5.14",
+    "@secret-agent/puppet-chrome": "1.5.14",
     "ws": "^7.4.4"
   },
   "devDependencies": {
-    "@secret-agent/core": "1.5.13",
-    "@secret-agent/default-browser-emulator": "1.5.13",
-    "@secret-agent/testing": "1.5.13"
+    "@secret-agent/core": "1.5.14",
+    "@secret-agent/default-browser-emulator": "1.5.14",
+    "@secret-agent/testing": "1.5.14"
   }
 }
