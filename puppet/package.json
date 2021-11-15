@@ -6,7 +6,7 @@
     "@secret-agent/commons": "1.5.14",
     "@secret-agent/interfaces": "1.5.14",
     "@secret-agent/puppet-chrome": "1.5.14",
-    "ws": "^7.4.4"
+    "ws": "^7.4.6"
   },
   "devDependencies": {
     "@secret-agent/core": "1.5.14",

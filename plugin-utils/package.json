@@ -8,7 +8,7 @@
     "@secret-agent/commons": "1.5.14",
     "@secret-agent/interfaces": "1.5.14",
     "progress": "^2.0.3",
-    "tar": "^6.1.0"
+    "tar": "^6.1.11"
   },
   "devDependencies": {
     "@secret-agent/core": "1.5.14",
