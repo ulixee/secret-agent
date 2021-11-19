@@ -1,6 +1,7 @@
 import '@secret-agent/commons/SourceMapSupport';
 import ICoreConfigureOptions from '@secret-agent/interfaces/ICoreConfigureOptions';
 import Log from '@secret-agent/commons/Logger';
+import ShutdownHandler from '@secret-agent/commons/ShutdownHandler';
 import Core from '.';
 
 const { log } = Log(module);
@@ -11,7 +12,7 @@ const { log } = Log(module);
 
   Core.onShutdown = () => {
     log.stats('Exiting Core Process');
-    process.exit();
+    ShutdownHandler.shutdown(true);
   };
   await Core.start(startOptions, !process.env.SA_TEMPORARY_CORE);
 })().catch(error => {
