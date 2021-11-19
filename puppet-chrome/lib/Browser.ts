@@ -17,10 +17,13 @@ interface IBrowserEvents {
 }
 const { log } = Log(module);
 
+let browserIdCounter = 0;
+
 export class Browser extends TypedEventEmitter<IBrowserEvents> implements IPuppetBrowser {
   public readonly browserContextsById = new Map<string, BrowserContext>();
   public readonly devtoolsSession: DevtoolsSession;
-  public onDevtoolsAttached?: (session: DevtoolsSession) => Promise<any>;
+  public onDevtoolsPanelAttached?: (session: DevtoolsSession) => Promise<any>;
+  public id: string;
 
   public get name(): string {
     return this.version.product.split('/').shift();
@@ -45,6 +48,7 @@ export class Browser extends TypedEventEmitter<IBrowserEvents> implements IPuppe
     this.connection = connection;
     this.devtoolsSession = connection.rootSession;
     this.closeCallback = closeCallback;
+    this.id = String((browserIdCounter += 1));
 
     this.connection.on('disconnected', this.emit.bind(this, 'disconnected'));
     this.devtoolsSession.on('Target.attachedToTarget', this.onAttachedToTarget.bind(this));
@@ -129,10 +133,10 @@ export class Browser extends TypedEventEmitter<IBrowserEvents> implements IPuppe
     if (
       targetInfo.type === 'other' &&
       targetInfo.url.startsWith('devtools://devtools') &&
-      this.onDevtoolsAttached
+      this.onDevtoolsPanelAttached
     ) {
       const devtoolsSession = this.connection.getSession(sessionId);
-      this.onDevtoolsAttached(devtoolsSession).catch(() => null);
+      this.onDevtoolsPanelAttached(devtoolsSession).catch(() => null);
       return;
     }
 
