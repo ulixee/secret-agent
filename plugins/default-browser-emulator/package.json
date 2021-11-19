@@ -16,6 +16,7 @@
     "@secret-agent/core": "1.5.14",
     "@secret-agent/puppet": "1.5.14",
     "@secret-agent/testing": "1.5.14",
+    "@secret-agent/mitm": "1.5.14",
     "@types/tough-cookie": "^4.0.0",
     "secret-agent": "1.5.14",
     "source-map-loader": "^0.2.4"

@@ -155,6 +155,10 @@ NOTE: when using this method, you must call [`agent.close()`](/docs/basic-interf
   - showReplay `boolean`. Whether or not to show the Replay UI. Can also be set with an env variable: `SA_SHOW_REPLAY=true`.
   - input `object`. An object containing properties to attach to the agent (more frequently used with [`dispatchAgent`](#dispatch-agent))
   - upstreamProxyUrl `string`. A socks5 or http proxy url (and optional auth) to use for all HTTP requests in this session. The optional "auth" should be included in the UserInfo section of the url, eg: `http://username:password@proxy.com:80`.
+  - upstreamProxyIpMask `object`. Optional settings to mask the Public IP Address of a host machine when using a proxy. This is used by the default BrowserEmulator to mask WebRTC IPs.
+    - ipLookupService `string`. The URL of an http based IpLookupService. A list of common options can be found in `plugins/default-browser-emulator/lib/helpers/lookupPublicIp.ts`. Defaults to `ipify.org`.
+    - proxyIp `string`. The optional IP address of your proxy, if known ahead of time.
+    - publicIp `string`. The optional IP address of your host machine, if known ahead of time.
 
 See the [Configuration](/docs/overview/configuration) page for more details on `options` and its defaults. You may also want to explore [BrowserEmulators](/docs/plugins/browser-emulators) and [HumanEmulators](/docs/plugins/human-emulators).
 

@@ -12,10 +12,10 @@ import ITlsSettings from './ITlsSettings';
 import IHttpResourceLoadDetails from './IHttpResourceLoadDetails';
 import { IPuppetPage } from './IPuppetPage';
 import { IPuppetWorker } from './IPuppetWorker';
-import IViewport from './IViewport';
-import IGeolocation from './IGeolocation';
 import IDeviceProfile from './IDeviceProfile';
 import IHttp2ConnectSettings from './IHttp2ConnectSettings';
+import IHttpSocketAgent from './IHttpSocketAgent';
+import ISessionCreateOptions from './ISessionCreateOptions';
 
 export default interface ICorePlugin
   extends ICorePluginMethods,
@@ -108,6 +108,7 @@ export interface IBrowserEmulatorMethods {
   onDnsConfiguration?(settings: IDnsSettings): Promise<any> | void;
   onTcpConfiguration?(settings: ITcpSettings): Promise<any> | void;
   onTlsConfiguration?(settings: ITlsSettings): Promise<any> | void;
+  onHttpAgentInitialized?(agent: IHttpSocketAgent): Promise<any> | void;
 
   onHttp2SessionConnect?(
     request: IHttpResourceLoadDetails,
@@ -122,12 +123,10 @@ export interface IBrowserEmulatorMethods {
   websiteHasFirstPartyInteraction?(url: URL): Promise<any> | void; // needed for implementing first-party cookies
 }
 
-export interface IBrowserEmulatorConfig {
-  viewport?: IViewport;
-  geolocation?: IGeolocation;
-  timezoneId?: string;
-  locale?: string;
-}
+export type IBrowserEmulatorConfig = Pick<
+  ISessionCreateOptions,
+  'viewport' | 'geolocation' | 'timezoneId' | 'locale' | 'upstreamProxyIpMask' | 'upstreamProxyUrl'
+>;
 
 // decorator for browser emulator classes. hacky way to check the class implements statics we need
 // eslint-disable-next-line @typescript-eslint/no-unused-vars

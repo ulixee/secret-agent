@@ -267,6 +267,7 @@ export default class Session extends TypedEventEmitter<{
     requestSession.on('resource-state', this.onResourceStates.bind(this));
     requestSession.on('socket-close', this.onSocketClose.bind(this));
     requestSession.on('socket-connect', this.onSocketConnect.bind(this));
+    await this.plugins.onHttpAgentInitialized(requestSession.requestAgent);
   }
 
   public nextTabId(): number {

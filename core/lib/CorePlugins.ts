@@ -10,14 +10,14 @@ import { IInteractionGroups, IInteractionStep } from '@secret-agent/interfaces/I
 import IInteractionsHelper from '@secret-agent/interfaces/IInteractionsHelper';
 import IPoint from '@secret-agent/interfaces/IPoint';
 import ICorePlugin, {
-  IHumanEmulator,
   IBrowserEmulator,
-  IBrowserEmulatorConfig,
-  ISelectBrowserMeta,
-  ICorePluginClass,
-  IOnClientCommandMeta,
   IBrowserEmulatorClass,
+  IBrowserEmulatorConfig,
+  ICorePluginClass,
+  IHumanEmulator,
   IHumanEmulatorClass,
+  IOnClientCommandMeta,
+  ISelectBrowserMeta,
 } from '@secret-agent/interfaces/ICorePlugin';
 import ICorePlugins from '@secret-agent/interfaces/ICorePlugins';
 import ICorePluginCreateOptions from '@secret-agent/interfaces/ICorePluginCreateOptions';
@@ -26,6 +26,7 @@ import { PluginTypes } from '@secret-agent/interfaces/IPluginTypes';
 import requirePlugins from '@secret-agent/plugin-utils/lib/utils/requirePlugins';
 import IHttp2ConnectSettings from '@secret-agent/interfaces/IHttp2ConnectSettings';
 import IDeviceProfile from '@secret-agent/interfaces/IDeviceProfile';
+import IHttpSocketAgent from '@secret-agent/interfaces/IHttpSocketAgent';
 import Core from '../index';
 
 const DefaultBrowserEmulatorId = 'default-browser-emulator';
@@ -134,6 +135,14 @@ export default class CorePlugins implements ICorePlugins {
 
   public onTlsConfiguration(settings: ITlsSettings): void {
     this.instances.filter(p => p.onTlsConfiguration).forEach(p => p.onTlsConfiguration(settings));
+  }
+
+  public async onHttpAgentInitialized(agent: IHttpSocketAgent): Promise<void> {
+    await Promise.all(
+      this.instances
+        .filter(p => p.onHttpAgentInitialized)
+        .map(p => p.onHttpAgentInitialized(agent)),
+    );
   }
 
   public async onNewPuppetPage(page: IPuppetPage): Promise<void> {

@@ -60,6 +60,10 @@ describe('basic Full Client tests', () => {
   it('should get unreachable proxy errors in the client', async () => {
     const agent = await handler.createAgent({
       upstreamProxyUrl: koaServer.baseUrl,
+      upstreamProxyIpMask: {
+        proxyIp: '127.0.0.1',
+        publicIp: '127.0.0.1',
+      },
     });
     Helpers.needsClosing.push(agent);
     await expect(agent.goto(`${koaServer.baseUrl}/`)).rejects.toThrow();
