@@ -10,19 +10,25 @@ import IPuppetLaunchArgs from '@secret-agent/interfaces/IPuppetLaunchArgs';
 import IPuppetContext from '@secret-agent/interfaces/IPuppetContext';
 import { TypedEventEmitter } from '@secret-agent/commons/eventUtils';
 import IDevtoolsSession from '@secret-agent/interfaces/IDevtoolsSession';
-import launchProcess from './lib/launchProcess';
+import Resolvable from '@secret-agent/commons/Resolvable';
 import PuppetLaunchError from './lib/PuppetLaunchError';
+import BrowserProcess from './lib/BrowserProcess';
 
 const { log } = Log(module);
 
 let puppBrowserCounter = 1;
 export default class Puppet extends TypedEventEmitter<{ close: void }> {
+  public get browserId(): string {
+    return this.browser?.id;
+  }
+
   public readonly id: number;
   public readonly browserEngine: IBrowserEngine;
   public supportsBrowserContextProxy: boolean;
+  public isReady = new Resolvable<void | Error>();
+  public isStarted = false;
   private readonly launcher: IPuppetLauncher;
-  private isShuttingDown = false;
-  private isStarted = false;
+  private isShuttingDown: Promise<Error | void>;
   private browser: IPuppetBrowser;
 
   constructor(browserEngine: IBrowserEngine, args: IPuppetLaunchArgs = {}) {
@@ -42,6 +48,15 @@ export default class Puppet extends TypedEventEmitter<{ close: void }> {
   public async start(
     attachToDevtools?: (session: IDevtoolsSession) => Promise<any>,
   ): Promise<Puppet> {
+    const parentLogId = log.info('Puppet.Starting', {
+      sessionId: null,
+      name: this.browserEngine.name,
+      fullVersion: this.browserEngine.fullVersion,
+    });
+    if (this.isStarted) {
+      await this.isReady.promise;
+      return this;
+    }
     try {
       this.isStarted = true;
 
@@ -49,64 +64,74 @@ export default class Puppet extends TypedEventEmitter<{ close: void }> {
         await this.browserEngine.verifyLaunchable();
       }
 
-      const launchedProcess = await launchProcess(
-        this.browserEngine.executablePath,
-        this.browserEngine.launchArguments,
-        this.browserDidClose.bind(this),
-      );
+      const launchedProcess = new BrowserProcess(this.browserEngine);
+      const hasError = await launchedProcess.hasLaunchError;
+      if (hasError) throw hasError;
+      launchedProcess.once('close', () => this.emit('close'));
 
       this.browser = await this.launcher.createPuppet(launchedProcess, this.browserEngine);
-      this.browser.onDevtoolsAttached = attachToDevtools;
+      this.browser.onDevtoolsPanelAttached = attachToDevtools;
 
       this.supportsBrowserContextProxy = this.browser.majorVersion >= 85;
 
+      this.isReady.resolve();
+      log.stats('Puppet.Started', {
+        sessionId: null,
+        parentLogId,
+      });
       return this;
     } catch (err) {
       const launchError = this.launcher.translateLaunchError(err);
-      throw new PuppetLaunchError(
+      const puppetLaunchError = new PuppetLaunchError(
         launchError.message,
         launchError.stack,
         launchError.isSandboxError,
       );
+      this.isReady.reject(puppetLaunchError);
+      log.stats('Puppet.LaunchError', {
+        puppetLaunchError,
+        sessionId: null,
+        parentLogId,
+      });
+      await this.isReady.promise;
     }
   }
 
-  public isSameEngine(other: Puppet): boolean {
-    return (
-      this.browserEngine.executablePath === other.browserEngine.executablePath &&
-      this.browserEngine.launchArguments.toString() ===
-        other.browserEngine.launchArguments.toString()
-    );
-  }
-
-  public newContext(
+  public async newContext(
     plugins: ICorePlugins,
     logger: IBoundLog,
     proxy?: IProxyConnectionOptions,
   ): Promise<IPuppetContext> {
-    if (!this.isStarted || !this.browser) {
+    await this.isReady.promise;
+    if (!this.browser) {
       throw new Error('This Puppet instance has not had start() called on it');
     }
     if (this.isShuttingDown) throw new Error('Shutting down');
     return this.browser.newContext(plugins, logger, proxy);
   }
 
-  public async close() {
-    if (this.isShuttingDown || !this.isStarted) return;
-    this.isShuttingDown = true;
-    log.stats('Puppet.Closing');
+  public async close(): Promise<void | Error> {
+    if (!this.isStarted) return;
+    if (this.isShuttingDown) return this.isShuttingDown;
+
+    const parentLogId = log.stats('Puppet.Closing');
 
     try {
-      await this.browser?.close();
+      // if we started to get ready, clear out now
+      this.isStarted = false;
+      if (this.isReady) {
+        const err = await this.isReady.catch(startError => startError);
+        this.isReady = null;
+        if (err) return;
+      }
+
+      this.isShuttingDown = this.browser?.close();
+      await this.isShuttingDown;
     } catch (error) {
-      log.error('Puppet.Closing:Error', { sessionId: null, error });
+      log.error('Puppet.Closing:Error', { parentLogId, sessionId: null, error });
     } finally {
       this.emit('close');
-      log.stats('Puppet.Closed');
+      log.stats('Puppet.Closed', { parentLogId, sessionId: null });
     }
-  }
-
-  private browserDidClose() {
-    this.emit('close');
   }
 }

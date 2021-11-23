@@ -3,9 +3,9 @@ import { LocationTrigger } from '@secret-agent/interfaces/Location';
 import Log, { hasBeenLoggedSymbol } from '@secret-agent/commons/Logger';
 import Resolvable from '@secret-agent/commons/Resolvable';
 import {
-  IHumanEmulatorClass,
   IBrowserEmulatorClass,
   ICorePluginClass,
+  IHumanEmulatorClass,
 } from '@secret-agent/interfaces/ICorePlugin';
 import { PluginTypes } from '@secret-agent/interfaces/IPluginTypes';
 import DefaultBrowserEmulator from '@secret-agent/default-browser-emulator';
@@ -20,7 +20,6 @@ import CoreProcess from './lib/CoreProcess';
 import Session from './lib/Session';
 import Tab from './lib/Tab';
 import GlobalPool from './lib/GlobalPool';
-import Signals = NodeJS.Signals;
 
 const { log } = Log(module);
 
@@ -94,6 +93,7 @@ export default class Core {
     this.isStarting = true;
     if (isExplicitlyStarted) this.wasManuallyStarted = true;
 
+    this.registerSignals();
     const { localProxyPortStart, sessionsDir, maxConcurrentAgentsCount } = options;
 
     if (maxConcurrentAgentsCount !== undefined)
@@ -175,21 +175,18 @@ export default class Core {
       });
     });
   }
-}
 
-['exit', 'SIGTERM', 'SIGINT', 'SIGQUIT'].forEach(name => {
-  process.once(name as Signals, async () => {
-    await Core.shutdown();
-    process.exit(0);
-  });
-});
+  private static registerSignals() {
+    ShutdownHandler.register(() => Core.shutdown());
 
-if (process.env.NODE_ENV !== 'test') {
-  process.on('uncaughtExceptionMonitor', async (error: Error) => {
-    await Core.logUnhandledError(error, true);
-    await Core.shutdown();
-  });
-  process.on('unhandledRejection', async (error: Error) => {
-    await Core.logUnhandledError(error, false);
-  });
+    if (process.env.NODE_ENV !== 'test') {
+      process.on('uncaughtExceptionMonitor', async (error: Error) => {
+        await Core.logUnhandledError(error, true);
+        await Core.shutdown();
+      });
+      process.on('unhandledRejection', async (error: Error) => {
+        await Core.logUnhandledError(error, false);
+      });
+    }
+  }
 }

@@ -5,10 +5,11 @@ import ICorePlugins from './ICorePlugins';
 import IDevtoolsSession from './IDevtoolsSession';
 
 export default interface IPuppetBrowser {
-  onDevtoolsAttached?: (devtoolsSession: IDevtoolsSession) => Promise<any>;
+  id: string;
   name: string;
   fullVersion: string;
   majorVersion: number;
+  onDevtoolsPanelAttached?: (devtoolsSession: IDevtoolsSession) => Promise<any>;
   newContext(
     plugins: ICorePlugins,
     logger: IBoundLog,
