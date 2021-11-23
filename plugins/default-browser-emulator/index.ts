@@ -15,6 +15,7 @@ import IUserAgentOption from '@secret-agent/interfaces/IUserAgentOption';
 import BrowserEngine from '@secret-agent/plugin-utils/lib/BrowserEngine';
 import IGeolocation from '@secret-agent/interfaces/IGeolocation';
 import IHttp2ConnectSettings from '@secret-agent/interfaces/IHttp2ConnectSettings';
+import IHttpSocketAgent from '@secret-agent/interfaces/IHttpSocketAgent';
 import Viewports from './lib/Viewports';
 import setWorkerDomOverrides from './lib/setWorkerDomOverrides';
 import setPageDomOverrides from './lib/setPageDomOverrides';
@@ -38,6 +39,7 @@ import loadDomOverrides from './lib/loadDomOverrides';
 import DomOverridesBuilder from './lib/DomOverridesBuilder';
 import configureDeviceProfile from './lib/helpers/configureDeviceProfile';
 import configureHttp2Session from './lib/helpers/configureHttp2Session';
+import lookupPublicIp, { IpLookupServices } from './lib/helpers/lookupPublicIp';
 
 const dataLoader = new DataLoader(__dirname);
 export const latestBrowserEngineId = 'chrome-88-0';
@@ -51,6 +53,8 @@ export default class DefaultBrowserEmulator extends BrowserEmulator {
   public locale: string;
   public viewport: IViewport;
   public geolocation: IGeolocation;
+  public upstreamProxyIpMask: IBrowserEmulatorConfig['upstreamProxyIpMask'];
+  public upstreamProxyUrl: string;
 
   protected readonly data: IBrowserData;
   private readonly domOverridesBuilder: DomOverridesBuilder;
@@ -80,10 +84,17 @@ export default class DefaultBrowserEmulator extends BrowserEmulator {
       config.timezoneId || this.timezoneId || Intl.DateTimeFormat().resolvedOptions().timeZone;
     config.geolocation = config.geolocation || this.geolocation;
 
+    if (config.upstreamProxyUrl) {
+      config.upstreamProxyIpMask ??= {};
+      config.upstreamProxyIpMask.ipLookupService ??= IpLookupServices.ipify;
+    }
+
     this.locale = config.locale;
     this.viewport = config.viewport;
     this.timezoneId = config.timezoneId;
     this.geolocation = config.geolocation;
+    this.upstreamProxyIpMask = config.upstreamProxyIpMask;
+    this.upstreamProxyUrl = config.upstreamProxyUrl;
   }
 
   public onDnsConfiguration(settings: IDnsSettings): void {
@@ -100,6 +111,26 @@ export default class DefaultBrowserEmulator extends BrowserEmulator {
 
   public beforeHttpRequest(resource: IHttpResourceLoadDetails): void {
     modifyHeaders(this, this.data, resource);
+  }
+
+  public async onHttpAgentInitialized(agent: IHttpSocketAgent): Promise<void> {
+    if (this.upstreamProxyIpMask) {
+      this.upstreamProxyIpMask.publicIp ??= await lookupPublicIp(
+        this.upstreamProxyIpMask.ipLookupService,
+      );
+      this.upstreamProxyIpMask.proxyIp ??= await lookupPublicIp(
+        this.upstreamProxyIpMask.ipLookupService,
+        agent,
+        this.upstreamProxyUrl,
+      );
+      this.logger.info('PublicIp Lookup', {
+        ...this.upstreamProxyIpMask,
+      });
+      this.domOverridesBuilder.add('webrtc', {
+        localIp: this.upstreamProxyIpMask.publicIp,
+        proxyIp: this.upstreamProxyIpMask.proxyIp,
+      });
+    }
   }
 
   public onHttp2SessionConnect(

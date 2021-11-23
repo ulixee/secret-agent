@@ -5,18 +5,22 @@ import Log from '@secret-agent/commons/Logger';
 import { TypedEventEmitter } from '@secret-agent/commons/eventUtils';
 import Resolvable from '@secret-agent/commons/Resolvable';
 import { createIpcSocketPath } from '@secret-agent/commons/IpcUtils';
+import IHttpSocketConnectOptions from '@secret-agent/interfaces/IHttpSocketConnectOptions';
+import IHttpSocketWrapper from '@secret-agent/interfaces/IHttpSocketWrapper';
 import MitmSocketSession from './lib/MitmSocketSession';
 
 const { log } = Log(module);
 
 let idCounter = 0;
 
-export default class MitmSocket extends TypedEventEmitter<{
-  connect: void;
-  dial: void;
-  eof: void;
-  close: void;
-}> {
+export default class MitmSocket
+  extends TypedEventEmitter<{
+    connect: void;
+    dial: void;
+    eof: void;
+    close: void;
+  }>
+  implements IHttpSocketWrapper {
   public get isWebsocket(): boolean {
     return this.connectOpts.isWebsocket === true;
   }
@@ -50,7 +54,7 @@ export default class MitmSocket extends TypedEventEmitter<{
   private socketReadyPromise = new Resolvable<void>();
   private readonly callStack: string;
 
-  constructor(readonly sessionId: string, readonly connectOpts: IGoTlsSocketConnectOpts) {
+  constructor(readonly sessionId: string, readonly connectOpts: IHttpSocketConnectOptions) {
     super();
     this.callStack = new Error().stack.replace('Error:', '').trim();
     this.serverName = connectOpts.servername;
@@ -224,18 +228,6 @@ export default class MitmSocket extends TypedEventEmitter<{
   private onSocketClose(): void {
     this.close();
   }
-}
-
-export interface IGoTlsSocketConnectOpts {
-  host: string;
-  port: string;
-  isSsl: boolean;
-  keepAlive?: boolean;
-  debug?: boolean;
-  servername?: string;
-  isWebsocket?: boolean;
-  keylogPath?: string;
-  proxyUrl?: string;
 }
 
 class Socks5ProxyConnectError extends Error {}

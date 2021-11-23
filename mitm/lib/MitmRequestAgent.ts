@@ -1,4 +1,4 @@
-import MitmSocket, { IGoTlsSocketConnectOpts } from '@secret-agent/mitm-socket';
+import MitmSocket from '@secret-agent/mitm-socket';
 import * as http2 from 'http2';
 import { ClientHttp2Session, Http2ServerRequest } from 'http2';
 import Log from '@secret-agent/commons/Logger';
@@ -10,6 +10,7 @@ import ITcpSettings from '@secret-agent/interfaces/ITcpSettings';
 import ITlsSettings from '@secret-agent/interfaces/ITlsSettings';
 import Resolvable from '@secret-agent/commons/Resolvable';
 import IHttp2ConnectSettings from '@secret-agent/interfaces/IHttp2ConnectSettings';
+import IHttpSocketConnectOptions from '@secret-agent/interfaces/IHttpSocketConnectOptions';
 import IMitmRequestContext from '../interfaces/IMitmRequestContext';
 import MitmRequestContext from './MitmRequestContext';
 import RequestSession from '../handlers/RequestSession';
@@ -135,27 +136,7 @@ export default class MitmRequestAgent {
     return await pool.isHttp2(false, () => this.createSocketConnection(options));
   }
 
-  private async assignSocket(
-    ctx: IMitmRequestContext,
-    options: IGoTlsSocketConnectOpts & { headers: IResourceHeaders },
-  ): Promise<MitmSocket> {
-    ctx.setState(ResourceState.GetSocket);
-    const pool = this.getSocketPoolByOrigin(ctx.url.origin);
-
-    options.isSsl = ctx.isSSL;
-    options.keepAlive = !(
-      (options.headers.connection ?? options.headers.Connection) as string
-    )?.match(/close/i);
-    options.isWebsocket = ctx.isUpgrade;
-
-    const mitmSocket = await pool.getSocket(options.isWebsocket, () =>
-      this.createSocketConnection(options),
-    );
-    MitmRequestContext.assignMitmSocket(ctx, mitmSocket);
-    return mitmSocket;
-  }
-
-  private async createSocketConnection(options: IGoTlsSocketConnectOpts): Promise<MitmSocket> {
+  public async createSocketConnection(options: IHttpSocketConnectOptions): Promise<MitmSocket> {
     const session = this.session;
 
     const dnsLookupTime = new Date();
@@ -184,6 +165,25 @@ export default class MitmRequestAgent {
       mitmSocket.socket.setNoDelay(true);
       mitmSocket.socket.setTimeout(0);
     }
+    return mitmSocket;
+  }
+
+  private async assignSocket(
+    ctx: IMitmRequestContext,
+    options: IHttpSocketConnectOptions & { headers: IResourceHeaders },
+  ): Promise<MitmSocket> {
+    ctx.setState(ResourceState.GetSocket);
+    const pool = this.getSocketPoolByOrigin(ctx.url.origin);
+
+    options.isSsl = ctx.isSSL;
+    options.keepAlive = !((options.headers.connection ??
+      options.headers.Connection) as string)?.match(/close/i);
+    options.isWebsocket = ctx.isUpgrade;
+
+    const mitmSocket = await pool.getSocket(options.isWebsocket, () =>
+      this.createSocketConnection(options),
+    );
+    MitmRequestContext.assignMitmSocket(ctx, mitmSocket);
     return mitmSocket;
   }
 

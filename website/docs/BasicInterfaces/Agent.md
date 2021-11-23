@@ -94,7 +94,12 @@ const { Agent } = require('secret-agent');
   - userProfile `IUserProfile`. Previous user's cookies, session, etc.
   - input `object`. An object containing properties to attach to the agent. NOTE: if using the default agent, this object will be populated with command line variables starting with `--input.{json path}`. The `{json path}` will be translated into an object set to `agent.input`.
   - showReplay `boolean`. Whether or not to show the Replay UI. Can also be set with an env variable: `SA_SHOW_REPLAY=true`.
-  - upstreamProxyUrl `string`. A socks5 or http proxy url (and optional auth) to use for all HTTP requests in this session. Dns over Tls requests will also use this proxy, if provided. The optional "auth" should be included in the UserInfo section of the url, eg: `http://username:password@proxy.com:80`.
+  - upstreamProxyUrl `string`. A socks5 or http proxy url (and optional auth) to use for all HTTP requests in this session. The optional "auth" should be included in the UserInfo section of the url, eg: `http://username:password@proxy.com:80`.
+  - upstreamProxyIpMask `object`. Optional settings to mask the Public IP Address of a host machine when using a proxy. This is used by the default BrowserEmulator to mask WebRTC IPs.
+    - ipLookupService `string`. The URL of an http based IpLookupService. A list of common options can be found in `plugins/default-browser-emulator/lib/helpers/lookupPublicIp.ts`. Defaults to `ipify.org`. 
+    - proxyIp `string`. The optional IP address of your proxy, if known ahead of time.
+    - publicIp `string`. The optional IP address of your host machine, if known ahead of time.
+
 
 ## Properties
 
@@ -164,7 +169,11 @@ Retrieves metadata about the agent configuration:
 - geolocation `IGeolocation`. The configured geolocation of the user (if set).
 - viewport `IViewport`. The emulated viewport size and location.
 - blockedResourceTypes `BlockedResourceType[]`. The blocked resource types.
-- upstreamProxyUrl `string`. The proxy url in use for this agent.
+- upstreamProxyUrl `string`. A socks5 or http proxy url (and optional auth) to use for all HTTP requests in this session. The optional "auth" should be included in the UserInfo section of the url, eg: `http://username:password@proxy.com:80`.
+- upstreamProxyIpMask `object`. Optional settings to mask the Public IP Address of a host machine when using a proxy. This is used by the default BrowserEmulator to mask WebRTC IPs.
+  - ipLookupService `string`. The URL of an http based IpLookupService. A list of common options can be found in `plugins/default-browser-emulator/lib/helpers/lookupPublicIp.ts`. Defaults to `ipify.org`.
+  - proxyIp `string`. The optional IP address of your proxy, if known ahead of time.
+  - publicIp `string`. The optional IP address of your host machine, if known ahead of time.
 - userAgentString `string`. The user agent string used in Http requests and within the DOM.
 
 #### **Type**: `Promise<IAgentMeta>`
@@ -277,6 +286,10 @@ Update existing configuration settings.
   - viewport `IViewport`. Sets the emulated screen size, window position in the screen, inner/outer width. (See constructor for parameters).
   - blockedResourceTypes `BlockedResourceType[]`. Controls browser resource loading. Valid options are listed [here](/docs/overview/configuration#blocked-resources).
   - upstreamProxyUrl `string`. A socks5 or http proxy url (and optional auth) to use for all HTTP requests in this session. The optional "auth" should be included in the UserInfo section of the url, eg: `http://username:password@proxy.com:80`.
+  - upstreamProxyIpMask `object`. Optional settings to mask the Public IP Address of a host machine when using a proxy. This is used by the default BrowserEmulator to mask WebRTC IPs.
+    - ipLookupService `string`. The URL of an http based IpLookupService. A list of common options can be found in `plugins/default-browser-emulator/lib/helpers/lookupPublicIp.ts`. Defaults to `ipify.org`.
+    - proxyIp `string`. The optional IP address of your proxy, if known ahead of time.
+    - publicIp `string`. The optional IP address of your host machine, if known ahead of time.
   - connectionToCore `options | ConnectionToCore`. An object containing `IConnectionToCoreOptions` used to connect, or an already created `ConnectionToCore` instance. Defaults to booting up and connecting to a local `Core`.
 
 #### **Returns**: `Promise`
