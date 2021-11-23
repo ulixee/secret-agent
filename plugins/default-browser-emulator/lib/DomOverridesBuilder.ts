@@ -25,7 +25,11 @@ export default class DomOverridesBuilder {
       {
         // NOTE: don't make this async. It can cause issues if you read a frame right after creation, for instance
         script: `(function newDocumentScript() {
+  // Worklet has no scope to override, but we can't detect until it loads
+  if (typeof self === 'undefined' && typeof window === 'undefined') return;
+  
   const sourceUrl = '${injectedSourceUrl}';
+  
   ${utilsScript}
 
    ${scripts.join('\n\n')}
