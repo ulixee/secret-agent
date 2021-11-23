@@ -34,8 +34,7 @@ import TargetInfo = Protocol.Target.TargetInfo;
 
 export class BrowserContext
   extends TypedEventEmitter<IPuppetContextEvents>
-  implements IPuppetContext
-{
+  implements IPuppetContext {
   public logger: IBoundLog;
 
   public workersById = new Map<string, IPuppetWorker>();
@@ -48,6 +47,7 @@ export class BrowserContext
   private pageOptionsByTargetId = new Map<string, IPuppetPageOptions>();
   private readonly createdTargetIds = new Set<string>();
   private creatingTargetPromises: Promise<void>[] = [];
+  private waitForPageAttachedById = new Map<string, Resolvable<Page>>();
   private readonly browser: Browser;
 
   private isClosing = false;
@@ -81,8 +81,8 @@ export class BrowserContext
   public defaultPageInitializationFn: (page: IPuppetPage) => Promise<any> = () => Promise.resolve();
 
   async newPage(options?: IPuppetPageOptions): Promise<Page> {
-    const resolvable = new Resolvable<void>();
-    this.creatingTargetPromises.push(resolvable.promise);
+    const createTargetPromise = new Resolvable<void>();
+    this.creatingTargetPromises.push(createTargetPromise.promise);
 
     const { targetId } = await this.sendWithBrowserDevtoolsSession('Target.createTarget', {
       url: 'about:blank',
@@ -94,29 +94,24 @@ export class BrowserContext
 
     await this.attachToTarget(targetId);
 
-    resolvable.resolve();
-    const idx = this.creatingTargetPromises.indexOf(resolvable.promise);
+    createTargetPromise.resolve();
+    const idx = this.creatingTargetPromises.indexOf(createTargetPromise.promise);
     if (idx >= 0) this.creatingTargetPromises.splice(idx, 1);
 
-    let hasTimedOut = false;
-    const timeout = setTimeout(() => {
-      hasTimedOut = true;
-    }, 10e3).unref();
-
-    // NOTE: flow here interrupts and expects session to attach and call onPageAttached below
-    while (!this.isClosing) {
-      const page = this.pagesById.get(targetId);
-      if (!page) {
-        if (hasTimedOut) throw new Error('Error creating page. Timed out waiting to attach');
-        await new Promise(setImmediate);
-
-        continue;
-      }
-      clearTimeout(timeout);
-      await page.isReady;
-      if (page.isClosed) throw new Error('Page has been closed.');
-      return page;
+    let page = this.pagesById.get(targetId);
+    if (!page) {
+      const pageAttachedPromise = new Resolvable<Page>(
+        60e3,
+        'Error creating page. Timed out waiting to attach',
+      );
+      this.waitForPageAttachedById.set(targetId, pageAttachedPromise);
+      page = await pageAttachedPromise.promise;
+      this.waitForPageAttachedById.delete(targetId);
     }
+
+    await page.isReady;
+    if (page.isClosed) throw new Error('Page has been closed.');
+    return page;
   }
 
   initializePage(page: Page): Promise<any> {
@@ -150,6 +145,7 @@ export class BrowserContext
 
     const page = new Page(devtoolsSession, targetInfo.targetId, this, this.logger, opener);
     this.pagesById.set(page.targetId, page);
+    this.waitForPageAttachedById.get(page.targetId)?.resolve(page);
     await page.isReady;
     this.emit('page', { page });
     return page;
@@ -220,6 +216,9 @@ export class BrowserContext
     if (this.isClosing) return;
     this.isClosing = true;
 
+    for (const waitingPage of this.waitForPageAttachedById.values()) {
+      waitingPage.reject(new CanceledPromiseError('BrowserContext shutting down'));
+    }
     if (this.browser.devtoolsSession.isConnected()) {
       await Promise.all([...this.pagesById.values()].map(x => x.close()));
       await this.sendWithBrowserDevtoolsSession('Target.disposeBrowserContext', {
