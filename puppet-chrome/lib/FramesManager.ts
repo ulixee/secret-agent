@@ -198,6 +198,12 @@ export default class FramesManager extends TypedEventEmitter<IPuppetFrameManager
     await this.isReady;
     const { context } = event;
     const frameId = context.auxData.frameId as string;
+    const type = context.auxData.type as string;
+
+    const defaultScope =
+      type === 'default' && context.auxData.isDefault === true && context.name === '';
+    const isolatedScope = type === 'isolated' && context.name === ISOLATED_WORLD;
+    if (!isolatedScope && !defaultScope) return;
 
     this.activeContextIds.add(context.id);
     const frame = this.framesById.get(frameId);
@@ -207,7 +213,7 @@ export default class FramesManager extends TypedEventEmitter<IPuppetFrameManager
         executionContextId: context.id,
       });
     }
-    frame?.addContextId(context.id, context.name === '' || context.auxData?.isDefault === true);
+    frame?.addContextId(context.id, defaultScope);
   }
 
   /////// FRAMES ///////////////////////////////////////////////////////////////
