@@ -3,6 +3,23 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.5.15](https://github.com/ulixee/secret-agent/compare/v1.5.14...v1.5.15) (2021-11-24)
+
+
+### Bug Fixes
+
+* **client:** handle ws closing during shutdown ([09bfe29](https://github.com/ulixee/secret-agent/commit/09bfe29f54a4307fe0df1370a35a87d7950e9378))
+* **puppet:** consisten timeout handling ([ba6bcee](https://github.com/ulixee/secret-agent/commit/ba6bcee3384811824ae3dc3789c5c3fc6088905a))
+
+
+### Features
+
+* **plugins:** mask public ip in webrtc ([14d3c67](https://github.com/ulixee/secret-agent/commit/14d3c673327c149084ae32cd71c944cf60a84df3))
+
+
+
+
+
 ## [1.5.14](https://github.com/ulixee/secret-agent/compare/v1.5.13...v1.5.14) (2021-11-15)
 
 

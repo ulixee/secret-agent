@@ -3,6 +3,22 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.5.15](https://github.com/ulixee/secret-agent/compare/v1.5.14...v1.5.15) (2021-11-24)
+
+
+### Bug Fixes
+
+* **mitm:** clean invalid response characters ([5d85921](https://github.com/ulixee/secret-agent/commit/5d859217d7cf6aa870058e4234a079c0027e35b3))
+
+
+### Features
+
+* **plugins:** mask public ip in webrtc ([14d3c67](https://github.com/ulixee/secret-agent/commit/14d3c673327c149084ae32cd71c944cf60a84df3))
+
+
+
+
+
 ## [1.5.14](https://github.com/ulixee/secret-agent/compare/v1.5.13...v1.5.14) (2021-11-15)
 
 

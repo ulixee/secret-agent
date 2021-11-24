@@ -3,6 +3,29 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.5.15](https://github.com/ulixee/secret-agent/compare/v1.5.14...v1.5.15) (2021-11-24)
+
+
+### Bug Fixes
+
+* **client:** handle ws closing during shutdown ([09bfe29](https://github.com/ulixee/secret-agent/commit/09bfe29f54a4307fe0df1370a35a87d7950e9378))
+* **mitm:** clean invalid response characters ([5d85921](https://github.com/ulixee/secret-agent/commit/5d859217d7cf6aa870058e4234a079c0027e35b3))
+* **plugins:** improve user agent selector ([cd708bb](https://github.com/ulixee/secret-agent/commit/cd708bbc8e46705376f9cf3bd438a59c0063b6e7))
+* **puppet:** better handling of default loader ([2979ba7](https://github.com/ulixee/secret-agent/commit/2979ba7b323aab6896f9c2f006ca4bbbe40e69cb))
+* **puppet:** consisten timeout handling ([ba6bcee](https://github.com/ulixee/secret-agent/commit/ba6bcee3384811824ae3dc3789c5c3fc6088905a))
+* **puppet:** don't use contexts we didn't initiate ([710acab](https://github.com/ulixee/secret-agent/commit/710acabd1b4c0275d95048cb9f0053e2775f4d77))
+* **puppet:** fix flakiness on frame stopped ([002a516](https://github.com/ulixee/secret-agent/commit/002a51601123565b774f3589ddd9e35494516035))
+* **puppet:** fix shutdown issues (port from hero) ([2b70752](https://github.com/ulixee/secret-agent/commit/2b70752054edae95701243cc59afa48e113856fe))
+
+
+### Features
+
+* **plugins:** mask public ip in webrtc ([14d3c67](https://github.com/ulixee/secret-agent/commit/14d3c673327c149084ae32cd71c944cf60a84df3))
+
+
+
+
+
 ## [1.5.14](https://github.com/ulixee/secret-agent/compare/v1.5.13...v1.5.14) (2021-11-15)
 
 

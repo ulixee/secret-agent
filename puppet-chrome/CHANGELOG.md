@@ -3,6 +3,21 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.5.15](https://github.com/ulixee/secret-agent/compare/v1.5.14...v1.5.15) (2021-11-24)
+
+
+### Bug Fixes
+
+* **puppet:** better handling of default loader ([2979ba7](https://github.com/ulixee/secret-agent/commit/2979ba7b323aab6896f9c2f006ca4bbbe40e69cb))
+* **puppet:** consisten timeout handling ([ba6bcee](https://github.com/ulixee/secret-agent/commit/ba6bcee3384811824ae3dc3789c5c3fc6088905a))
+* **puppet:** don't use contexts we didn't initiate ([710acab](https://github.com/ulixee/secret-agent/commit/710acabd1b4c0275d95048cb9f0053e2775f4d77))
+* **puppet:** fix flakiness on frame stopped ([002a516](https://github.com/ulixee/secret-agent/commit/002a51601123565b774f3589ddd9e35494516035))
+* **puppet:** fix shutdown issues (port from hero) ([2b70752](https://github.com/ulixee/secret-agent/commit/2b70752054edae95701243cc59afa48e113856fe))
+
+
+
+
+
 ## [1.5.14](https://github.com/ulixee/secret-agent/compare/v1.5.13...v1.5.14) (2021-11-15)
 
 

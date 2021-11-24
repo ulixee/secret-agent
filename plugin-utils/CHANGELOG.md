@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.5.15](https://github.com/ulixee/secret-agent/compare/v1.5.14...v1.5.15) (2021-11-24)
+
+
+### Bug Fixes
+
+* **puppet:** fix shutdown issues (port from hero) ([2b70752](https://github.com/ulixee/secret-agent/commit/2b70752054edae95701243cc59afa48e113856fe))
+
+
+
+
+
 ## [1.5.14](https://github.com/ulixee/secret-agent/compare/v1.5.13...v1.5.14) (2021-11-15)
 
 **Note:** Version bump only for package @secret-agent/plugin-utils
