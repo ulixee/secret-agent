@@ -92,6 +92,7 @@ export default class FramesManager extends TypedEventEmitter<IPuppetFrameManager
         }
       } catch (error) {
         if (error instanceof CanceledPromiseError) {
+          resolve();
           return;
         }
         reject(error);

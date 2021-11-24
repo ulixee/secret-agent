@@ -73,6 +73,7 @@ export default class Frame extends TypedEventEmitter<IPuppetFrameEvents> impleme
   private loaderIdResolvers = new Map<string, IResolvablePromise<Error | null>>();
   private readonly devtoolsSession: DevtoolsSession;
   private startedLoaderId: string;
+  private defaultLoaderId: string;
   private resolveLoaderTimeout: NodeJS.Timeout;
 
   private get activeLoader(): IResolvablePromise<Error | null> {
@@ -236,11 +237,15 @@ export default class Frame extends TypedEventEmitter<IPuppetFrameEvents> impleme
   public onLoaded(internalFrame: PageFrame): void {
     this.internalFrame = internalFrame;
     this.updateUrl();
-    this.setLoader(internalFrame.loaderId);
-    if (internalFrame.loaderId && this.url) {
-      this.loaderIdResolvers.get(internalFrame.loaderId).resolve();
+    if (!internalFrame.loaderId) return;
+
+    // if we this is the first loader and url is default, this is the first loader
+    if (this.isDefaultUrl && !this.defaultLoaderId && this.loaderIdResolvers.size === 0) {
+      this.defaultLoaderId = internalFrame.loaderId;
     }
-    if (internalFrame.loaderId && internalFrame.unreachableUrl) {
+    this.setLoader(internalFrame.loaderId);
+
+    if (this.url || internalFrame.unreachableUrl) {
       // if this is a loaded frame, just count it as loaded. it shouldn't fail
       this.loaderIdResolvers.get(internalFrame.loaderId).resolve();
     }
@@ -299,9 +304,17 @@ export default class Frame extends TypedEventEmitter<IPuppetFrameEvents> impleme
     }
   }
 
-  public async waitForLoader(loaderId?: string): Promise<Error | null> {
-    const hasLoaderError = await this.loaderIdResolvers.get(loaderId ?? this.activeLoaderId)
-      ?.promise;
+  public async waitForLoader(loaderId?: string, timeoutMs = 60e3): Promise<Error | null> {
+    if (!loaderId) {
+      loaderId = this.activeLoaderId;
+      if (loaderId === this.defaultLoaderId) {
+        // wait for an actual frame to load
+        const frameLoader = await this.waitOn('frame-loader-created', null, timeoutMs);
+        loaderId = frameLoader.loaderId;
+      }
+    }
+
+    const hasLoaderError = await this.loaderIdResolvers.get(loaderId)?.promise;
     if (hasLoaderError) return hasLoaderError;
 
     if (!this.getActiveContextId(false)) {
@@ -348,7 +361,7 @@ export default class Frame extends TypedEventEmitter<IPuppetFrameEvents> impleme
       lifecycle[name] = new Date();
     }
 
-    if (!this.isDefaultUrl) {
+    if (loaderId !== this.defaultLoaderId) {
       this.emit('frame-lifecycle', { frame: this, name, loaderId: pageLoaderId });
     }
   }
@@ -425,9 +438,15 @@ export default class Frame extends TypedEventEmitter<IPuppetFrameEvents> impleme
     };
   }
 
-  public async waitForLoad(event: keyof ILifecycleEvents = 'load'): Promise<void> {
+  public async waitForLoad(
+    event: keyof ILifecycleEvents = 'load',
+    timeoutMs = 30e3,
+  ): Promise<void> {
+    event ??= 'load';
+    timeoutMs ??= 30e3;
+    await this.waitForLoader(null, timeoutMs);
     if (this.lifecycleEvents[event]) return;
-    await this.waitOn('frame-lifecycle', x => x.name === event, 30e3);
+    await this.waitOn('frame-lifecycle', x => x.name === event, timeoutMs);
   }
 
   private setLoader(loaderId: string): void {
