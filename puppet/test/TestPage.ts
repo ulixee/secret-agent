@@ -10,7 +10,7 @@ export interface ITestPage extends IPuppetPage {
   type(text: string): Promise<void>;
   attachFrame(frameId: string, url: string): Promise<IPuppetFrame>;
   detachFrame(frameId: string): Promise<void>;
-  goto(url: string, waitOnLifecycle?: string): Promise<void>;
+  goto(url: string, waitOnLifecycle?: string, timeoutMs?: number): Promise<void>;
   setContent(content: string): Promise<void>;
   waitForPopup(): Promise<IPuppetPage>;
 }
@@ -81,10 +81,15 @@ export async function goto(
   page: IPuppetPage,
   url: string,
   waitOnLifecycle: 'load' | 'DOMContentLoaded' = 'load',
+  timeoutMs?: number,
 ) {
-  const nav = page.navigate(url);
-  const lifecycle = page.mainFrame.waitOn('frame-lifecycle', ev => ev.name === waitOnLifecycle);
-  await Promise.all([lifecycle, nav, page.mainFrame.waitOn('frame-navigated')]);
+  waitOnLifecycle ??= 'load';
+  timeoutMs ??= 30e3;
+  await Promise.all([
+    page.navigate(url),
+    page.mainFrame.waitOn('frame-navigated', null, timeoutMs),
+  ]);
+  await page.mainFrame.waitForLoad(waitOnLifecycle, timeoutMs);
 }
 
 export async function setContent(page: IPuppetPage, content: string) {

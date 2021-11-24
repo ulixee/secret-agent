@@ -304,12 +304,12 @@ export default class Frame extends TypedEventEmitter<IPuppetFrameEvents> impleme
     }
   }
 
-  public async waitForLoader(loaderId?: string): Promise<Error | null> {
+  public async waitForLoader(loaderId?: string, timeoutMs = 60e3): Promise<Error | null> {
     if (!loaderId) {
       loaderId = this.activeLoaderId;
       if (loaderId === this.defaultLoaderId) {
         // wait for an actual frame to load
-        const frameLoader = await this.waitOn('frame-loader-created', null, 60e3);
+        const frameLoader = await this.waitOn('frame-loader-created', null, timeoutMs);
         loaderId = frameLoader.loaderId;
       }
     }
@@ -438,9 +438,15 @@ export default class Frame extends TypedEventEmitter<IPuppetFrameEvents> impleme
     };
   }
 
-  public async waitForLoad(event: keyof ILifecycleEvents = 'load'): Promise<void> {
+  public async waitForLoad(
+    event: keyof ILifecycleEvents = 'load',
+    timeoutMs = 30e3,
+  ): Promise<void> {
+    event ??= 'load';
+    timeoutMs ??= 30e3;
+    await this.waitForLoader(null, timeoutMs);
     if (this.lifecycleEvents[event]) return;
-    await this.waitOn('frame-lifecycle', x => x.name === event, 30e3);
+    await this.waitOn('frame-lifecycle', x => x.name === event, timeoutMs);
   }
 
   private setLoader(loaderId: string): void {
