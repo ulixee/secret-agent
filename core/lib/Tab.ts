@@ -173,7 +173,7 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
       resource.request?.url,
       resource.response?.url,
     );
-    if (frame) {
+    if (frame && !resource.isRedirect) {
       frame.navigations.onResourceLoaded(resource.id, resource.response?.statusCode, error);
       return true;
     }
@@ -366,8 +366,11 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
     const timeoutMessage = `Timeout waiting for "tab.goto(${url})"`;
 
     const timer = new Timer(timeoutMs, this.waitTimeouts);
-    await timer.waitForPromise(this.puppetPage.navigate(formattedUrl), timeoutMessage);
-    this.navigations.assignLoaderId(navigation, this.puppetPage.mainFrame.activeLoaderId);
+    const loader = await timer.waitForPromise(
+      this.puppetPage.navigate(formattedUrl),
+      timeoutMessage,
+    );
+    this.navigations.assignLoaderId(navigation, loader.loaderId);
 
     const resource = await timer.waitForPromise(
       this.navigationsObserver.waitForNavigationResourceId(),
@@ -384,7 +387,11 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
       null,
     );
     const backUrl = await this.puppetPage.goBack();
-    this.navigations.assignLoaderId(navigation, this.puppetPage.mainFrame.activeLoaderId, backUrl);
+    this.navigations.assignLoaderId(
+      navigation,
+      this.puppetPage.mainFrame.activeLoader?.id,
+      backUrl,
+    );
 
     await this.navigationsObserver.waitForLoad('PaintingStable', { timeoutMs });
     return this.url;
@@ -398,7 +405,7 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
       null,
     );
     const url = await this.puppetPage.goForward();
-    this.navigations.assignLoaderId(navigation, this.puppetPage.mainFrame.activeLoaderId, url);
+    this.navigations.assignLoaderId(navigation, this.puppetPage.mainFrame.activeLoader?.id, url);
     await this.navigationsObserver.waitForLoad('PaintingStable', { timeoutMs });
     return this.url;
   }
@@ -415,7 +422,7 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
     const timeoutMessage = `Timeout waiting for "tab.reload()"`;
 
     await timer.waitForPromise(this.puppetPage.reload(), timeoutMessage);
-    this.navigations.assignLoaderId(navigation, this.puppetPage.mainFrame.activeLoaderId);
+    this.navigations.assignLoaderId(navigation, this.puppetPage.mainFrame.activeLoader?.id);
 
     const resource = await timer.waitForPromise(
       this.navigationsObserver.waitForNavigationResourceId(),
@@ -462,7 +469,7 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
       await newTab.navigations.waitOn('navigation-requested', null, timeoutMs).catch(() => null);
     }
 
-    await newTab.mainFrameEnvironment.navigationsObserver.waitForNavigationResourceId();
+    await newTab.navigationsObserver.waitForNavigationResourceId();
     return newTab;
   }
 

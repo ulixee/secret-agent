@@ -15,6 +15,7 @@ let koaServer: ITestKoaServer;
 let connectionToClient: ConnectionToClient;
 beforeAll(async () => {
   const coreServer = new CoreServer();
+  Helpers.needsClosing.push(coreServer);
   await coreServer.listen({ port: 0 });
   Core.use(
     class BasicHumanEmulator extends HumanEmulator {
@@ -188,7 +189,7 @@ describe('basic Navigation tests', () => {
 
     await tab.goto(`${koaServer.baseUrl}/backAndForth`);
     expect(await tab.getLocationHref()).toBe(`${koaServer.baseUrl}/backAndForth`);
-    // @ts-ignore
+
     const pages = tab.navigations;
     expect(pages.history).toHaveLength(2);
     expect(pages.currentUrl).toBe(`${koaServer.baseUrl}/backAndForth`);
@@ -306,7 +307,6 @@ describe('basic Navigation tests', () => {
 
     expect(currentUrl).toBe(navigateToUrl);
 
-    // @ts-ignore
     const pages = tab.navigations;
     expect(pages.history).toHaveLength(2);
   });
@@ -333,9 +333,12 @@ setTimeout(function() {
 
     await tab.waitForLoad(LocationStatus.PaintingStable);
     await tab.waitForMillis(50);
-    // @ts-ignore
+
     const pages = tab.navigations;
     expect(pages.history).toHaveLength(3);
+    expect(pages.history[0].stateChanges.has('DomContentLoaded')).toBe(true);
+    expect(pages.history[1].stateChanges.has('DomContentLoaded')).toBe(true);
+
     expect(pages.history.map(x => x.finalUrl ?? x.requestedUrl)).toStrictEqual([
       startingUrl,
       navigateToUrl,
@@ -344,6 +347,29 @@ setTimeout(function() {
 
     const currentUrl = await tab.getLocationHref();
     expect(currentUrl).toBe(pages.top.finalUrl);
+  });
+
+  it('handles in-page history change that happens before page load', async () => {
+    const navigateToUrl = `${koaServer.baseUrl}/inpagenav/1`;
+    const { tab } = await createSession();
+
+    koaServer.get('/inpagenav', ctx => {
+      ctx.body = `<body><script>
+history.pushState({}, '', '/inpagenav/1');
+    </script>
+</body>`;
+    });
+
+    await tab.goto(`${koaServer.baseUrl}/inpagenav`);
+    await tab.waitForLoad(LocationStatus.PaintingStable);
+
+    const currentUrl = await tab.getLocationHref();
+
+    expect(currentUrl).toBe(navigateToUrl);
+    const pages = tab.navigations;
+    expect(pages.history).toHaveLength(2);
+    expect(pages.history[0].stateChanges.has('DomContentLoaded')).toBe(true);
+    expect(pages.history[1].stateChanges.has('DomContentLoaded')).toBe(true);
   });
 
   it.todo('handles going to about:blank');
@@ -421,26 +447,31 @@ setTimeout(function() {
   it('handles a new tab that redirects', async () => {
     const { tab } = await createSession();
 
-    koaServer.get('/popup-redirect', ctx => {
+    koaServer.get('/popup-redirect', async ctx => {
+      await new Promise(resolve => setTimeout(resolve, 25));
       ctx.redirect('/popup-redirect2');
     });
-    koaServer.get('/popup-redirect2', ctx => {
+    koaServer.get('/popup-redirect2', async ctx => {
       ctx.status = 301;
+      await new Promise(resolve => setTimeout(resolve, 25));
       ctx.set('Location', '/popup-redirect3');
     });
     koaServer.get('/popup-redirect3', ctx => {
-      ctx.body = '<body><h1>Long journey!</h1></body>';
-    });
-    koaServer.get('/popup', ctx => {
       ctx.body = `<body>
 <h1>Loaded</h1>
 <script type="text/javascript">
 const perfObserver = new PerformanceObserver(() => {
-  window.location.href = '/popup-redirect';
+  window.location.href = '/popup-done';
 });
 perfObserver.observe({ type: 'largest-contentful-paint', buffered: true });
 </script>
       </body>`;
+    });
+    koaServer.get('/popup-done', ctx => {
+      ctx.body = '<body><h1>Long journey!</h1></body>';
+    });
+    koaServer.get('/popup', ctx => {
+      ctx.redirect('/popup-redirect');
     });
     koaServer.get('/popup-start', ctx => {
       ctx.body = `<body><a href='${koaServer.baseUrl}/popup' target="_blank">Popup</a></body>`;
@@ -457,30 +488,32 @@ perfObserver.observe({ type: 'largest-contentful-paint', buffered: true });
 
     // clear data before this run
     const popupTab = await tab.waitForNewTab();
+    expect(popupTab.url).toBe(`${koaServer.baseUrl}/popup-redirect3`);
+    const lastCommandId = popupTab.lastCommandId;
     await popupTab.waitForLoad(LocationStatus.PaintingStable);
-    const commandId = popupTab.lastCommandId;
-    // if we're on serious delay, need to wait for change
-    if ((await popupTab.getLocationHref()) === `${koaServer.baseUrl}/popup`) {
-      await popupTab.waitForLocation('change', { sinceCommandId: commandId });
+    if (popupTab.url !== `${koaServer.baseUrl}/popup-done`) {
+      await popupTab.waitForLocation('change', { sinceCommandId: lastCommandId });
+      await popupTab.waitForLoad(LocationStatus.DomContentLoaded);
     }
-    await popupTab.waitForLoad(LocationStatus.PaintingStable);
+    expect(popupTab.url).toBe(`${koaServer.baseUrl}/popup-done`);
 
     tab.sessionState.db.flush();
-    expect(await popupTab.getLocationHref()).toBe(`${koaServer.baseUrl}/popup-redirect3`);
 
     const history = popupTab.navigations.history;
-    expect(history).toHaveLength(4);
+    expect(history).toHaveLength(5);
     expect(history.map(x => x.requestedUrl)).toStrictEqual([
       `${koaServer.baseUrl}/popup`,
       `${koaServer.baseUrl}/popup-redirect`,
       `${koaServer.baseUrl}/popup-redirect2`,
       `${koaServer.baseUrl}/popup-redirect3`,
+      `${koaServer.baseUrl}/popup-done`,
     ]);
     expect(history.map(x => x.finalUrl)).toStrictEqual([
-      `${koaServer.baseUrl}/popup`,
+      `${koaServer.baseUrl}/popup-redirect`,
       `${koaServer.baseUrl}/popup-redirect2`,
       `${koaServer.baseUrl}/popup-redirect3`,
       `${koaServer.baseUrl}/popup-redirect3`,
+      `${koaServer.baseUrl}/popup-done`,
     ]);
 
     expect(history[1].stateChanges.has(LocationStatus.HttpRedirected)).toBe(true);
@@ -490,7 +523,8 @@ perfObserver.observe({ type: 'largest-contentful-paint', buffered: true });
 
   it('should return the last redirected url as the "resource" when a goto redirects', async () => {
     const startingUrl = `${koaServer.baseUrl}/goto-redirect`;
-    koaServer.get('/goto-redirect', ctx => {
+    koaServer.get('/goto-redirect', async ctx => {
+      await new Promise(resolve => setTimeout(resolve, 100));
       ctx.redirect('/after-redirect');
     });
     koaServer.get('/after-redirect', ctx => {
