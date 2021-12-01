@@ -5,12 +5,13 @@ import ClientPlugin from './lib/ClientPlugin';
 import CorePlugin from './lib/CorePlugin';
 
 type ExecuteJsPluginAdditions = {
-  executeJs(fn: string | ((...args: any[]) => any), ...args: any[]);
+  executeJs<T extends any[]>(fn: string | ((...args: T) => any), ...args: T);
 };
 
 declare module '@secret-agent/client/lib/extendables' {
   interface Agent extends ExecuteJsPluginAdditions {}
   interface Tab extends ExecuteJsPluginAdditions {}
+  interface FrameEnvironment extends ExecuteJsPluginAdditions {}
 }
 
 export { ClientPlugin, CorePlugin };

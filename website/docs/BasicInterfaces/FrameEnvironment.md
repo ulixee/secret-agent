@@ -8,6 +8,12 @@ Frames cannot be constructed in SecretAgent. They're made available through the 
 
 ## Properties
 
+### frameEnvironment.children {#child-frames}
+
+Returns child FrameEnvironments for this frame.
+
+#### **Type**: Promise<[`FrameEnvironment`](/docs/basic-interfaces/tab#frame-environments)[]>
+
 ### frameEnvironment.cookieStorage {#cookie-storage}
 
 Returns a [CookieStorage](/docs/advanced/cookie-storage) instance to get/set/delete cookies.

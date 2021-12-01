@@ -565,6 +565,7 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
   public async runPluginCommand(toPluginId, args: any[]): Promise<any> {
     const commandMeta = {
       puppetPage: this.puppetPage,
+      puppetFrame: this.mainFrameEnvironment?.puppetFrame,
     };
     return await this.session.plugins.onPluginCommand(toPluginId, commandMeta, args);
   }

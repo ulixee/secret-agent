@@ -1,11 +1,16 @@
 import { PluginTypes } from './IPluginTypes';
-import type { Agent, Tab } from '../client';
+import type { Agent, Tab, FrameEnvironment } from '../client';
 
 export default interface IClientPlugin {
   id: string;
 
   onAgent?(agent: Agent, sendToCore: ISendToCoreFn): void;
   onTab?(agent: Agent, tab: Tab, sendToCore: ISendToCoreFn): void;
+  onFrameEnvironment?(
+    agent: Agent,
+    frameEnvironment: FrameEnvironment,
+    sendToCore: ISendToCoreFn,
+  ): void;
 }
 
 export interface IClientPluginClass {
