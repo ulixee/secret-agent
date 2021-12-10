@@ -40,7 +40,7 @@ If you meant to connect to a remote host, include the "host" parameter for your 
       }
     };
 
-    connection.connect().then(onError).catch(onError);
+    connection.connect(true).then(onError).catch(onError);
 
     return connection;
   }
