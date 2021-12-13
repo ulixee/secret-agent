@@ -6,16 +6,19 @@ export interface IPuppetFrame extends ITypedEventEmitter<IPuppetFrameEvents> {
   parentId?: string;
   name?: string;
   url: string;
-  activeLoaderId: string;
+  activeLoader: IPuppetNavigationLoader;
   navigationReason?: string;
   disposition?: string;
   securityOrigin: string;
-  isLoaded: boolean;
   isDefaultUrl: boolean;
-  isAttached(): boolean;
+  isAttached: boolean;
   resolveNodeId(backendNodeId: number): Promise<string>;
-  waitForLoad(eventName?: keyof ILifecycleEvents, timeoutMs?: number): Promise<void>;
-  waitForLoader(loaderId?: string): Promise<Error | undefined>;
+  waitForLifecycleEvent(
+    event: keyof ILifecycleEvents,
+    loaderId?: string,
+    timeoutMs?: number,
+  ): Promise<void>;
+  waitForLoader(loaderId?: string, timeoutMs?: number): Promise<Error | undefined>;
   canEvaluate(isolatedFromWebPageEnvironment: boolean): boolean;
   getFrameElementNodeId(): Promise<string>;
   evaluate<T>(
@@ -28,6 +31,13 @@ export interface IPuppetFrame extends ITypedEventEmitter<IPuppetFrameEvents> {
   toJSON(): object;
 }
 
+export interface IPuppetNavigationLoader {
+  id: string;
+  isNavigationComplete: boolean;
+  lifecycle: ILifecycleEvents;
+  url: string;
+}
+
 export interface ILifecycleEvents {
   DOMContentLoaded?: Date;
   load?: Date;
@@ -38,8 +48,8 @@ export interface IPuppetFrameManagerEvents {
   'frame-created': { frame: IPuppetFrame; loaderId: string };
 }
 export interface IPuppetFrameEvents {
-  'frame-lifecycle': { frame: IPuppetFrame; name: string; loaderId: string };
-  'frame-navigated': { frame: IPuppetFrame; navigatedInDocument?: boolean; loaderId?: string };
+  'frame-lifecycle': { frame: IPuppetFrame; name: string; loader: IPuppetNavigationLoader };
+  'frame-navigated': { frame: IPuppetFrame; navigatedInDocument?: boolean; loaderId: string };
   'frame-requested-navigation': {
     frame: IPuppetFrame;
     url: string;

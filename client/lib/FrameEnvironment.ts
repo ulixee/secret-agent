@@ -30,13 +30,14 @@ import { getComputedVisibilityFnName } from '@secret-agent/interfaces/jsPathFnNa
 import IAwaitedOptions from '../interfaces/IAwaitedOptions';
 import RequestGenerator, { getRequestIdOrUrl } from './Request';
 import CookieStorage, { createCookieStorage } from './CookieStorage';
-import Agent from './Agent';
+import Agent, { IState as IAgentState } from './Agent';
 import { delegate as AwaitedHandler, getAwaitedPathAsMethodArg } from './SetupAwaitedHandler';
 import CoreFrameEnvironment from './CoreFrameEnvironment';
 import Tab from './Tab';
 import { IMousePosition } from '../interfaces/IInteractions';
 
 const { getState, setState } = StateMachine<FrameEnvironment, IState>();
+const agentState = StateMachine<Agent, IAgentState>();
 const awaitedPathState = StateMachine<
   any,
   { awaitedPath: AwaitedPath; awaitedOptions: IAwaitedOptions }
@@ -67,6 +68,18 @@ export default class FrameEnvironment {
       tab,
       coreFrame,
     });
+    async function sendToFrameEnvironment(pluginId: string, ...args: any[]): Promise<any> {
+      return (await coreFrame).commandQueue.run(
+        'FrameEnvironment.runPluginCommand',
+        pluginId,
+        args,
+      );
+    }
+
+    for (const clientPlugin of agentState.getState(secretAgent).clientPlugins) {
+      if (clientPlugin.onFrameEnvironment)
+        clientPlugin.onFrameEnvironment(secretAgent, this, sendToFrameEnvironment);
+    }
   }
 
   public get isMainFrame(): Promise<boolean> {
@@ -75,6 +88,21 @@ export default class FrameEnvironment {
 
   public get frameId(): Promise<number> {
     return getCoreFrameEnvironment(this).then(x => x.frameId);
+  }
+
+  public get children(): Promise<FrameEnvironment[]> {
+    return getState(this).tab.frameEnvironments.then(async frames => {
+      const frameId = await this.frameId;
+
+      const childFrames: FrameEnvironment[] = [];
+      for (const frame of frames) {
+        const parentFrameId = await frame.parentFrameId;
+        if (parentFrameId === frameId) {
+          childFrames.push(frame);
+        }
+      }
+      return childFrames;
+    });
   }
 
   public get url(): Promise<string> {
@@ -88,9 +116,7 @@ export default class FrameEnvironment {
   }
 
   public get parentFrameId(): Promise<number | null> {
-    return getCoreFrameEnvironment(this)
-      .then(x => x.getFrameMeta())
-      .then(x => x.parentFrameId);
+    return getCoreFrameEnvironment(this).then(x => x.parentFrameId);
   }
 
   public get cookieStorage(): CookieStorage {

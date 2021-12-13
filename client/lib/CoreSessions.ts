@@ -6,6 +6,10 @@ export default class CoreSessions {
     this.queue.concurrency = value;
   }
 
+  public get size(): number {
+    return this.sessionsById.size;
+  }
+
   private readonly sessionsById = new Map<string, CoreSession>();
   private readonly queue: Queue;
   private readonly sessionTimeoutMillis: number;

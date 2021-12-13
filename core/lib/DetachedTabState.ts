@@ -56,7 +56,7 @@ export default class DetachedTabState {
     );
     await Promise.all([
       page.mainFrame.waitForLoader(loader.loaderId),
-      page.mainFrame.waitForLoad('DOMContentLoaded'),
+      page.mainFrame.waitForLifecycleEvent('DOMContentLoaded', loader.loaderId),
       InjectedScripts.installDetachedScripts(page),
     ]);
     await InjectedScripts.restoreDom(page, this.domChanges);

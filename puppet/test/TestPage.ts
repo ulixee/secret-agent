@@ -1,5 +1,5 @@
 import { IPuppetPage } from '@secret-agent/interfaces/IPuppetPage';
-import { IPuppetFrame } from '@secret-agent/interfaces/IPuppetFrame';
+import { ILifecycleEvents, IPuppetFrame } from '@secret-agent/interfaces/IPuppetFrame';
 import { IKeyboardKey } from '@secret-agent/interfaces/IKeyboardLayoutUS';
 import { keyDefinitions } from '@secret-agent/puppet-chrome/interfaces/USKeyboardLayout';
 import IPuppetContext from '@secret-agent/interfaces/IPuppetContext';
@@ -85,11 +85,11 @@ export async function goto(
 ) {
   waitOnLifecycle ??= 'load';
   timeoutMs ??= 30e3;
-  await Promise.all([
+  const [loader] = await Promise.all([
     page.navigate(url),
     page.mainFrame.waitOn('frame-navigated', null, timeoutMs),
   ]);
-  await page.mainFrame.waitForLoad(waitOnLifecycle, timeoutMs);
+  await page.mainFrame.waitForLifecycleEvent(waitOnLifecycle, loader.loaderId, timeoutMs);
 }
 
 export async function setContent(page: IPuppetPage, content: string) {

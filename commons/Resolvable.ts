@@ -31,15 +31,15 @@ export default class Resolvable<T = any> implements IResolvablePromise<T>, Promi
 
   public resolve(value: T | PromiseLike<T>): void {
     if (this.isResolved) return;
-    this.isResolved = true;
     clearTimeout(this.timeout);
     this.resolveFn(value);
     Promise.resolve(value)
       // eslint-disable-next-line promise/always-return
       .then(x => {
+        this.isResolved = true;
         this.resolved = x;
       })
-      .catch(() => null);
+      .catch(this.reject);
   }
 
   public reject(error: Error): void {

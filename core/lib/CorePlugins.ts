@@ -221,7 +221,13 @@ export default class CorePlugins implements ICorePlugins {
   ): Promise<any> {
     const plugin = this.instanceById[toPluginId];
     if (plugin && plugin.onClientCommand) {
-      return await plugin.onClientCommand(commandMeta, ...args);
+      return await plugin.onClientCommand(
+        {
+          puppetPage: commandMeta.puppetPage,
+          puppetFrame: commandMeta.puppetFrame,
+        },
+        ...args,
+      );
     }
     this.logger.warn(`Plugin (${toPluginId}) could not be found for command`);
   }

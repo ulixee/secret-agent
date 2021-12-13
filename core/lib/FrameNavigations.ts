@@ -37,7 +37,7 @@ export default class FrameNavigations extends TypedEventEmitter<IFrameNavigation
 
   public logger: IBoundLog;
 
-  private loaderIds = new Set<string>();
+  private historyByLoaderId: { [loaderId: string]: INavigation } = {};
 
   private nextNavigationReason: { url: string; reason: NavigationReason };
 
@@ -73,7 +73,7 @@ export default class FrameNavigations extends TypedEventEmitter<IFrameNavigation
       resourceId: createPromise(),
       browserRequestId,
     };
-    if (loaderId) this.loaderIds.add(loaderId);
+    if (loaderId) this.historyByLoaderId[loaderId] = nextTop;
 
     this.checkStoredNavigationReason(nextTop, url);
 
@@ -149,7 +149,7 @@ export default class FrameNavigations extends TypedEventEmitter<IFrameNavigation
     else if (
       top.stateChanges.has(LocationStatus.HttpRequested) === true &&
       // add new entries for redirects
-      (!this.loaderIds.has(loaderId) || redirectedFromUrl)
+      (!this.historyByLoaderId[loaderId] || redirectedFromUrl)
     ) {
       this.onNavigationRequested(reason, url, lastCommandId, loaderId, browserRequestId);
     }
@@ -184,7 +184,7 @@ export default class FrameNavigations extends TypedEventEmitter<IFrameNavigation
   }
 
   public onLoadStateChanged(
-    incomingStatus: LoadStatus.DomContentLoaded | LoadStatus.Load,
+    incomingStatus: LoadStatus.DomContentLoaded | LoadStatus.Load | LoadStatus.ContentPaint,
     url: string,
     loaderId: string,
     statusChangeDate?: Date,
@@ -194,7 +194,8 @@ export default class FrameNavigations extends TypedEventEmitter<IFrameNavigation
     if (!loaderId) {
       for (let i = this.history.length - 1; i >= 0; i -= 1) {
         const nav = this.history[i];
-        if (nav && nav.finalUrl === url && nav.stateChanges.has(LoadStatus.HttpResponded)) {
+        const isUrlMatch = nav.finalUrl === url || nav.requestedUrl === url;
+        if (isUrlMatch && nav.stateChanges.has(LoadStatus.HttpResponded)) {
           loaderId = nav.loaderId;
           break;
         }
@@ -219,7 +220,8 @@ export default class FrameNavigations extends TypedEventEmitter<IFrameNavigation
 
   public assignLoaderId(navigation: INavigation, loaderId: string, url?: string): void {
     if (!loaderId) return;
-    this.loaderIds.add(loaderId);
+
+    this.historyByLoaderId[loaderId] = navigation;
     navigation.loaderId = loaderId;
     if (
       url &&
@@ -232,13 +234,17 @@ export default class FrameNavigations extends TypedEventEmitter<IFrameNavigation
 
   public getLastLoadedNavigation(): INavigation {
     let navigation: INavigation;
+    let hasInPageNav = false;
     for (let i = this.history.length - 1; i >= 0; i -= 1) {
       navigation = this.history[i];
-      if (
-        navigation.stateChanges.has(LoadStatus.DomContentLoaded) &&
-        navigation.navigationReason !== 'inPage' &&
-        !!navigation.finalUrl
-      ) {
+      if (navigation.navigationReason === 'inPage') {
+        hasInPageNav = true;
+        continue;
+      }
+      if (!navigation.finalUrl || !navigation.stateChanges.has(LoadStatus.HttpResponded)) continue;
+
+      // if we have an in-page nav, return the first non "inPage" url. Otherwise, use if DomContentLoaded was triggered
+      if (hasInPageNav || navigation.stateChanges.has(LoadStatus.DomContentLoaded)) {
         return navigation;
       }
     }
@@ -257,18 +263,7 @@ export default class FrameNavigations extends TypedEventEmitter<IFrameNavigation
   }
 
   private findMatchingNavigation(loaderId: string): INavigation {
-    const navigation = this.top;
-    if (!navigation) return undefined;
-    if (loaderId && navigation.loaderId && navigation.loaderId !== loaderId) {
-      // find the right loader id
-      for (let i = this.history.length - 1; i >= 0; i -= 1) {
-        const nav = this.history[i];
-        if (nav && nav.loaderId === loaderId) {
-          return nav;
-        }
-      }
-    }
-    return navigation;
+    return this.historyByLoaderId[loaderId] ?? this.top;
   }
 
   private recordRedirect(requestedUrl: string, finalUrl: string, loaderId: string): INavigation {
@@ -281,6 +276,7 @@ export default class FrameNavigations extends TypedEventEmitter<IFrameNavigation
     }
 
     // find the right loader id
+    // NOTE: loop through history since loaderId is reused across requests in a redirect
     for (let i = this.history.length - 1; i >= 0; i -= 1) {
       const navigation = this.history[i];
       if (navigation && navigation.loaderId === loaderId) {
@@ -301,8 +297,17 @@ export default class FrameNavigations extends TypedEventEmitter<IFrameNavigation
     loaderId?: string,
     statusChangeDate?: Date,
   ): void {
+    this.logger.info('FrameNavigations.changeNavigationState', {
+      newStatus,
+      loaderId,
+      statusChangeDate,
+    });
     const navigation = this.findMatchingNavigation(loaderId);
     if (!navigation) return;
+    if (!navigation.loaderId && loaderId) {
+      navigation.loaderId = loaderId;
+      this.historyByLoaderId[loaderId] = navigation;
+    }
     if (navigation.stateChanges.has(newStatus)) {
       if (statusChangeDate && statusChangeDate < navigation.stateChanges.get(newStatus)) {
         navigation.stateChanges.set(newStatus, statusChangeDate);
@@ -310,7 +315,6 @@ export default class FrameNavigations extends TypedEventEmitter<IFrameNavigation
       return;
     }
     this.recordStatusChange(navigation, newStatus, statusChangeDate);
-    if (loaderId) this.loaderIds.add(loaderId);
   }
 
   private recordStatusChange(

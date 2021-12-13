@@ -46,6 +46,7 @@ export default abstract class ConnectionToCore extends TypedEventEmitter<{
 
   private connectRequestId: string;
   private disconnectRequestId: string;
+  private didAutoConnect = false;
   private coreSessions: CoreSessions;
   private readonly pendingRequestsById = new Map<string, IResolvablePromiseWithId>();
   private lastId = 0;
@@ -82,14 +83,20 @@ export default abstract class ConnectionToCore extends TypedEventEmitter<{
   protected abstract createConnection(): Promise<Error | null>;
   protected abstract destroyConnection(): Promise<any>;
 
-  public async connect(): Promise<Error | null> {
+  public async connect(isAutoConnect = false): Promise<Error | null> {
     if (!this.connectPromise) {
+      this.didAutoConnect = isAutoConnect;
       this.connectPromise = new Resolvable();
       try {
         const startTime = new Date();
         const connectError = await this.createConnection();
         if (connectError) throw connectError;
-        if (this.isDisconnecting) throw new DisconnectedFromCoreError(this.resolvedHost);
+        if (this.isDisconnecting) {
+          if (this.coreSessions.size > 0 && !this.didAutoConnect) {
+            throw new DisconnectedFromCoreError(this.resolvedHost);
+          }
+          this.connectPromise.resolve();
+        }
         // can be resolved if canceled by a disconnect
         if (this.connectPromise.isResolved) return;
 
@@ -228,10 +235,12 @@ export default abstract class ConnectionToCore extends TypedEventEmitter<{
       sessionId: null,
     });
 
+    const hasSessions = this.coreSessions?.size > 0;
+
     this.cancelPendingRequests();
 
     if (this.connectPromise) {
-      if (!this.connectPromise.isResolved) {
+      if (!this.connectPromise.isResolved && hasSessions && !this.didAutoConnect) {
         this.connectPromise.resolve(new DisconnectedFromCoreError(this.resolvedHost));
       } else if (beforeClose) {
         await beforeClose();
@@ -295,12 +304,12 @@ export default abstract class ConnectionToCore extends TypedEventEmitter<{
     await this.internalDisconnect();
     if (this.connectRequestId) {
       this.onResponse(this.connectRequestId, {
-        data: new DisconnectedFromCoreError(this.resolvedHost),
+        data: this.didAutoConnect ? new DisconnectedFromCoreError(this.resolvedHost) : null,
       });
     }
     if (this.disconnectRequestId) {
       this.onResponse(this.disconnectRequestId, {
-        data: new DisconnectedFromCoreError(this.resolvedHost),
+        data: null,
       });
     }
   }

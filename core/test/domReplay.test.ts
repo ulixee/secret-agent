@@ -33,7 +33,7 @@ afterEach(Helpers.afterEach);
 
 describe('basic Dom Replay tests', () => {
   it('basic replay test', async () => {
-    koaServer.get('/test1', ctx => {
+    koaServer.get('/replay-test', ctx => {
       ctx.body = `<body>
 <div>
     <h1>This is the starting point</h1>
@@ -83,7 +83,7 @@ describe('basic Dom Replay tests', () => {
     });
     const meta = await connectionToClient.createSession();
     const tab = Session.getTab(meta);
-    await tab.goto(`${koaServer.baseUrl}/test1`);
+    await tab.goto(`${koaServer.baseUrl}/replay-test`);
     await tab.waitForLoad('DomContentLoaded');
     const session = tab.session;
 
@@ -138,6 +138,81 @@ describe('basic Dom Replay tests', () => {
       const mirrorHtmlNext = await mirrorPage.mainFrame.evaluate(getContentScript, false);
       expect(mirrorHtmlNext).toBe(sourceHtmlNext);
     }
+  }, 45e3);
+
+  it('can replay data attributes', async () => {
+    koaServer.get('/data-attr', ctx => {
+      ctx.body = `<body>
+<div>
+    <h1>This is the starting point</h1>
+    <a href="#" onclick="clicker()">click</a>
+    <span id="tester" class="a-declarative" data-action="open-sheet:style_name">test</span>
+</div>
+<script>
+
+ function clicker(){
+   document.querySelector('div').setAttribute('data-sheet:style_name',"{}");
+   return false;
+ }
+</script>
+</body>`;
+    });
+    const meta = await connectionToClient.createSession();
+    const tab = Session.getTab(meta);
+    await tab.goto(`${koaServer.baseUrl}/data-attr`);
+    await tab.waitForLoad('DomContentLoaded');
+    const session = tab.session;
+
+    const mirrorChrome = new Puppet(session.browserEngine);
+    await mirrorChrome.start();
+    Helpers.onClose(() => mirrorChrome.close());
+
+    const context = await mirrorChrome.newContext(session.plugins, log.createChild(module));
+    // context.on('devtools-message', console.log);
+    // context.on('devtools-message', console.log);
+    const mirrorPage = await context.newPage();
+    const debug = true;
+    if (debug) {
+      // eslint-disable-next-line no-console
+      mirrorPage.on('page-error', console.log);
+      // eslint-disable-next-line no-console
+      mirrorPage.on('console', console.log);
+    }
+    await Promise.all([
+      mirrorPage.navigate(`${koaServer.baseUrl}/empty`),
+      mirrorPage.mainFrame.waitOn('frame-lifecycle', event => event.name === 'load'),
+    ]);
+    const sourceHtml = await tab.puppetPage.mainFrame.evaluate(getContentScript, false);
+
+    const mainPageChanges = await tab.getMainFrameDomChanges();
+    await InjectedScripts.restoreDom(mirrorPage, mainPageChanges);
+
+    const mirrorHtml = await mirrorPage.mainFrame.evaluate(getContentScript, false);
+    if (mirrorHtml !== sourceHtml) {
+      // eslint-disable-next-line no-console
+      console.log('Mirror Page mismatch', mainPageChanges);
+    }
+    expect(mirrorHtml).toBe(sourceHtml);
+
+    const lastCommandId = tab.lastCommandId;
+    await tab.interact([
+      {
+        command: InteractionCommand.click,
+        mousePosition: ['window', 'document', ['querySelector', 'a']],
+      },
+    ]);
+
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    const domChanges = await tab.getMainFrameDomChanges(lastCommandId);
+    expect(domChanges).toHaveLength(2);
+    await InjectedScripts.restoreDom(mirrorPage, domChanges);
+    // replay happens on animation tick now
+    await new Promise(setImmediate);
+
+    const sourceHtmlNext = await tab.puppetPage.mainFrame.evaluate(getContentScript, false);
+    const mirrorHtmlNext = await mirrorPage.mainFrame.evaluate(getContentScript, false);
+    expect(mirrorHtmlNext).toBe(sourceHtmlNext);
   }, 45e3);
 
   it('should support multiple tabs', async () => {

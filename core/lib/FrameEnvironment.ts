@@ -60,7 +60,7 @@ export default class FrameEnvironment {
   }
 
   public get isAttached(): boolean {
-    return this.puppetFrame.isAttached();
+    return this.puppetFrame.isAttached;
   }
 
   public get securityOrigin(): string {
@@ -137,6 +137,7 @@ export default class FrameEnvironment {
       this.getLocationHref,
       this.interact,
       this.removeCookie,
+      this.runPluginCommand,
       this.setCookie,
       this.setFileInputFiles,
       this.waitForElement,
@@ -351,6 +352,14 @@ b) Use the UserProfile feature to set cookies for 1 or more domains before they'
     }
   }
 
+  public async runPluginCommand(toPluginId: string, args: any[]): Promise<any> {
+    const commandMeta = {
+      puppetPage: this.tab.puppetPage,
+      puppetFrame: this.puppetFrame,
+    };
+    return await this.session.plugins.onPluginCommand(toPluginId, commandMeta, args);
+  }
+
   public waitForElement(jsPath: IJsPath, options?: IWaitForElementOptions): Promise<boolean> {
     return this.waitForDom(jsPath, options);
   }
@@ -442,8 +451,10 @@ b) Use the UserProfile feature to set cookies for 1 or more domains before they'
 
     for (const [event, url, timestamp] of loadEvents) {
       const incomingStatus = pageStateToLoadStatus[event];
-
-      this.navigations.onLoadStateChanged(incomingStatus, url, null, new Date(timestamp));
+      // only record the content paint
+      if (incomingStatus === LoadStatus.ContentPaint) {
+        this.navigations.onLoadStateChanged(incomingStatus, url, null, new Date(timestamp));
+      }
     }
 
     this.sessionState.captureDomEvents(
@@ -571,7 +582,11 @@ b) Use the UserProfile feature to set cookies for 1 or more domains before they'
     else if (lowerEventName === 'domcontentloaded') status = LoadStatus.DomContentLoaded;
 
     if (status) {
-      this.navigations.onLoadStateChanged(status, event.frame.url, event.loaderId);
+      this.navigations.onLoadStateChanged(
+        status,
+        event.loader.url ?? event.frame.url,
+        event.loader.id,
+      );
     }
   }
 
