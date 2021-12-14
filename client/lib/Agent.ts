@@ -373,7 +373,7 @@ export default class Agent extends AwaitedEventTarget<{ close: void }> {
     return this.activeTab.goForward(timeoutMs);
   }
 
-  public reload(timeoutMs?: number): Promise<void> {
+  public reload(timeoutMs?: number): Promise<Resource> {
     return this.activeTab.reload(timeoutMs);
   }
 
