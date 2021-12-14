@@ -1,5 +1,5 @@
 import { IPuppetPage } from '@secret-agent/interfaces/IPuppetPage';
-import { ILifecycleEvents, IPuppetFrame } from '@secret-agent/interfaces/IPuppetFrame';
+import { IPuppetFrame } from '@secret-agent/interfaces/IPuppetFrame';
 import { IKeyboardKey } from '@secret-agent/interfaces/IKeyboardLayoutUS';
 import { keyDefinitions } from '@secret-agent/puppet-chrome/interfaces/USKeyboardLayout';
 import IPuppetContext from '@secret-agent/interfaces/IPuppetContext';
