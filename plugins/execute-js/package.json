@@ -1,17 +1,17 @@
 {
   "name": "@secret-agent/execute-js-plugin",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "Plugin that allows executing javascript in the remote browser context",
   "main": "index.js",
   "dependencies": {
-    "@secret-agent/interfaces": "1.6.0",
-    "@secret-agent/plugin-utils": "1.6.0"
+    "@secret-agent/interfaces": "1.6.1",
+    "@secret-agent/plugin-utils": "1.6.1"
   },
   "devDependencies": {
-    "@secret-agent/commons": "1.6.0",
-    "@secret-agent/core": "1.6.0",
-    "@secret-agent/execute-js-plugin": "1.6.0",
-    "@secret-agent/testing": "1.6.0",
-    "secret-agent": "1.6.0"
+    "@secret-agent/commons": "1.6.1",
+    "@secret-agent/core": "1.6.1",
+    "@secret-agent/execute-js-plugin": "1.6.1",
+    "@secret-agent/testing": "1.6.1",
+    "secret-agent": "1.6.1"
   }
 }

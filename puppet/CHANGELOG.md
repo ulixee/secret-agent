@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.6.1](https://github.com/ulixee/secret-agent/compare/v1.5.15...v1.6.1) (2021-12-14)
+
+
+### Bug Fixes
+
+* **core:** frame navigations on redirects ([de3ea24](https://github.com/ulixee/secret-agent/commit/de3ea248a0fda5b8d08c7de961bac4f9fdc0b83e))
+* **puppet:** extract navigation loader ([77d8e2e](https://github.com/ulixee/secret-agent/commit/77d8e2e34286469a2df1d9e00e631c6e773760eb))
+
+
+
+
+
 # [1.6.0](https://github.com/ulixee/secret-agent/compare/v1.5.15...v1.6.0) (2021-12-14)
 
 

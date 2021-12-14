@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.6.1](https://github.com/ulixee/secret-agent/compare/v1.5.15...v1.6.1) (2021-12-14)
+
+
+### Features
+
+* **plugins:** add frames to execute js ([65258a3](https://github.com/ulixee/secret-agent/commit/65258a3fa6ad23f7263bd0f90d86bebf751d8e94))
+
+
+
+
+
 # [1.6.0](https://github.com/ulixee/secret-agent/compare/v1.5.15...v1.6.0) (2021-12-14)
 
 
