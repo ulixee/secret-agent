@@ -3,6 +3,22 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [1.6.0](https://github.com/ulixee/secret-agent/compare/v1.5.15...v1.6.0) (2021-12-14)
+
+
+### Bug Fixes
+
+* **core:** handle detached when elements not there ([5b46bd9](https://github.com/ulixee/secret-agent/commit/5b46bd97cf1ca1aa3bc0fed625064764726872f4))
+
+
+### Features
+
+* **plugins:** add frames to execute js ([65258a3](https://github.com/ulixee/secret-agent/commit/65258a3fa6ad23f7263bd0f90d86bebf751d8e94))
+
+
+
+
+
 ## [1.5.15](https://github.com/ulixee/secret-agent/compare/v1.5.14...v1.5.15) (2021-11-24)
 
 
