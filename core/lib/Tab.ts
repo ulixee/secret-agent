@@ -167,6 +167,8 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
     resource: IResourceMeta,
     error?: Error,
   ): boolean {
+    if (resource.type !== 'Document') return;
+
     const frame = this.findFrameWithUnresolvedNavigation(
       browserRequestId,
       resource.request?.method,
@@ -186,8 +188,6 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
     requestedUrl: string,
     finalUrl: string,
   ): FrameEnvironment {
-    if (method !== 'GET') return null;
-
     for (const frame of this.frameEnvironmentsById.values()) {
       const top = frame.navigations.top;
       if (!top || top.resourceId.isResolved) continue;
@@ -292,7 +292,6 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
     let finalResourceId = resourceId;
     // if no resource id, this is a request for the default resource (page)
     if (!resourceId) {
-      await this.navigationsObserver.waitForReady();
       finalResourceId = await this.navigationsObserver.waitForNavigationResourceId();
     }
 
@@ -341,7 +340,10 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
     return this.mainFrameEnvironment.waitForLoad(status, options);
   }
 
-  public waitForLocation(trigger: ILocationTrigger, options?: IWaitForOptions): Promise<void> {
+  public waitForLocation(
+    trigger: ILocationTrigger,
+    options?: IWaitForOptions,
+  ): Promise<IResourceMeta> {
     return this.mainFrameEnvironment.waitForLocation(trigger, options);
   }
 
@@ -421,8 +423,19 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
     const timer = new Timer(timeoutMs, this.waitTimeouts);
     const timeoutMessage = `Timeout waiting for "tab.reload()"`;
 
+    let loaderId = this.puppetPage.mainFrame.activeLoader.id;
     await timer.waitForPromise(this.puppetPage.reload(), timeoutMessage);
-    this.navigations.assignLoaderId(navigation, this.puppetPage.mainFrame.activeLoader?.id);
+    if (this.puppetPage.mainFrame.activeLoader.id === loaderId) {
+      const frameNavigated = await timer.waitForPromise(
+        this.puppetPage.mainFrame.waitOn('frame-navigated', null, timeoutMs),
+        timeoutMessage,
+      );
+      loaderId = frameNavigated.loaderId;
+    }
+    this.navigations.assignLoaderId(
+      navigation,
+      loaderId ?? this.puppetPage.mainFrame.activeLoader?.id,
+    );
 
     const resource = await timer.waitForPromise(
       this.navigationsObserver.waitForNavigationResourceId(),

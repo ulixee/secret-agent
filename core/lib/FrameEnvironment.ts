@@ -24,6 +24,7 @@ import TypeSerializer from '@secret-agent/commons/TypeSerializer';
 import * as Os from 'os';
 import ICommandMeta from '@secret-agent/interfaces/ICommandMeta';
 import IPoint from '@secret-agent/interfaces/IPoint';
+import IResourceMeta from '@secret-agent/interfaces/IResourceMeta';
 import SessionState from './SessionState';
 import TabNavigationObserver from './FrameNavigationsObserver';
 import Session from './Session';
@@ -183,7 +184,7 @@ export default class FrameEnvironment {
     if (this.isDetached) {
       throw new Error("Sorry, you can't interact with a detached frame");
     }
-    await this.navigationsObserver.waitForReady();
+    await this.navigationsObserver.waitForLoad(LoadStatus.DomContentLoaded);
     const interactionResolvable = createPromise<void>(120e3);
     this.waitTimeouts.push({
       timeout: interactionResolvable.timeout,
@@ -218,7 +219,7 @@ export default class FrameEnvironment {
   public async execJsPath<T>(jsPath: IJsPath): Promise<IExecJsPathResult<T>> {
     // if nothing loaded yet, return immediately
     if (!this.navigations.top) return null;
-    await this.navigationsObserver.waitForReady();
+    await this.navigationsObserver.waitForLoad(LoadStatus.DomContentLoaded);
     const containerOffset = await this.getContainerOffset();
     return await this.jsPath.exec(jsPath, containerOffset);
   }
@@ -336,7 +337,7 @@ b) Use the UserProfile feature to set cookies for 1 or more domains before they'
   }
 
   public async getChildFrameEnvironment(jsPath: IJsPath): Promise<IFrameMeta> {
-    await this.navigationsObserver.waitForReady();
+    await this.navigationsObserver.waitForLoad(LoadStatus.DomContentLoaded);
     const nodeIdResult = await this.jsPath.exec<number>([...jsPath, [getNodeIdFnName]], null);
     if (!nodeIdResult.value) return null;
 
@@ -369,8 +370,21 @@ b) Use the UserProfile feature to set cookies for 1 or more domains before they'
     return this.navigationsObserver.waitForLoad(status, options);
   }
 
-  public waitForLocation(trigger: ILocationTrigger, options?: IWaitForOptions): Promise<void> {
-    return this.navigationsObserver.waitForLocation(trigger, options);
+  public async waitForLocation(
+    trigger: ILocationTrigger,
+    options?: IWaitForOptions,
+  ): Promise<IResourceMeta> {
+    const timer = new Timer(options?.timeoutMs ?? 60e3, this.waitTimeouts);
+    await timer.waitForPromise(
+      this.navigationsObserver.waitForLocation(trigger, options),
+      `Timeout waiting for location ${trigger}`,
+    );
+
+    const resource = await timer.waitForPromise(
+      this.navigationsObserver.waitForNavigationResourceId(),
+      `Timeout waiting for location ${trigger}`,
+    );
+    return this.sessionState.getResourceMeta(resource);
   }
 
   // NOTE: don't add this function to commands. It will record extra commands when called from interactor, which

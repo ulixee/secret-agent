@@ -364,7 +364,7 @@ Alias for [tab.mainFrameEnvironment.waitForLocation](/docs/basic-interfaces/fram
   - timeoutMs `number`. Timeout in milliseconds. Default `30,000`.
   - sinceCommandId `number`. A `commandId` from which to look for changes.
 
-#### **Returns**: `Promise`
+#### **Returns**: `Promise<Resource>`
 
 Location changes are triggered in one of two ways:
 

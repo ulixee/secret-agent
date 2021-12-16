@@ -10,6 +10,7 @@ import INodePointer from 'awaited-dom/base/INodePointer';
 import ISetCookieOptions from '@secret-agent/interfaces/ISetCookieOptions';
 import IWaitForOptions from '@secret-agent/interfaces/IWaitForOptions';
 import IFrameMeta from '@secret-agent/interfaces/IFrameMeta';
+import IResourceMeta from '@secret-agent/interfaces/IResourceMeta';
 import CoreCommandQueue from './CoreCommandQueue';
 
 export default class CoreFrameEnvironment {
@@ -109,7 +110,10 @@ export default class CoreFrameEnvironment {
     await this.commandQueue.run('FrameEnvironment.waitForLoad', status, opts);
   }
 
-  public async waitForLocation(trigger: ILocationTrigger, opts: IWaitForOptions): Promise<void> {
-    await this.commandQueue.run('FrameEnvironment.waitForLocation', trigger, opts);
+  public async waitForLocation(
+    trigger: ILocationTrigger,
+    opts: IWaitForOptions,
+  ): Promise<IResourceMeta> {
+    return await this.commandQueue.run('FrameEnvironment.waitForLocation', trigger, opts);
   }
 }
