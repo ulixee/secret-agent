@@ -15,7 +15,7 @@ import IWaitForOptions from '@secret-agent/interfaces/IWaitForOptions';
 import IScreenshotOptions from '@secret-agent/interfaces/IScreenshotOptions';
 import MitmRequestContext from '@secret-agent/mitm/lib/MitmRequestContext';
 import { IJsPath } from 'awaited-dom/base/AwaitedPath';
-import { IInteractionGroups } from '@secret-agent/interfaces/IInteractions';
+import { IInteractionGroups, InteractionCommand } from '@secret-agent/interfaces/IInteractions';
 import IExecJsPathResult from '@secret-agent/interfaces/IExecJsPathResult';
 import IWaitForElementOptions from '@secret-agent/interfaces/IWaitForElementOptions';
 import { ILocationTrigger, IPipelineStatus } from '@secret-agent/interfaces/Location';
@@ -440,7 +440,13 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
     return this.puppetPage.screenshot(options.format, options.rectangle, options.jpegQuality);
   }
 
-  public dismissDialog(accept: boolean, promptText?: string): Promise<void> {
+  public async dismissDialog(accept: boolean, promptText?: string): Promise<void> {
+    const resolvable = createPromise();
+    this.mainFrameEnvironment.interactor.play(
+      [[{ command: InteractionCommand.willDismissDialog }]],
+      resolvable,
+    );
+    await resolvable.promise;
     return this.puppetPage.dismissDialog(accept, promptText);
   }
 

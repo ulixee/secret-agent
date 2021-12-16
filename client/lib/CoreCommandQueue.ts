@@ -83,6 +83,15 @@ export default class CoreCommandQueue {
     });
   }
 
+  public async runOutOfBand<T>(command: string, ...args: any[]): Promise<T> {
+    return await this.sendRequest({
+      command,
+      args,
+      commandId: this.nextCommandId,
+      startDate: new Date(),
+    });
+  }
+
   public run<T>(command: string, ...args: any[]): Promise<T> {
     clearTimeout(this.flushOnTimeout);
     this.flushOnTimeout = null;
@@ -94,27 +103,19 @@ export default class CoreCommandQueue {
         convertJsPathArgs(arg);
       }
     }
-    const startTime = new Date();
+    const startDate = new Date();
     const commandId = this.nextCommandId;
     return this.internalQueue
       .run<T>(async () => {
         const recordCommands = [...this.internalState.commandsToRecord];
         this.internalState.commandsToRecord.length = 0;
-
-        const response = await this.connection.sendRequest({
-          meta: this.meta,
+        return await this.sendRequest<T>({
           command,
           args,
-          startDate: startTime,
+          startDate,
           commandId,
           recordCommands,
         });
-
-        let data: T = null;
-        if (response) {
-          data = response.data;
-        }
-        return data;
       })
       .catch(error => {
         error.stack += `${this.sessionMarker}`;
@@ -132,5 +133,22 @@ export default class CoreCommandQueue {
 
   public createSharedQueue(meta: ISessionMeta & { sessionName: string }): CoreCommandQueue {
     return new CoreCommandQueue(meta, this.connection, this.commandCounter, this.internalState);
+  }
+
+  private async sendRequest<T>(
+    payload: Omit<ICoreRequestPayload, 'meta' | 'messageId' | 'sendDate'>,
+  ): Promise<T> {
+    if (this.connection.isDisconnecting) {
+      return Promise.resolve(null);
+    }
+
+    const response = await this.connection.sendRequest({
+      meta: this.meta,
+      ...payload,
+    });
+
+    if (response) {
+      return response.data;
+    }
   }
 }

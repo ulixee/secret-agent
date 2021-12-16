@@ -89,12 +89,12 @@ export default class FrameEnvironment {
   public puppetFrame: IPuppetFrame;
   public isReady: Promise<Error | void>;
   public domNodeId: number;
+  public readonly interactor: Interactor;
   protected readonly logger: IBoundLog;
 
   private puppetNodeIdsBySaNodeId: Record<number, string> = {};
   private prefetchedJsPaths: IJsPathResult[];
   private readonly isDetached: boolean;
-  private readonly interactor: Interactor;
   private isClosing = false;
   private waitTimeouts: { timeout: NodeJS.Timeout; reject: (reason?: any) => void }[] = [];
   private readonly commandRecorder: CommandRecorder;
