@@ -764,21 +764,29 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
       return;
     }
 
-    if (
-      !!event.resource.browserServedFromCache &&
-      event.resource.url?.href === frame.navigations?.top?.requestedUrl &&
-      frame.navigations?.top?.resourceId?.isResolved === false
-    ) {
-      frame.navigations.onHttpResponded(
-        event.resource.browserRequestId,
-        event.resource.responseUrl ?? event.resource.url?.href,
-        event.loaderId,
-      );
-    }
-
     const resourcesWithBrowserRequestId = this.sessionState.getBrowserRequestResources(
       event.resource.browserRequestId,
     );
+
+    const navigationTop = frame.navigations?.top;
+    if (navigationTop && !navigationTop.resourceId.isResolved) {
+      const url = event.resource.url?.href;
+      // hash won't be in the http request
+      const frameRequestedUrl = navigationTop.requestedUrl?.split('#')?.shift();
+      if (url === frameRequestedUrl) {
+        if (event.resource.browserServedFromCache) {
+          frame.navigations.onHttpResponded(
+            event.resource.browserRequestId,
+            event.resource.responseUrl ?? event.resource.url?.href,
+            event.loaderId,
+          );
+        }
+        if (resourcesWithBrowserRequestId?.length) {
+          const resource = resourcesWithBrowserRequestId[resourcesWithBrowserRequestId.length - 1];
+          frame.navigations.onResourceLoaded(resource.resourceId, event.resource.status);
+        }
+      }
+    }
 
     if (!resourcesWithBrowserRequestId?.length) {
       // first check if this is a mitm error
