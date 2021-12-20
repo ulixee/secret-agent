@@ -3,6 +3,23 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.6.2](https://github.com/ulixee/secret-agent/compare/v1.6.1...v1.6.2) (2021-12-20)
+
+
+### Bug Fixes
+
+* **core:** navigations directly to hash fixed ([c02f61b](https://github.com/ulixee/secret-agent/commit/c02f61b549d34c438614ab8f63c8fce17af60d2c)), closes [#404](https://github.com/ulixee/secret-agent/issues/404)
+
+
+### Features
+
+* **client:** return resource in waitForLocation ([253b33b](https://github.com/ulixee/secret-agent/commit/253b33b3528952432528949ab0dc2c8b4cf9a50c))
+* **core:** dialogs should run out of command line ([52a737f](https://github.com/ulixee/secret-agent/commit/52a737ff7ca380b00a1f156aa7dacf5e9af0bcfb)), closes [#397](https://github.com/ulixee/secret-agent/issues/397)
+
+
+
+
+
 ## [1.6.1](https://github.com/ulixee/secret-agent/compare/v1.5.15...v1.6.1) (2021-12-14)
 
 
