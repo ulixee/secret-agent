@@ -178,7 +178,7 @@ describe('basic waitForLocation change detections', () => {
     const agent = await handler.createAgent();
     await agent.goto(`${koaServer.baseUrl}/refresh`);
 
-    await expect(agent.waitForLocation('reload')).resolves.toBe(undefined);
+    await expect(agent.waitForLocation('reload')).resolves.toBeTruthy();
   });
 
   it('will trigger reload if the same page is loaded again', async () => {
@@ -207,6 +207,6 @@ describe('basic waitForLocation change detections', () => {
     await agent.goto(`${koaServer.baseUrl}/postback`);
     await agent.click(agent.activeTab.document.querySelector('input'));
 
-    await expect(agent.waitForLocation('reload')).resolves.toBe(undefined);
+    await expect(agent.waitForLocation('reload')).resolves.toBeTruthy();
   });
 });

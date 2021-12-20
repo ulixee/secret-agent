@@ -15,7 +15,7 @@ import IWaitForOptions from '@secret-agent/interfaces/IWaitForOptions';
 import IScreenshotOptions from '@secret-agent/interfaces/IScreenshotOptions';
 import MitmRequestContext from '@secret-agent/mitm/lib/MitmRequestContext';
 import { IJsPath } from 'awaited-dom/base/AwaitedPath';
-import { IInteractionGroups } from '@secret-agent/interfaces/IInteractions';
+import { IInteractionGroups, InteractionCommand } from '@secret-agent/interfaces/IInteractions';
 import IExecJsPathResult from '@secret-agent/interfaces/IExecJsPathResult';
 import IWaitForElementOptions from '@secret-agent/interfaces/IWaitForElementOptions';
 import { ILocationTrigger, IPipelineStatus } from '@secret-agent/interfaces/Location';
@@ -167,6 +167,8 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
     resource: IResourceMeta,
     error?: Error,
   ): boolean {
+    if (resource.type !== 'Document') return;
+
     const frame = this.findFrameWithUnresolvedNavigation(
       browserRequestId,
       resource.request?.method,
@@ -186,8 +188,6 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
     requestedUrl: string,
     finalUrl: string,
   ): FrameEnvironment {
-    if (method !== 'GET') return null;
-
     for (const frame of this.frameEnvironmentsById.values()) {
       const top = frame.navigations.top;
       if (!top || top.resourceId.isResolved) continue;
@@ -292,7 +292,6 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
     let finalResourceId = resourceId;
     // if no resource id, this is a request for the default resource (page)
     if (!resourceId) {
-      await this.navigationsObserver.waitForReady();
       finalResourceId = await this.navigationsObserver.waitForNavigationResourceId();
     }
 
@@ -341,7 +340,10 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
     return this.mainFrameEnvironment.waitForLoad(status, options);
   }
 
-  public waitForLocation(trigger: ILocationTrigger, options?: IWaitForOptions): Promise<void> {
+  public waitForLocation(
+    trigger: ILocationTrigger,
+    options?: IWaitForOptions,
+  ): Promise<IResourceMeta> {
     return this.mainFrameEnvironment.waitForLocation(trigger, options);
   }
 
@@ -421,8 +423,19 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
     const timer = new Timer(timeoutMs, this.waitTimeouts);
     const timeoutMessage = `Timeout waiting for "tab.reload()"`;
 
+    let loaderId = this.puppetPage.mainFrame.activeLoader.id;
     await timer.waitForPromise(this.puppetPage.reload(), timeoutMessage);
-    this.navigations.assignLoaderId(navigation, this.puppetPage.mainFrame.activeLoader?.id);
+    if (this.puppetPage.mainFrame.activeLoader.id === loaderId) {
+      const frameNavigated = await timer.waitForPromise(
+        this.puppetPage.mainFrame.waitOn('frame-navigated', null, timeoutMs),
+        timeoutMessage,
+      );
+      loaderId = frameNavigated.loaderId;
+    }
+    this.navigations.assignLoaderId(
+      navigation,
+      loaderId ?? this.puppetPage.mainFrame.activeLoader?.id,
+    );
 
     const resource = await timer.waitForPromise(
       this.navigationsObserver.waitForNavigationResourceId(),
@@ -440,7 +453,13 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
     return this.puppetPage.screenshot(options.format, options.rectangle, options.jpegQuality);
   }
 
-  public dismissDialog(accept: boolean, promptText?: string): Promise<void> {
+  public async dismissDialog(accept: boolean, promptText?: string): Promise<void> {
+    const resolvable = createPromise();
+    this.mainFrameEnvironment.interactor.play(
+      [[{ command: InteractionCommand.willDismissDialog }]],
+      resolvable,
+    );
+    await resolvable.promise;
     return this.puppetPage.dismissDialog(accept, promptText);
   }
 
@@ -745,21 +764,29 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
       return;
     }
 
-    if (
-      !!event.resource.browserServedFromCache &&
-      event.resource.url?.href === frame.navigations?.top?.requestedUrl &&
-      frame.navigations?.top?.resourceId?.isResolved === false
-    ) {
-      frame.navigations.onHttpResponded(
-        event.resource.browserRequestId,
-        event.resource.responseUrl ?? event.resource.url?.href,
-        event.loaderId,
-      );
-    }
-
     const resourcesWithBrowserRequestId = this.sessionState.getBrowserRequestResources(
       event.resource.browserRequestId,
     );
+
+    const navigationTop = frame.navigations?.top;
+    if (navigationTop && !navigationTop.resourceId.isResolved) {
+      const url = event.resource.url?.href;
+      // hash won't be in the http request
+      const frameRequestedUrl = navigationTop.requestedUrl?.split('#')?.shift();
+      if (url === frameRequestedUrl) {
+        if (event.resource.browserServedFromCache) {
+          frame.navigations.onHttpResponded(
+            event.resource.browserRequestId,
+            event.resource.responseUrl ?? event.resource.url?.href,
+            event.loaderId,
+          );
+        }
+        if (resourcesWithBrowserRequestId?.length) {
+          const resource = resourcesWithBrowserRequestId[resourcesWithBrowserRequestId.length - 1];
+          frame.navigations.onResourceLoaded(resource.resourceId, event.resource.status);
+        }
+      }
+    }
 
     if (!resourcesWithBrowserRequestId?.length) {
       // first check if this is a mitm error

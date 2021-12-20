@@ -84,7 +84,7 @@ export default class CoreTab implements IJsPathEventTarget {
   }
 
   public async getResourceProperty<T = any>(id: number, propertyPath: string): Promise<T> {
-    return await this.commandQueue.run('Tab.getResourceProperty', id, propertyPath);
+    return await this.commandQueue.runOutOfBand('Tab.getResourceProperty', id, propertyPath);
   }
 
   public async configure(options: IConfigureSessionOptions): Promise<void> {
@@ -146,7 +146,8 @@ export default class CoreTab implements IJsPathEventTarget {
   }
 
   public async dismissDialog(accept: boolean, promptText?: string): Promise<void> {
-    await this.commandQueue.run('Tab.dismissDialog', accept, promptText);
+    // NOTE: since this can only be called from inside event handlers, it should not go into the queue or it can deadlock
+    await this.commandQueue.runOutOfBand('Tab.dismissDialog', accept, promptText);
   }
 
   public async addEventListener(
