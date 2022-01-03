@@ -1,5 +1,6 @@
 import { Helpers } from '@secret-agent/testing';
-import { ITestKoaServer } from '@secret-agent/testing/helpers';
+import Resolvable from '@secret-agent/commons/Resolvable';
+import { getLogo, ITestKoaServer } from '@secret-agent/testing/helpers';
 import { Handler } from '../index';
 
 let handler: Handler;
@@ -128,6 +129,50 @@ describe('basic waitForLocation change detections', () => {
     expect(firstUrl).toBe(startUrl);
     expect(secondUrl).toBe(page2Url);
     expect(lastUrl).toBe(finishUrl);
+
+    await agent.close();
+  });
+
+  it('should trigger location change when a page redirects in-page before load', async () => {
+    const imagePromise = new Resolvable();
+    koaServer.get('/img.png', async ctx => {
+      ctx.set('Content-Type', 'image/png');
+      await imagePromise.promise;
+      ctx.body = getLogo();
+    });
+
+    koaServer.get('/change-form', ctx => {
+      ctx.body = `
+        <body>
+          <form action="/change-inpage" method="get">
+           <input type="submit" name="submit" value="value" >
+          </form>
+        </body>
+      `;
+    });
+
+    koaServer.get('/change-inpage', ctx => {
+      ctx.body = `
+        <body>
+          <script>
+            history.pushState({}, '', '/change-inpage/1');
+          </script>
+          <img src="/img.png">
+        </body>
+      `;
+    });
+
+    const agent = await handler.createAgent();
+
+    await agent.goto(`${koaServer.baseUrl}/change-form`);
+    await agent.interact({ click: agent.document.querySelector('input') });
+    const result = await agent.waitForLocation('change');
+    await expect(result.response.url).resolves.toBe(
+      `${koaServer.baseUrl}/change-inpage?submit=value`,
+    );
+    imagePromise.resolve(null);
+    await agent.waitForPaintingStable();
+    await expect(agent.url).resolves.toBe(`${koaServer.baseUrl}/change-inpage/1`);
 
     await agent.close();
   });

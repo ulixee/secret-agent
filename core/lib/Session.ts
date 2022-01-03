@@ -383,9 +383,8 @@ export default class Session extends TypedEventEmitter<{
     const isDocument = request?.resourceType === 'Document';
     if (isDocument && !tabId) {
       for (const tab of this.tabsById.values()) {
-        const isMatch = tab.findFrameWithUnresolvedNavigation(
+        const isMatch = tab.frameWithPendingNavigation(
           request.browserRequestId,
-          request.request?.method,
           url,
           request.response?.url,
         );
