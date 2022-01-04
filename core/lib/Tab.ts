@@ -169,9 +169,8 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
   ): boolean {
     if (resource.type !== 'Document') return;
 
-    const frame = this.findFrameWithUnresolvedNavigation(
+    const frame = this.frameWithPendingNavigation(
       browserRequestId,
-      resource.request?.method,
       resource.request?.url,
       resource.response?.url,
     );
@@ -182,23 +181,14 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
     return false;
   }
 
-  public findFrameWithUnresolvedNavigation(
+  public frameWithPendingNavigation(
     browserRequestId: string,
-    method: string,
     requestedUrl: string,
     finalUrl: string,
   ): FrameEnvironment {
     for (const frame of this.frameEnvironmentsById.values()) {
-      const top = frame.navigations.top;
-      if (!top || top.resourceId.isResolved) continue;
-
-      if (
-        (top.finalUrl && finalUrl === top.finalUrl) ||
-        requestedUrl === top.requestedUrl ||
-        browserRequestId === top.browserRequestId
-      ) {
-        return frame;
-      }
+      const isMatch = frame.navigations.doesMatchPending(browserRequestId, requestedUrl, finalUrl);
+      if (isMatch) return frame;
     }
   }
 
@@ -746,8 +736,9 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
   }
 
   private onResourceLoaded(event: IPuppetPageEvents['resource-loaded']): void {
+    const { resource } = event;
     this.session.mitmRequestSession.browserRequestMatcher.onBrowserRequestedResourceExtraDetails(
-      event.resource,
+      resource,
       this.id,
     );
 
@@ -765,26 +756,27 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
     }
 
     const resourcesWithBrowserRequestId = this.sessionState.getBrowserRequestResources(
-      event.resource.browserRequestId,
+      resource.browserRequestId,
     );
 
-    const navigationTop = frame.navigations?.top;
-    if (navigationTop && !navigationTop.resourceId.isResolved) {
-      const url = event.resource.url?.href;
-      // hash won't be in the http request
-      const frameRequestedUrl = navigationTop.requestedUrl?.split('#')?.shift();
-      if (url === frameRequestedUrl) {
-        if (event.resource.browserServedFromCache) {
-          frame.navigations.onHttpResponded(
-            event.resource.browserRequestId,
-            event.resource.responseUrl ?? event.resource.url?.href,
-            event.loaderId,
-          );
-        }
-        if (resourcesWithBrowserRequestId?.length) {
-          const resource = resourcesWithBrowserRequestId[resourcesWithBrowserRequestId.length - 1];
-          frame.navigations.onResourceLoaded(resource.resourceId, event.resource.status);
-        }
+    const isPending = frame.navigations.doesMatchPending(
+      resource.browserRequestId,
+      resource.url?.href,
+      resource.responseUrl,
+    );
+    if (isPending) {
+      if (event.resource.browserServedFromCache) {
+        frame.navigations.onHttpResponded(
+          event.resource.browserRequestId,
+          event.resource.responseUrl ?? event.resource.url?.href,
+          event.loaderId,
+        );
+      }
+      if (resourcesWithBrowserRequestId?.length) {
+        const { resourceId } = resourcesWithBrowserRequestId[
+          resourcesWithBrowserRequestId.length - 1
+        ];
+        frame.navigations.onResourceLoaded(resourceId, event.resource.status);
       }
     }
 

@@ -33,6 +33,9 @@ export default class FrameNavigations extends TypedEventEmitter<IFrameNavigation
     return top.finalUrl ?? top.requestedUrl;
   }
 
+  // last navigation not loaded in-page
+  public lastHttpNavigation: INavigation;
+
   public history: INavigation[] = [];
 
   public logger: IBoundLog;
@@ -97,6 +100,8 @@ export default class FrameNavigations extends TypedEventEmitter<IFrameNavigation
       }
       shouldPublishLocationChange = true;
       nextTop.finalUrl = url;
+    } else {
+      this.lastHttpNavigation = nextTop;
     }
     this.history.push(nextTop);
 
@@ -166,6 +171,28 @@ export default class FrameNavigations extends TypedEventEmitter<IFrameNavigation
     this.recordStatusChange(navigation, LocationStatus.HttpResponded);
   }
 
+  public doesMatchPending(
+    browserRequestId: string,
+    requestedUrl: string,
+    finalUrl: string,
+  ): boolean {
+    const top = this.lastHttpNavigation;
+    if (!top || top.resourceId.isResolved) return false;
+
+    // hash won't be in the http request
+    const frameRequestedUrl = top.requestedUrl?.split('#')?.shift();
+
+    if (
+      (top.finalUrl && finalUrl === top.finalUrl) ||
+      requestedUrl === top.requestedUrl ||
+      requestedUrl === frameRequestedUrl ||
+      browserRequestId === top.browserRequestId
+    ) {
+      return true;
+    }
+    return false;
+  }
+
   public onResourceLoaded(resourceId: number, statusCode: number, error?: Error): void {
     this.logger.info('NavigationResource resolved', {
       resourceId,
@@ -173,7 +200,7 @@ export default class FrameNavigations extends TypedEventEmitter<IFrameNavigation
       error,
       currentUrl: this.currentUrl,
     });
-    const top = this.top;
+    const top = this.lastHttpNavigation;
     if (!top || top.resourceId.isResolved) return;
 
     // since we don't know if there are listeners yet, we need to just set the error on the return value
