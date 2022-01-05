@@ -25,6 +25,7 @@ export default class CoreCommandQueue {
   private readonly meta: ISessionMeta;
   private readonly connection: ConnectionToCore;
   private flushOnTimeout: NodeJS.Timeout;
+  private flushes: Promise<any>[] = [];
 
   private get internalQueue(): Queue {
     return this.internalState.queue;
@@ -74,13 +75,17 @@ export default class CoreCommandQueue {
     const recordCommands = [...this.internalState.commandsToRecord];
     this.internalState.commandsToRecord.length = 0;
 
-    await this.connection.sendRequest({
+    const flush = this.connection.sendRequest({
       meta: this.meta,
       command: 'Session.flush',
       startDate: new Date(),
       args: [],
       recordCommands,
     });
+    await flush;
+    this.flushes.push(flush);
+    // wait for all pending flushes
+    await Promise.all(this.flushes);
   }
 
   public async runOutOfBand<T>(command: string, ...args: any[]): Promise<T> {
