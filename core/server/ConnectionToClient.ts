@@ -258,22 +258,23 @@ export default class ConnectionToClient extends TypedEventEmitter<{
     sendDate: Date,
     recordCommands: ICoreRequestPayload['recordCommands'],
   ): Promise<void> {
+    const promises: Promise<any>[] = [];
     for (const { command, args, commandId, startDate } of recordCommands) {
-      try {
-        const cleanArgs = args.map(x => (x === null ? undefined : x));
-        await this.executeCommand(command, cleanArgs, meta, {
-          commandId,
-          startDate,
-          sendDate,
-        });
-      } catch (error) {
+      const cleanArgs = args.map(x => (x === null ? undefined : x));
+      const promise = this.executeCommand(command, cleanArgs, meta, {
+        commandId,
+        startDate,
+        sendDate,
+      }).catch(error => {
         log.warn('RecordingCommandsFailed', {
           sessionId: meta.sessionId,
           error,
           command,
         });
-      }
+      });
+      promises.push(promise);
     }
+    await Promise.all(promises);
   }
 
   private async executeCommand(
