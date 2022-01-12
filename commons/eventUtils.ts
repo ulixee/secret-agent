@@ -5,58 +5,6 @@ import { IBoundLog } from '@secret-agent/interfaces/ILog';
 import { createPromise } from './utils';
 import IPendingWaitEvent, { CanceledPromiseError } from './interfaces/IPendingWaitEvent';
 
-export function addEventListener(
-  emitter: EventEmitter,
-  eventName: string | symbol,
-  handler: (...args: any[]) => void,
-): IRegisteredEventListener {
-  emitter.on(eventName, handler);
-  return { emitter, eventName, handler };
-}
-
-export function addEventListeners(
-  emitter: EventEmitter,
-  registrations: [string | symbol, (...args: any[]) => void, boolean?][],
-): IRegisteredEventListener[] {
-  return registrations.map(([eventName, handler]) => {
-    emitter.on(eventName, handler);
-    return { emitter, eventName, handler };
-  });
-}
-
-export function removeEventListeners(
-  listeners: Array<{
-    emitter: EventEmitter | ITypedEventEmitter<any>;
-    eventName: string | symbol;
-    handler: (...args: any[]) => void;
-  }>,
-): void {
-  for (const listener of listeners) {
-    listener.emitter.removeListener(listener.eventName, listener.handler);
-  }
-  listeners.length = 0;
-}
-
-export function addTypedEventListener<T, K extends keyof T & (string | symbol)>(
-  emitter: TypedEventEmitter<T>,
-  eventName: K,
-  handler: (this: TypedEventEmitter<T>, event?: T[K], initiator?: any) => any,
-  includeUnhandledEvents?: boolean,
-): IRegisteredEventListener {
-  emitter.on(eventName, handler, includeUnhandledEvents);
-  return { emitter, eventName, handler };
-}
-
-export function addTypedEventListeners<T, K extends keyof T & (string | symbol)>(
-  emitter: TypedEventEmitter<T>,
-  registrations: [K, (this: TypedEventEmitter<T>, event?: T[K]) => any, boolean?][],
-): IRegisteredEventListener[] {
-  return registrations.map(([eventName, handler, includeUnhandled]) => {
-    emitter.on(eventName, handler, includeUnhandled);
-    return { emitter, eventName, handler };
-  });
-}
-
 export class TypedEventEmitter<T> extends EventEmitter implements ITypedEventEmitter<T> {
   public storeEventsWithoutListeners = false;
 
@@ -110,7 +58,7 @@ export class TypedEventEmitter<T> extends EventEmitter implements ITypedEventEmi
       timeoutMillis,
     });
 
-    const listener = addTypedEventListener(this, eventType, (result: T[K]) => {
+    const callbackFn = (result: T[K]): void => {
       // give the listeners a second to register
       if (!listenerFn || listenerFn.call(this, result)) {
         this.logger?.stats(`waitOn.resolve:${eventType}`, {
@@ -118,10 +66,12 @@ export class TypedEventEmitter<T> extends EventEmitter implements ITypedEventEmi
         });
         promise.resolve(result);
       }
-    });
+    };
+
+    this.on(eventType, callbackFn);
 
     return promise.promise.finally(() => {
-      removeEventListeners([listener]);
+      this.off(eventType, callbackFn);
       const idx = this.pendingWaitEvents.findIndex(x => x.id === id);
       if (idx >= 0) this.pendingWaitEvents.splice(idx, 1);
     });

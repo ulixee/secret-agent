@@ -1,13 +1,12 @@
 import { Protocol } from 'devtools-protocol';
 import { getResourceTypeForChromeValue } from '@secret-agent/interfaces/ResourceType';
-import * as eventUtils from '@secret-agent/commons/eventUtils';
 import { TypedEventEmitter } from '@secret-agent/commons/eventUtils';
 import {
   IPuppetNetworkEvents,
   IPuppetResourceRequest,
 } from '@secret-agent/interfaces/IPuppetNetworkEvents';
 import { CanceledPromiseError } from '@secret-agent/commons/interfaces/IPendingWaitEvent';
-import IRegisteredEventListener from '@secret-agent/interfaces/IRegisteredEventListener';
+import EventSubscriber from '@secret-agent/commons/EventSubscriber';
 import { IBoundLog } from '@secret-agent/interfaces/ILog';
 import { URL } from 'url';
 import IProxyConnectionOptions from '@secret-agent/interfaces/IProxyConnectionOptions';
@@ -45,7 +44,7 @@ export class NetworkManager extends TypedEventEmitter<IPuppetNetworkEvents> {
   private readonly navigationRequestIdsToLoaderId = new Map<string, string>();
 
   private parentManager?: NetworkManager;
-  private readonly registeredEvents: IRegisteredEventListener[];
+  private readonly eventSubscriber = new EventSubscriber();
   private mockNetworkRequests?: (
     request: Protocol.Fetch.RequestPausedEvent,
   ) => Promise<Protocol.Fetch.FulfillRequestRequest>;
@@ -62,21 +61,31 @@ export class NetworkManager extends TypedEventEmitter<IPuppetNetworkEvents> {
     this.devtools = devtoolsSession;
     this.logger = logger.createChild(module);
     this.proxyConnectionOptions = proxyConnectionOptions;
-    this.registeredEvents = eventUtils.addEventListeners(this.devtools, [
-      ['Fetch.requestPaused', this.onRequestPaused.bind(this)],
-      ['Fetch.authRequired', this.onAuthRequired.bind(this)],
-
-      ['Network.webSocketWillSendHandshakeRequest', this.onWebsocketHandshake.bind(this)],
-      ['Network.webSocketFrameReceived', this.onWebsocketFrame.bind(this, true)],
-      ['Network.webSocketFrameSent', this.onWebsocketFrame.bind(this, false)],
-
-      ['Network.requestWillBeSent', this.onNetworkRequestWillBeSent.bind(this)],
-      ['Network.requestWillBeSentExtraInfo', this.onNetworkRequestWillBeSentExtraInfo.bind(this)],
-      ['Network.responseReceived', this.onNetworkResponseReceived.bind(this)],
-      ['Network.loadingFinished', this.onLoadingFinished.bind(this)],
-      ['Network.loadingFailed', this.onLoadingFailed.bind(this)],
-      ['Network.requestServedFromCache', this.onNetworkRequestServedFromCache.bind(this)],
-    ]);
+    const events = this.eventSubscriber;
+    const devtools = this.devtools;
+    events.on(devtools, 'Fetch.requestPaused', this.onRequestPaused.bind(this));
+    events.on(devtools, 'Fetch.authRequired', this.onAuthRequired.bind(this));
+    events.on(
+      devtools,
+      'Network.webSocketWillSendHandshakeRequest',
+      this.onWebsocketHandshake.bind(this),
+    );
+    events.on(devtools, 'Network.webSocketFrameReceived', this.onWebsocketFrame.bind(this, true));
+    events.on(devtools, 'Network.webSocketFrameSent', this.onWebsocketFrame.bind(this, false));
+    events.on(devtools, 'Network.requestWillBeSent', this.onNetworkRequestWillBeSent.bind(this));
+    events.on(
+      devtools,
+      'Network.requestWillBeSentExtraInfo',
+      this.onNetworkRequestWillBeSentExtraInfo.bind(this),
+    );
+    events.on(devtools, 'Network.responseReceived', this.onNetworkResponseReceived.bind(this));
+    events.on(devtools, 'Network.loadingFinished', this.onLoadingFinished.bind(this));
+    events.on(devtools, 'Network.loadingFailed', this.onLoadingFailed.bind(this));
+    events.on(
+      devtools,
+      'Network.requestServedFromCache',
+      this.onNetworkRequestServedFromCache.bind(this),
+    );
   }
 
   public emit<
@@ -139,7 +148,7 @@ export class NetworkManager extends TypedEventEmitter<IPuppetNetworkEvents> {
   }
 
   public close(): void {
-    eventUtils.removeEventListeners(this.registeredEvents);
+    this.eventSubscriber.close();
     this.cancelPendingEvents('NetworkManager closed');
   }
 

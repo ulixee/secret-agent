@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import EventSubscriber from '@secret-agent/commons/EventSubscriber';
 import Protocol from 'devtools-protocol';
 import { IPuppetPage, IPuppetPageEvents } from '@secret-agent/interfaces/IPuppetPage';
-import * as eventUtils from '@secret-agent/commons/eventUtils';
 import { TypedEventEmitter } from '@secret-agent/commons/eventUtils';
 import IRegisteredEventListener from '@secret-agent/interfaces/IRegisteredEventListener';
 import { assert, createPromise } from '@secret-agent/commons/utils';
@@ -77,7 +77,7 @@ export class Page extends TypedEventEmitter<IPuppetPageEvents> implements IPuppe
 
   protected readonly logger: IBoundLog;
   private closePromise = createPromise();
-  private readonly registeredEvents: IRegisteredEventListener[];
+  private readonly eventSubscriber = new EventSubscriber();
 
   constructor(
     devtoolsSession: DevtoolsSession,
@@ -128,15 +128,19 @@ export class Page extends TypedEventEmitter<IPuppetPageEvents> implements IPuppe
 
     this.devtoolsSession.once('disconnected', this.emit.bind(this, 'close'));
 
-    this.registeredEvents = eventUtils.addEventListeners(this.devtoolsSession, [
-      ['Inspector.targetCrashed', this.onTargetCrashed.bind(this)],
-      ['Runtime.exceptionThrown', this.onRuntimeException.bind(this)],
-      ['Runtime.consoleAPICalled', this.onRuntimeConsole.bind(this)],
-      ['Target.attachedToTarget', this.onAttachedToTarget.bind(this)],
-      ['Page.javascriptDialogOpening', this.onJavascriptDialogOpening.bind(this)],
-      ['Page.fileChooserOpened', this.onFileChooserOpened.bind(this)],
-      ['Page.windowOpen', this.onWindowOpen.bind(this)],
-    ]);
+    const events = this.eventSubscriber;
+
+    events.on(devtoolsSession, 'Inspector.targetCrashed', this.onTargetCrashed.bind(this));
+    events.on(devtoolsSession, 'Runtime.exceptionThrown', this.onRuntimeException.bind(this));
+    events.on(devtoolsSession, 'Runtime.consoleAPICalled', this.onRuntimeConsole.bind(this));
+    events.on(devtoolsSession, 'Target.attachedToTarget', this.onAttachedToTarget.bind(this));
+    events.on(
+      devtoolsSession,
+      'Page.javascriptDialogOpening',
+      this.onJavascriptDialogOpening.bind(this),
+    );
+    events.on(devtoolsSession, 'Page.fileChooserOpened', this.onFileChooserOpened.bind(this));
+    events.on(devtoolsSession, 'Page.windowOpen', this.onWindowOpen.bind(this));
 
     this.isReady = this.initialize().catch(error => {
       this.logger.error('Page.initializationError', {
@@ -323,7 +327,7 @@ export class Page extends TypedEventEmitter<IPuppetPageEvents> implements IPuppe
     try {
       this.framesManager.close(closeError);
       this.networkManager.close();
-      eventUtils.removeEventListeners(this.registeredEvents);
+      this.eventSubscriber.close();
       this.cancelPendingEvents('Page closed', ['close']);
       for (const worker of this.workersById.values()) {
         worker.close();

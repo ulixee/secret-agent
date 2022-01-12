@@ -171,6 +171,7 @@ export default class FrameEnvironment {
       for (const path of this.cleanPaths) {
         Fs.promises.unlink(path).catch(() => null);
       }
+      this.commandRecorder.clear();
     } catch (error) {
       if (!error.message.includes('Target closed') && !(error instanceof CanceledPromiseError)) {
         this.logger.error('FrameEnvironment.ClosingError', { error, parentLogId });

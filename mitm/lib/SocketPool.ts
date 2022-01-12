@@ -5,6 +5,7 @@ import MitmSocket from '@secret-agent/mitm-socket';
 import Resolvable from '@secret-agent/commons/Resolvable';
 import { CanceledPromiseError } from '@secret-agent/commons/interfaces/IPendingWaitEvent';
 import { ClientHttp2Session } from 'http2';
+import EventSubscriber from '@secret-agent/commons/EventSubscriber';
 import RequestSession from '../handlers/RequestSession';
 
 const { log } = Log(module);
@@ -12,6 +13,7 @@ const { log } = Log(module);
 export default class SocketPool {
   public alpn: string;
   public isClosing = false;
+  public readonly eventSubscriber = new EventSubscriber();
   private all = new Set<MitmSocket>();
   private pooled = 0;
   private free = new Set<MitmSocket>();
@@ -71,7 +73,7 @@ export default class SocketPool {
       }
 
       const mitmSocket = await createSocket();
-      mitmSocket.on('close', this.onSocketClosed.bind(this, mitmSocket));
+      this.eventSubscriber.on(mitmSocket, 'close', this.onSocketClosed.bind(this, mitmSocket));
       this.alpn = mitmSocket.alpn;
 
       this.all.add(mitmSocket);
@@ -90,6 +92,7 @@ export default class SocketPool {
     for (const pending of this.pending) {
       pending.reject(new CanceledPromiseError('Shutting down socket pool'));
     }
+    this.pending.length = 0;
     for (const session of this.http2Sessions) {
       try {
         session.mitmSocket.close();
@@ -100,6 +103,7 @@ export default class SocketPool {
       }
     }
     this.http2Sessions.length = 0;
+    this.eventSubscriber.close();
     for (const socket of this.all) {
       socket.close();
     }
@@ -117,8 +121,8 @@ export default class SocketPool {
 
     const entry = { mitmSocket, client };
     this.http2Sessions.push(entry);
-    client.on('close', () => this.closeHttp2Session(entry));
-    client.on('goaway', () => this.closeHttp2Session(entry));
+    this.eventSubscriber.on(client, 'close', () => this.closeHttp2Session(entry));
+    this.eventSubscriber.on(client, 'goaway', () => this.closeHttp2Session(entry));
   }
 
   private onSocketClosed(socket: MitmSocket): void {

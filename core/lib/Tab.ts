@@ -252,6 +252,7 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
         errors.push(error);
       }
     }
+    this.commandRecorder.clear();
     this.emit('close');
     this.logger.stats('Tab.Closed', { parentLogId, errors });
   }

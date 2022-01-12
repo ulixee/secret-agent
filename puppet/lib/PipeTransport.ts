@@ -13,10 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import * as EventUtils from '@secret-agent/commons/eventUtils';
-import { addEventListeners } from '@secret-agent/commons/eventUtils';
+import EventSubscriber from '@secret-agent/commons/EventSubscriber';
 import Log from '@secret-agent/commons/Logger';
-import IRegisteredEventListener from '@secret-agent/interfaces/IRegisteredEventListener';
 import { ChildProcess } from 'child_process';
 import IConnectionTransport from '@secret-agent/interfaces/IConnectionTransport';
 
@@ -25,7 +23,7 @@ const { log } = Log(module);
 export class PipeTransport implements IConnectionTransport {
   pipeWrite: NodeJS.WritableStream;
   pendingMessage: string;
-  eventListeners: IRegisteredEventListener[];
+  eventSubscriber = new EventSubscriber();
   isClosed = false;
 
   public onMessageFn: (message: string) => void;
@@ -39,15 +37,13 @@ export class PipeTransport implements IConnectionTransport {
       log.error('PipeTransport.WriteError', { error, sessionId: null });
     });
     this.pendingMessage = '';
-    this.eventListeners = addEventListeners(pipeRead, [
-      ['data', this.onData.bind(this)],
-      ['close', this.onReadClosed.bind(this)],
-      ['error', error => log.error('PipeTransport.ReadError', { error, sessionId: null })],
-    ]);
-    this.eventListeners.push(
-      EventUtils.addEventListener(pipeWrite, 'error', error =>
-        log.error('PipeTransport.WriteError', { error, sessionId: null }),
-      ),
+    this.eventSubscriber.on(pipeRead, 'data', this.onData.bind(this));
+    this.eventSubscriber.on(pipeRead, 'close', this.onReadClosed.bind(this));
+    this.eventSubscriber.on(pipeRead, 'error', error =>
+      log.error('PipeTransport.ReadError', { error, sessionId: null }),
+    );
+    this.eventSubscriber.on(pipeWrite, 'error', error =>
+      log.error('PipeTransport.WriteError', { error, sessionId: null }),
     );
   }
 
@@ -62,7 +58,7 @@ export class PipeTransport implements IConnectionTransport {
   close(): void {
     if (this.isClosed) return;
     this.isClosed = true;
-    EventUtils.removeEventListeners(this.eventListeners);
+    this.eventSubscriber.close();
   }
 
   private emit(message): void {

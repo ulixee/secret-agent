@@ -2,6 +2,7 @@ import { v1 as uuidv1 } from 'uuid';
 import { IJsPath } from 'awaited-dom/base/AwaitedPath';
 import ISessionMeta from '@secret-agent/interfaces/ISessionMeta';
 import { assert } from '@secret-agent/commons/utils';
+import EventSubscriber from '@secret-agent/commons/EventSubscriber';
 import IListenerObject from '../interfaces/IListenerObject';
 import Session from './Session';
 
@@ -14,9 +15,10 @@ export interface ITrigger {
 // TODO: can we merge TypedEventEmitter ideas and eventListenerIdsByType?. Revisit when we get to dom events
 export default class AwaitedEventListener {
   private readonly listenersById = new Map<string, IListenerObject>();
+  private eventSubscriber = new EventSubscriber();
 
-  constructor(readonly session: Session) {
-    session.on('closing', () => this.triggerListenersWithType('close'));
+  constructor(private session: Session) {
+    this.eventSubscriber.once(session, 'closing', () => this.triggerListenersWithType('close'));
   }
 
   public close() {
@@ -25,6 +27,8 @@ export default class AwaitedEventListener {
         this.remove(entry.id);
       }
     }
+    this.eventSubscriber.close();
+    this.session = null;
   }
 
   public listen(

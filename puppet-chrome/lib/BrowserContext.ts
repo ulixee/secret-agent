@@ -6,13 +6,9 @@ import IPuppetContext, {
 import { ICookie } from '@secret-agent/interfaces/ICookie';
 import { URL } from 'url';
 import Protocol from 'devtools-protocol';
-import {
-  addTypedEventListener,
-  removeEventListeners,
-  TypedEventEmitter,
-} from '@secret-agent/commons/eventUtils';
+import EventSubscriber from '@secret-agent/commons/EventSubscriber';
+import { TypedEventEmitter } from '@secret-agent/commons/eventUtils';
 import { IBoundLog } from '@secret-agent/interfaces/ILog';
-import IRegisteredEventListener from '@secret-agent/interfaces/IRegisteredEventListener';
 import { CanceledPromiseError } from '@secret-agent/commons/interfaces/IPendingWaitEvent';
 import { IPuppetWorker } from '@secret-agent/interfaces/IPuppetWorker';
 import ProtocolMapping from 'devtools-protocol/types/protocol-mapping';
@@ -28,7 +24,6 @@ import { Page } from './Page';
 import { Browser } from './Browser';
 import { DevtoolsSession } from './DevtoolsSession';
 import Frame from './Frame';
-
 import CookieParam = Protocol.Network.CookieParam;
 import TargetInfo = Protocol.Target.TargetInfo;
 
@@ -53,7 +48,7 @@ export class BrowserContext
   private isClosing = false;
 
   private devtoolsSessions = new WeakSet<DevtoolsSession>();
-  private eventListeners: IRegisteredEventListener[] = [];
+  private eventSubscriber = new EventSubscriber();
   private browserContextInitiatedMessageIds = new Set<number>();
 
   constructor(
@@ -228,7 +223,7 @@ export class BrowserContext
         throw err;
       });
     }
-    removeEventListeners(this.eventListeners);
+    this.eventSubscriber.close();
     this.browser.browserContextsById.delete(this.id);
   }
 
@@ -323,7 +318,7 @@ export class BrowserContext
     this.devtoolsSessions.add(devtoolsSession);
     const shouldFilter = details.sessionType === 'browser';
 
-    const receive = addTypedEventListener(devtoolsSession.messageEvents, 'receive', event => {
+    this.eventSubscriber.on(devtoolsSession.messageEvents, 'receive', event => {
       if (shouldFilter) {
         // see if this was initiated by this browser context
         const { id } = event as IDevtoolsResponseMessage;
@@ -339,24 +334,19 @@ export class BrowserContext
         ...event,
       });
     });
-    const send = addTypedEventListener(
-      devtoolsSession.messageEvents,
-      'send',
-      (event, initiator) => {
-        if (shouldFilter) {
-          if (initiator && initiator !== this) return;
-          this.browserContextInitiatedMessageIds.add(event.id);
-        }
-        if (initiator && initiator instanceof Frame) {
-          (event as any).frameId = initiator.id;
-        }
-        this.emit('devtools-message', {
-          direction: 'send',
-          ...details,
-          ...event,
-        });
-      },
-    );
-    this.eventListeners.push(receive, send);
+    this.eventSubscriber.on(devtoolsSession.messageEvents, 'send', (event, initiator?: any) => {
+      if (shouldFilter) {
+        if (initiator && initiator !== this) return;
+        if ('id' in event) this.browserContextInitiatedMessageIds.add(event.id);
+      }
+      if (initiator && initiator instanceof Frame) {
+        (event as any).frameId = initiator.id;
+      }
+      this.emit('devtools-message', {
+        direction: 'send',
+        ...details,
+        ...event,
+      });
+    });
   }
 }

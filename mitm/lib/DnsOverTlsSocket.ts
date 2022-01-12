@@ -5,9 +5,9 @@ import { createPromise } from '@secret-agent/commons/utils';
 import MitmSocket from '@secret-agent/mitm-socket/index';
 import { CanceledPromiseError } from '@secret-agent/commons/interfaces/IPendingWaitEvent';
 import IDnsSettings from '@secret-agent/interfaces/IDnsSettings';
-import { addTypedEventListener, removeEventListeners } from '@secret-agent/commons/eventUtils';
 import { IBoundLog } from '@secret-agent/interfaces/ILog';
 import Log from '@secret-agent/commons/Logger';
+import EventSubscriber from '@secret-agent/commons/EventSubscriber';
 import RequestSession from '../handlers/RequestSession';
 
 const { log } = Log(module);
@@ -37,6 +37,7 @@ export default class DnsOverTlsSocket {
 
   private requestSession: RequestSession | undefined;
   private logger: IBoundLog;
+  private eventSubscriber = new EventSubscriber();
 
   constructor(dnsSettings: IDnsSettings, requestSession: RequestSession, onClose?: () => void) {
     this.requestSession = requestSession;
@@ -57,6 +58,9 @@ export default class DnsOverTlsSocket {
     if (this.isClosing) return;
     this.isClosing = true;
     this.mitmSocket?.close();
+    this.eventSubscriber.close();
+    this.requestSession = null;
+    this.mitmSocket = null;
     if (this.onClose) this.onClose();
   }
 
@@ -73,14 +77,14 @@ export default class DnsOverTlsSocket {
 
     await this.mitmSocket.connect(this.requestSession.requestAgent.socketSession, 10e3);
 
-    this.mitmSocket.socket.on('data', this.onData.bind(this));
+    this.eventSubscriber.on(this.mitmSocket.socket, 'data', this.onData.bind(this));
 
-    const registration = addTypedEventListener(this.mitmSocket, 'close', () => {
+    const onClose = this.eventSubscriber.on(this.mitmSocket.socket, 'close', () => {
       this.isClosing = true;
       if (this.onClose) this.onClose();
     });
-    this.mitmSocket.on('eof', async () => {
-      removeEventListeners([registration]);
+    this.eventSubscriber.on(this.mitmSocket, 'eof', async () => {
+      this.eventSubscriber.off(onClose);
       if (this.isClosing) return;
       this.mitmSocket.close();
       try {
