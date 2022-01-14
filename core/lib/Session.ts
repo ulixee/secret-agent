@@ -21,6 +21,7 @@ import IViewport from '@secret-agent/interfaces/IViewport';
 import IJsPathResult from '@secret-agent/interfaces/IJsPathResult';
 import ISessionCreateOptions from '@secret-agent/interfaces/ISessionCreateOptions';
 import IGeolocation from '@secret-agent/interfaces/IGeolocation';
+import EventSubscriber from '@secret-agent/commons/EventSubscriber';
 import SessionState from './SessionState';
 import AwaitedEventListener from './AwaitedEventListener';
 import GlobalPool from './GlobalPool';
@@ -80,6 +81,7 @@ export default class Session extends TypedEventEmitter<{
   private isolatedMitmProxy?: MitmProxy;
   private _isClosing = false;
   private detachedTabsById = new Map<number, Tab>();
+  private eventSubscriber = new EventSubscriber();
 
   private tabIdCounter = 0;
   private frameIdCounter = 0;
@@ -212,7 +214,7 @@ export default class Session extends TypedEventEmitter<{
       detachedState.detachedAtCommandId,
     );
     this.detachedTabsById.set(newTab.id, newTab);
-    newTab.on('close', () => {
+    newTab.once('close', () => {
       if (newTab.mainFrameEnvironment.jsPath.hasNewExecJsPathHistory) {
         this.sessionState.recordDetachedJsPathCalls(
           newTab.mainFrameEnvironment.jsPath.execHistory,
@@ -253,7 +255,9 @@ export default class Session extends TypedEventEmitter<{
 
   public async initialize(context: IPuppetContext) {
     this.browserContext = context;
-    context.on('devtools-message', this.onDevtoolsMessage.bind(this));
+
+    this.eventSubscriber.on(context, 'devtools-message', this.onDevtoolsMessage.bind(this));
+
     if (this.userProfile) {
       await UserProfile.install(this);
     }
@@ -261,12 +265,12 @@ export default class Session extends TypedEventEmitter<{
     context.defaultPageInitializationFn = InjectedScripts.install;
 
     const requestSession = this.mitmRequestSession;
-    requestSession.on('request', this.onMitmRequest.bind(this));
-    requestSession.on('response', this.onMitmResponse.bind(this));
-    requestSession.on('http-error', this.onMitmError.bind(this));
-    requestSession.on('resource-state', this.onResourceStates.bind(this));
-    requestSession.on('socket-close', this.onSocketClose.bind(this));
-    requestSession.on('socket-connect', this.onSocketConnect.bind(this));
+    this.eventSubscriber.on(requestSession, 'request', this.onMitmRequest.bind(this));
+    this.eventSubscriber.on(requestSession, 'response', this.onMitmResponse.bind(this));
+    this.eventSubscriber.on(requestSession, 'http-error', this.onMitmError.bind(this));
+    this.eventSubscriber.on(requestSession, 'resource-state', this.onResourceStates.bind(this));
+    this.eventSubscriber.on(requestSession, 'socket-close', this.onSocketClose.bind(this));
+    this.eventSubscriber.on(requestSession, 'socket-connect', this.onSocketConnect.bind(this));
     await this.plugins.onHttpAgentInitialized(requestSession.requestAgent);
   }
 
@@ -332,6 +336,9 @@ export default class Session extends TypedEventEmitter<{
       sessionId: this.id,
       parentLogId: start,
     });
+    this.commandRecorder.clear();
+    this.eventSubscriber.close();
+
     this.emit('closed');
     // should go last so we can capture logs
     this.sessionState.close();

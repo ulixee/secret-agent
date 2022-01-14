@@ -210,9 +210,10 @@ export default class ConnectionToClient extends TypedEventEmitter<{
     if (this.isClosing) throw new Error('Connection closed');
     clearTimeout(this.autoShutdownTimer);
     const session = await GlobalPool.createSession(options);
-    this.sessionIds.add(session.id);
+    const id = session.id;
+    this.sessionIds.add(id);
     session.on('awaited-event', this.emit.bind(this, 'message'));
-    session.on('closing', () => this.sessionIds.delete(session.id));
+    session.on('closing', () => this.sessionIds.delete(id));
     session.on('closed', this.checkForAutoShutdown.bind(this));
 
     const tab = await session.createTab();

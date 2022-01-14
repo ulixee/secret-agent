@@ -12,8 +12,8 @@ export default class CommandRecorder {
   public readonly fnNames = new Set<string>();
   private logger: IBoundLog;
   constructor(
-    readonly owner: any,
-    readonly session: Session,
+    private owner: any,
+    private session: Session,
     readonly tabId: number,
     readonly frameId: number,
     fns: AsyncFunc[],
@@ -29,8 +29,14 @@ export default class CommandRecorder {
     });
   }
 
+  public clear(): void {
+    this.session = null;
+    this.owner = null;
+  }
+
   private async runCommandFn<T>(commandFn: AsyncFunc, ...args: any[]): Promise<T> {
-    if (!this.fnNames.has(commandFn.name)) throw new Error(`Unsupported function requested ${commandFn.name}`);
+    if (!this.fnNames.has(commandFn.name))
+      throw new Error(`Unsupported function requested ${commandFn.name}`);
 
     const { session } = this;
     const sessionState = session.sessionState;

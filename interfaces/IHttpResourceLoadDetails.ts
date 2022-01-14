@@ -2,6 +2,7 @@ import { URL } from 'url';
 import ResourceType from './ResourceType';
 import IResourceHeaders from './IResourceHeaders';
 import OriginType from './OriginType';
+import { IEventSubscriber } from './IRegisteredEventListener';
 
 export default interface IHttpResourceLoadDetails {
   isSSL: boolean;
@@ -42,4 +43,5 @@ export default interface IHttpResourceLoadDetails {
   browserLoadFailure?: string;
   browserBlockedReason?: string;
   browserCanceled?: boolean;
+  eventSubscriber: IEventSubscriber;
 }

@@ -157,6 +157,7 @@ export default class BrowserRequestMatcher {
         new CanceledPromiseError('Canceling: Mitm Request Session Closing'),
       );
     }
+    this.requestedResources.length = 0;
   }
 
   private updatePendingResource(

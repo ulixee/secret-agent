@@ -1,6 +1,7 @@
 import * as net from 'net';
 import * as http from 'http';
 import Log, { hasBeenLoggedSymbol } from '@secret-agent/commons/Logger';
+
 import MitmRequestContext from '../lib/MitmRequestContext';
 import BaseHttpHandler from './BaseHttpHandler';
 import IMitmRequestContext from '../interfaces/IMitmRequestContext';
@@ -16,7 +17,11 @@ export default class HttpUpgradeHandler extends BaseHttpHandler {
   ) {
     super(request, true, null);
     this.context.setState(ResourceState.ClientToProxyRequest);
-    this.clientSocket.on('error', this.onError.bind(this, 'ClientToProxy.UpgradeSocketError'));
+    this.context.eventSubscriber.on(
+      this.clientSocket,
+      'error',
+      this.onError.bind(this, 'ClientToProxy.UpgradeSocketError'),
+    );
   }
 
   public async onUpgrade(): Promise<void> {
@@ -24,7 +29,11 @@ export default class HttpUpgradeHandler extends BaseHttpHandler {
       const proxyToServerRequest = await this.createProxyToServerRequest();
       if (!proxyToServerRequest) return;
 
-      proxyToServerRequest.once('upgrade', this.onResponse.bind(this));
+      this.context.eventSubscriber.once(
+        proxyToServerRequest,
+        'upgrade',
+        this.onResponse.bind(this),
+      );
       proxyToServerRequest.end();
     } catch (err) {
       this.onError('ClientToProxy.UpgradeHandlerError', err);
@@ -49,6 +58,7 @@ export default class HttpUpgradeHandler extends BaseHttpHandler {
       });
     }
     socket.destroy(error);
+    this.cleanup();
   }
 
   private async onResponse(
@@ -65,14 +75,15 @@ export default class HttpUpgradeHandler extends BaseHttpHandler {
 
     const { proxyToServerMitmSocket, requestSession } = this.context;
 
-    clientSocket.on('end', () => proxyToServerMitmSocket.close());
-    serverSocket.on('end', () => proxyToServerMitmSocket.close());
-    proxyToServerMitmSocket.on('close', () => {
+    this.context.eventSubscriber.on(clientSocket, 'end', () => proxyToServerMitmSocket.close());
+    this.context.eventSubscriber.on(serverSocket, 'end', () => proxyToServerMitmSocket.close());
+    this.context.eventSubscriber.on(proxyToServerMitmSocket, 'close', () => {
       this.context.setState(ResourceState.End);
       // don't try to write again
       try {
         clientSocket.destroy();
         serverSocket.destroy();
+        this.cleanup();
       } catch (err) {
         // no-operation
       }
@@ -98,7 +109,11 @@ export default class HttpUpgradeHandler extends BaseHttpHandler {
         // don't log if error
       }
     }
-    serverSocket.on('error', this.onError.bind(this, 'ServerToProxy.UpgradeSocketError'));
+    this.context.eventSubscriber.on(
+      serverSocket,
+      'error',
+      this.onError.bind(this, 'ServerToProxy.UpgradeSocketError'),
+    );
 
     if (serverResponse.statusCode === 101) {
       clientSocket.setNoDelay(true);

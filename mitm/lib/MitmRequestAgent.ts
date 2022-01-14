@@ -11,6 +11,7 @@ import ITlsSettings from '@secret-agent/interfaces/ITlsSettings';
 import Resolvable from '@secret-agent/commons/Resolvable';
 import IHttp2ConnectSettings from '@secret-agent/interfaces/IHttp2ConnectSettings';
 import IHttpSocketConnectOptions from '@secret-agent/interfaces/IHttpSocketConnectOptions';
+import EventSubscriber from '@secret-agent/commons/EventSubscriber';
 import IMitmRequestContext from '../interfaces/IMitmRequestContext';
 import MitmRequestContext from './MitmRequestContext';
 import RequestSession from '../handlers/RequestSession';
@@ -29,9 +30,10 @@ const allowUnverifiedCertificates = Boolean(JSON.parse(process.env.MITM_ALLOW_IN
 
 export default class MitmRequestAgent {
   public static defaultMaxConnectionsPerOrigin = 6;
-  public readonly socketSession: MitmSocketSession;
-  private readonly session: RequestSession;
+  public socketSession: MitmSocketSession;
+  private session: RequestSession;
   private readonly maxConnectionsPerOrigin: number;
+  private readonly eventSubscriber = new EventSubscriber();
 
   private readonly socketPoolByOrigin = new Map<string, SocketPool>();
   private readonly socketPoolByResolvedHost = new Map<string, SocketPool>();
@@ -120,13 +122,17 @@ export default class MitmRequestAgent {
   public close(): void {
     try {
       this.socketSession.close();
+      this.socketSession = null;
     } catch (err) {
       // don't need to log closing sessions
     }
     for (const pool of this.socketPoolByOrigin.values()) {
       pool.close();
     }
+    this.socketPoolByOrigin.clear();
     this.socketPoolByResolvedHost.clear();
+    this.eventSubscriber.close();
+    this.session = null;
   }
 
   public async isHostAlpnH2(hostname: string, port: string): Promise<boolean> {
@@ -153,7 +159,9 @@ export default class MitmRequestAgent {
     });
     mitmSocket.dnsResolvedIp = ipIfNeeded;
     mitmSocket.dnsLookupTime = dnsLookupTime;
-    mitmSocket.on('connect', () => session.emit('socket-connect', { socket: mitmSocket }));
+    this.eventSubscriber.once(mitmSocket, 'connect', () =>
+      session.emit('socket-connect', { socket: mitmSocket }),
+    );
 
     if (session.upstreamProxyUrl) {
       mitmSocket.setProxyUrl(session.upstreamProxyUrl);
@@ -343,23 +351,32 @@ export default class MitmRequestAgent {
     );
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const binding = new Http2SessionBinding(clientToProxyH2Session, proxyToServerH2Client, {
-      sessionId: this.session.sessionId,
-      origin,
-    });
-    proxyToServerH2Client.on('stream', async (stream, headers, flags, rawHeaders) => {
-      try {
-        const pushPromise = new Http2PushPromiseHandler(ctx, stream, headers, flags, rawHeaders);
-        await pushPromise.onRequest();
-      } catch (error) {
-        log.warn('Http2.ClientToProxy.ReadPushPromiseError', {
-          sessionId: this.session.sessionId,
-          rawHeaders,
-          error,
-        });
-      }
-    });
-    proxyToServerH2Client.on('origin', origins => {
+    const binding = new Http2SessionBinding(
+      clientToProxyH2Session,
+      proxyToServerH2Client,
+      originSocketPool.eventSubscriber,
+      {
+        sessionId: this.session.sessionId,
+        origin,
+      },
+    );
+    originSocketPool.eventSubscriber.on(
+      proxyToServerH2Client,
+      'stream',
+      async (stream, headers, flags, rawHeaders) => {
+        try {
+          const pushPromise = new Http2PushPromiseHandler(ctx, stream, headers, flags, rawHeaders);
+          await pushPromise.onRequest();
+        } catch (error) {
+          log.warn('Http2.ClientToProxy.ReadPushPromiseError', {
+            sessionId: this.session.sessionId,
+            rawHeaders,
+            error,
+          });
+        }
+      },
+    );
+    originSocketPool.eventSubscriber.on(proxyToServerH2Client, 'origin', origins => {
       for (const svcOrigin of origins) {
         this.getSocketPoolByOrigin(svcOrigin).registerHttp2Session(
           proxyToServerH2Client,

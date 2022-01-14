@@ -1,6 +1,7 @@
 import { URL } from 'url';
 import * as http from 'http';
 import * as http2 from 'http2';
+import EventSubscriber from '@secret-agent/commons/EventSubscriber';
 import IResourceRequest from '@secret-agent/interfaces/IResourceRequest';
 import { TLSSocket } from 'tls';
 import MitmSocket from '@secret-agent/mitm-socket';
@@ -101,6 +102,7 @@ export default class MitmRequestContext {
       originType: this.getOriginType(url, requestHeaders),
       didBlockResource: false,
       cacheHandler: null,
+      eventSubscriber: new EventSubscriber(),
       stateChanges: state,
       setState(stateStep: ResourceState) {
         state.set(stateStep, new Date());
@@ -125,12 +127,13 @@ export default class MitmRequestContext {
       `${parentContext.url.protocol}//${requestHeaders[':authority']}${requestHeaders[':path']}`,
     );
     const state = new Map<ResourceState, Date>();
+    const requestSession = parentContext.requestSession;
     const ctx = {
       id: (this.contextIdCounter += 1),
       url,
       method: requestHeaders[':method'],
       isServerHttp2: parentContext.isServerHttp2,
-      requestSession: parentContext.requestSession,
+      requestSession,
       protocol: parentContext.protocol,
       remoteAddress: parentContext.remoteAddress,
       localAddress: parentContext.localAddress,
@@ -151,10 +154,11 @@ export default class MitmRequestContext {
       requestTime: new Date(),
       didBlockResource: false,
       cacheHandler: null,
+      eventSubscriber: new EventSubscriber(),
       stateChanges: state,
       setState(stateStep: ResourceState) {
         state.set(stateStep, new Date());
-        parentContext.requestSession.emit('resource-state', { context: ctx, state: stateStep });
+        requestSession.emit('resource-state', { context: ctx, state: stateStep });
       },
     } as IMitmRequestContext;
 

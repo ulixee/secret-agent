@@ -56,7 +56,7 @@ export default class SessionState {
 
   private readonly logger: IBoundLog;
 
-  private readonly browserRequestIdToResources: {
+  private browserRequestIdToResources: {
     [browserRequestId: string]: { resourceId: number; url: string }[];
   } = {};
 
@@ -465,6 +465,10 @@ export default class SessionState {
     loggerSessionIdNames.delete(this.sessionId);
     this.db.flush();
     this.db.close();
+    this.resourcesById.clear();
+    this.browserRequestIdToResources = {};
+    this.websocketListeners = {};
+    this.websocketMessages.length = 0;
     SessionState.registry.delete(this.sessionId);
   }
 

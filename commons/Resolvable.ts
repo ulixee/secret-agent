@@ -1,5 +1,4 @@
 import IResolvablePromise from '@secret-agent/interfaces/IResolvablePromise';
-import { bindFunctions } from './utils';
 import TimeoutError from './interfaces/TimeoutError';
 
 export default class Resolvable<T = any> implements IResolvablePromise<T>, PromiseLike<T> {
@@ -7,7 +6,7 @@ export default class Resolvable<T = any> implements IResolvablePromise<T>, Promi
   public resolved: T;
   public promise: Promise<T>;
   public readonly timeout: NodeJS.Timeout;
-  public readonly stack: string;
+  public stack: string;
 
   private resolveFn: (value: T | PromiseLike<T>) => void;
   private rejectFn: (error?: Error) => void;
@@ -16,28 +15,33 @@ export default class Resolvable<T = any> implements IResolvablePromise<T>, Promi
     // get parent stack
     this.stack = new Error('').stack.slice(8);
 
+    this.promise = new Promise<T>((resolve, reject) => {
+      this.resolveFn = resolve;
+      this.rejectFn = reject;
+    });
+
     if (timeoutMillis !== undefined && timeoutMillis !== null) {
       this.timeout = setTimeout(
         this.rejectWithTimeout.bind(this, timeoutMessage),
         timeoutMillis,
       ).unref();
     }
-    this.promise = new Promise<T>((resolve, reject) => {
-      this.resolveFn = resolve;
-      this.rejectFn = reject;
-    });
-    bindFunctions(this);
+    this.resolve = this.resolve.bind(this);
+    this.reject = this.reject.bind(this);
   }
 
   public resolve(value: T | PromiseLike<T>): void {
     if (this.isResolved) return;
-    clearTimeout(this.timeout);
+
     this.resolveFn(value);
+
     Promise.resolve(value)
       // eslint-disable-next-line promise/always-return
       .then(x => {
         this.isResolved = true;
         this.resolved = x;
+        this.clean();
+        this.stack = null;
       })
       .catch(this.reject);
   }
@@ -45,8 +49,8 @@ export default class Resolvable<T = any> implements IResolvablePromise<T>, Promi
   public reject(error: Error): void {
     if (this.isResolved) return;
     this.isResolved = true;
-    clearTimeout(this.timeout);
     this.rejectFn(error);
+    this.clean();
   }
 
   public toJSON(): object {
@@ -71,6 +75,12 @@ export default class Resolvable<T = any> implements IResolvablePromise<T>, Promi
 
   public finally(onfinally?: () => void): Promise<T> {
     return this.promise.finally(onfinally);
+  }
+
+  private clean(): void {
+    clearTimeout(this.timeout);
+    this.resolveFn = null;
+    this.rejectFn = null;
   }
 
   private rejectWithTimeout(message: string): void {
