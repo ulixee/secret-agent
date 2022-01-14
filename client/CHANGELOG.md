@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.6.3](https://github.com/ulixee/secret-agent/compare/v1.6.2...v1.6.3) (2022-01-14)
+
+
+### Bug Fixes
+
+* **client:** wait for all command queue flushes ([95664f5](https://github.com/ulixee/secret-agent/commit/95664f570b6b7e233ea6b6227ad5f363cce52287))
+* **core:** cleanup event listener memory ([6f7d7bb](https://github.com/ulixee/secret-agent/commit/6f7d7bb449714876ab9a90ec4697c012d8c7bff3))
+
+
+
+
+
 ## [1.6.2](https://github.com/ulixee/secret-agent/compare/v1.6.1...v1.6.2) (2021-12-20)
 
 
