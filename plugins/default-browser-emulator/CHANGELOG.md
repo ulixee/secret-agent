@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.6.4](https://github.com/ulixee/secret-agent/compare/v1.6.3...v1.6.4) (2022-01-24)
+
+
+### Bug Fixes
+
+* **mitm:** lookup public ip should use https ([5a68228](https://github.com/ulixee/secret-agent/commit/5a6822851a71aff940900ea4f41365c997314ee2))
+
+
+
+
+
 ## [1.6.3](https://github.com/ulixee/secret-agent/compare/v1.6.2...v1.6.3) (2022-01-14)
 
 **Note:** Version bump only for package @secret-agent/default-browser-emulator
