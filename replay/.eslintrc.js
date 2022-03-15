@@ -17,6 +17,7 @@ module.exports = {
   ],
   rules: {
     'no-console': 'off',
+    'import/order': 'off',
     'import/extensions': 'off',
     'import/no-extraneous-dependencies': [
       'error',

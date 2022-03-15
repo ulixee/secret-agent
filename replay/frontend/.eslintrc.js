@@ -9,5 +9,6 @@ module.exports = {
     'no-console': 'off',
     'global-require': 'off',
     'import/extensions': 'off',
+    'import/no-extraneous-dependencies': 'off',
   },
 };

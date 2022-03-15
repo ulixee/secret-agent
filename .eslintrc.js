@@ -100,6 +100,7 @@ module.exports = {
         'no-console': 'off',
         '@typescript-eslint/no-unused-vars': 'off',
         'import/no-extraneous-dependencies': 'off',
+        '@typescript-eslint/no-shadow': 'off',
       },
     },
     {
