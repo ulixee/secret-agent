@@ -3,7 +3,6 @@ import IDomStorage from '@secret-agent/interfaces/IDomStorage';
 import Log from '@secret-agent/commons/Logger';
 import { IPuppetPage } from '@secret-agent/interfaces/IPuppetPage';
 import { assert } from '@secret-agent/commons/utils';
-import { IPuppetFrame } from '@secret-agent/interfaces/IPuppetFrame';
 import Session from './Session';
 import InjectedScripts from './InjectedScripts';
 
@@ -38,80 +37,58 @@ export default class UserProfile {
     } as IUserProfile;
   }
 
-  public static async install(session: Session) {
+  public static async installCookies(session: Session) {
     const { userProfile } = session;
     assert(userProfile, 'UserProfile exists');
-    const sessionId = session.id;
 
     const { storage, cookies } = userProfile;
     const origins = Object.keys(storage ?? {});
 
-    const hasStorage =
-      storage && origins.length && origins.some(x => storage[x]?.indexedDB?.length);
-    if (!cookies && !hasStorage) {
-      return this;
+    if (cookies && cookies.length) {
+      await session.browserContext.addCookies(cookies, origins);
     }
-
-    const parentLogId = log.info('UserProfile.install', { sessionId });
-
-    let page: IPuppetPage;
-    try {
-      session.mitmRequestSession.bypassAllWithEmptyResponse = true;
-      if (cookies && cookies.length) {
-        await session.browserContext.addCookies(cookies, origins);
-      }
-
-      if (hasStorage) {
-        page = await session.browserContext.newPage();
-        // install scripts so we can restore storage
-        await InjectedScripts.installDomStorageRestore(page);
-
-        for (const origin of origins) {
-          const originStorage = storage[origin];
-          if (!originStorage || !originStorage.indexedDB.length) {
-            continue;
-          }
-
-          await page.navigate(origin);
-          await page.mainFrame.evaluate(
-            `window.restoreUserStorage(${JSON.stringify(originStorage.indexedDB)})`,
-            true,
-          );
-        }
-      }
-    } finally {
-      if (page) await page.close().catch(() => null);
-      session.mitmRequestSession.bypassAllWithEmptyResponse = false;
-      log.info('UserProfile.installed', { sessionId, parentLogId });
-    }
-
     return this;
   }
 
-  public static async installDomStorage(session: Session, page: IPuppetPage) {
+  public static async installStorage(session: Session, page: IPuppetPage) {
     const { userProfile } = session;
-    const domStorage = userProfile.storage;
-    if (!domStorage) return;
+    const storage = userProfile.storage;
+    if (!storage) return;
 
     const startMitm = { ...session.mitmRequestSession.blockedResources };
     try {
       session.mitmRequestSession.blockedResources = {
         types: [],
-        urls: Object.keys(domStorage),
+        urls: Object.keys(storage),
         handlerFn(req, res, ctx) {
-          const sessionStorage = domStorage[ctx.url.origin]?.sessionStorage ?? [];
-          const localStorage = domStorage[ctx.url.origin]?.localStorage ?? [];
-          const html = `<html><body>
-<h5>${ctx.url.origin}</h5>
-<script>
+          let script = '';
+          const originStorage = storage[ctx.url.origin];
+          const sessionStorage = originStorage?.sessionStorage;
+          if (sessionStorage) {
+            script += `
 for (const [key,value] of ${JSON.stringify(sessionStorage)}) {
   sessionStorage.setItem(key,value);
-}
+}\n`;
+          }
+          const localStorage = originStorage?.localStorage;
+          if (localStorage) {
+            script += `\n
 for (const [key,value] of ${JSON.stringify(localStorage)}) {
   localStorage.setItem(key,value);
-}
-</script></body></html>`;
-          res.end(html);
+}\n`;
+          }
+
+          if (originStorage?.indexedDB) {
+            script += `\n\n 
+             ${InjectedScripts.getIndexedDbStorageRestoreScript(originStorage.indexedDB)}`;
+          }
+
+          res.end(`<html><body>
+<h5>${ctx.url.origin}</h5>
+<script>
+${script}
+</script>
+</body></html>`);
 
           return true;
         },
@@ -122,7 +99,7 @@ for (const [key,value] of ${JSON.stringify(localStorage)}) {
         html: `<html>
 <body>
 <h1>Restoring Dom Storage</h1>
-${Object.keys(domStorage)
+${Object.keys(storage)
   .map(x => `<iframe src="${x}"></iframe>`)
   .join('\n')}
 </body>
@@ -137,7 +114,7 @@ ${Object.keys(domStorage)
           }
           continue;
         }
-        await frame.waitForLifecycleEvent('DOMContentLoaded');
+        await frame.waitForLifecycleEvent('load');
       }
     } finally {
       session.mitmRequestSession.blockedResources = startMitm;

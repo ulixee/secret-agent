@@ -259,7 +259,7 @@ export default class Session extends TypedEventEmitter<{
     this.eventSubscriber.on(context, 'devtools-message', this.onDevtoolsMessage.bind(this));
 
     if (this.userProfile) {
-      await UserProfile.install(this);
+      await UserProfile.installCookies(this);
     }
 
     context.defaultPageInitializationFn = InjectedScripts.install;
@@ -291,7 +291,7 @@ export default class Session extends TypedEventEmitter<{
 
     // if first tab, install session storage
     if (!this.hasLoadedUserProfile && this.userProfile?.storage) {
-      await UserProfile.installDomStorage(this, page);
+      await UserProfile.installStorage(this, page);
       this.hasLoadedUserProfile = true;
     }
 
