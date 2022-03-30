@@ -24,7 +24,7 @@
     "gridsome": "^0.7.23",
     "lodash.kebabcase": "^4.1.1",
     "moment": "^2.24.1",
-    "remark-slug": "git://github.com/ulixee/remark-slug.git",
+    "remark-slug": "https://github.com/ulixee/remark-slug.git",
     "typography": "^0.16.19",
     "vue": "^2.6.12",
     "vue-prismjs": "^1.2.0",
@@ -35,10 +35,10 @@
     "@types/typography": "^0.16.3",
     "gh-pages": "^3.1.0",
     "gridsome-plugin-pug": "^0.0.3",
-    "gridsome-plugin-typescript": "git://github.com/calebjclark/gridsome-plugin-typescript.git",
+    "gridsome-plugin-typescript": "https://github.com/calebjclark/gridsome-plugin-typescript.git",
     "json2md": "^1.7.0",
     "node-sass": "^6.0.1",
-    "noderdom-detached": "git://github.com/ulixee/noderdom-detached.git#dist",
+    "noderdom-detached": "https://github.com/ulixee/noderdom-detached.git#dist",
     "pug": "^3.0.2",
     "sass-loader": "^10.2.0",
     "sharp": "^0.25.4",
@@ -48,7 +48,7 @@
     "vue-template-compiler": "^2.6.10"
   },
   "resolutions": {
-    "remark-slug": "git://github.com/ulixee/remark-slug.git",
-    "w3c-xmlserializer": "git://github.com/ulixee/w3c-xmlserializer.git"
+    "remark-slug": "https://github.com/ulixee/remark-slug.git",
+    "w3c-xmlserializer": "https://github.com/ulixee/w3c-xmlserializer.git"
   }
 }

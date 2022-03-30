@@ -9734,9 +9734,9 @@ gridsome-plugin-pug@^0.0.3:
     pug-loader "^2.4.0"
     pug-plain-loader "^1.0.0"
 
-"gridsome-plugin-typescript@git://github.com/calebjclark/gridsome-plugin-typescript.git":
+"gridsome-plugin-typescript@https://github.com/calebjclark/gridsome-plugin-typescript.git":
   version "0.4.0"
-  resolved "git://github.com/calebjclark/gridsome-plugin-typescript.git#949023371f6a27c41d224c3561e8c3c53c3cab07"
+  resolved "https://github.com/calebjclark/gridsome-plugin-typescript.git#949023371f6a27c41d224c3561e8c3c53c3cab07"
 
 gridsome@^0.7.23:
   version "0.7.23"
@@ -13662,9 +13662,9 @@ node-sass@^6.0.1:
     stdout-stream "^1.4.0"
     "true-case-path" "^1.0.2"
 
-"noderdom-detached@git://github.com/ulixee/noderdom-detached.git#dist":
+"noderdom-detached@https://github.com/ulixee/noderdom-detached.git#dist":
   version "0.3.2"
-  resolved "git://github.com/ulixee/noderdom-detached.git#25b6180898bec798a18b2821a4ce57896b688da9"
+  resolved "https://github.com/ulixee/noderdom-detached.git#25b6180898bec798a18b2821a4ce57896b688da9"
   dependencies:
     "@types/parse5" "^5.0.2"
     "@types/underscore" "^1.9.4"
@@ -16187,9 +16187,9 @@ remark-parse@^6.0.0:
     vfile-location "^2.0.0"
     xtend "^4.0.1"
 
-remark-slug@^4.2.3, "remark-slug@git://github.com/ulixee/remark-slug.git":
+remark-slug@^4.2.3, "remark-slug@https://github.com/ulixee/remark-slug.git":
   version "6.0.0"
-  resolved "git://github.com/ulixee/remark-slug.git#29da3adcab6a3adc75e25b0f9439b3e1d5b228ce"
+  resolved "https://github.com/ulixee/remark-slug.git#29da3adcab6a3adc75e25b0f9439b3e1d5b228ce"
   dependencies:
     github-slugger "^1.0.0"
     mdast-util-to-string "^1.0.0"
