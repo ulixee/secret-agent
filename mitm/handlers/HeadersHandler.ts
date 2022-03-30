@@ -50,9 +50,14 @@ export default class HeadersHandler {
 
     const requestedResource = session.browserRequestMatcher.onMitmRequestedResource(ctx);
 
+    // if we're going to block this, don't wait for a
+    if (!ctx.resourceType && session.shouldBlockRequest(ctx.url.href)) {
+      requestedResource.browserRequestedPromise.resolve();
+    }
+
     if (ctx.resourceType === 'Websocket') {
       ctx.browserRequestId = await session.getWebsocketUpgradeRequestId(requestHeaders);
-      requestedResource.browserRequestedPromise.resolve(null);
+      requestedResource.browserRequestedPromise.resolve();
     } else if (!ctx.resourceType || ctx.resourceType === 'Fetch') {
       // if fetch, we need to wait for the browser request so we can see if we should use xhr order or fetch order
       await ctx.browserHasRequested;

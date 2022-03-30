@@ -291,7 +291,7 @@ export default class Session extends TypedEventEmitter<{
 
     // if first tab, install session storage
     if (!this.hasLoadedUserProfile && this.userProfile?.storage) {
-      await UserProfile.installSessionStorage(this, page);
+      await UserProfile.installDomStorage(this, page);
       this.hasLoadedUserProfile = true;
     }
 

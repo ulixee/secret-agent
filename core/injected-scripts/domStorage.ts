@@ -1,4 +1,4 @@
-import { IDomStorageForOrigin, IStorageEntry } from '@secret-agent/interfaces/IDomStorage';
+import { IDomStorageForOrigin } from '@secret-agent/interfaces/IDomStorage';
 import { IIndexedDB } from '@secret-agent/interfaces/IIndexedDB';
 
 function dumpStorage(storage: Storage) {
@@ -8,15 +8,6 @@ function dumpStorage(storage: Storage) {
     store.push([key, storage.getItem(key)]);
   }
   return store;
-}
-
-function restoreStorage(storage: Storage, store: IStorageEntry[]) {
-  // only run on empty!
-  if (storage.length) return;
-  if (!store || !store.length) return;
-  for (const [key, value] of store) {
-    storage.setItem(key, value);
-  }
 }
 
 async function exportIndexedDbs(dbNames: string[]) {
@@ -151,11 +142,9 @@ async function restoreData(db: IDBDatabase, restoreDB: IIndexedDB) {
 }
 
 // @ts-ignore
-window.restoreUserStorage = async (data: IDomStorageForOrigin) => {
+window.restoreUserStorage = async (data: IDomStorageForOrigin['indexedDB']) => {
   if (!data) return;
-  restoreStorage(localStorage, data.localStorage);
-  restoreStorage(sessionStorage, data.sessionStorage);
-  await restoreIndexedDb(data.indexedDB);
+  await restoreIndexedDb(data);
 };
 
 // @ts-ignore

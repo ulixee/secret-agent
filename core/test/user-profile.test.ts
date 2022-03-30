@@ -4,6 +4,7 @@ import IUserProfile from '@secret-agent/interfaces/IUserProfile';
 import HttpRequestHandler from '@secret-agent/mitm/handlers/HttpRequestHandler';
 import { ITestKoaServer } from '@secret-agent/testing/helpers';
 import { createPromise } from '@secret-agent/commons/utils';
+import MitmRequestAgent from '@secret-agent/mitm/lib/MitmRequestAgent';
 import Core from '../index';
 import ConnectionToClient from '../server/ConnectionToClient';
 import Session from '../lib/Session';
@@ -274,7 +275,7 @@ localStorage.setItem('Test1', 'value1');
   });
 
   it('should not make requests to end sites during profile "install"', async () => {
-    const mitmSpy = jest.spyOn(HttpRequestHandler, 'onRequest');
+    const mitmSpy = jest.spyOn(MitmRequestAgent.prototype, 'request');
     await connection.createSession({
       userProfile: {
         cookies: [],
