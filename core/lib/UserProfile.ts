@@ -37,81 +37,87 @@ export default class UserProfile {
     } as IUserProfile;
   }
 
-  public static async install(session: Session) {
+  public static async installCookies(session: Session) {
     const { userProfile } = session;
     assert(userProfile, 'UserProfile exists');
-    const sessionId = session.id;
 
     const { storage, cookies } = userProfile;
     const origins = Object.keys(storage ?? {});
 
-    const hasStorage = storage && origins.length;
-    if (!cookies && !hasStorage) {
-      return this;
+    if (cookies && cookies.length) {
+      await session.browserContext.addCookies(cookies, origins);
     }
-
-    const parentLogId = log.info('UserProfile.install', { sessionId });
-
-    let page: IPuppetPage;
-    try {
-      session.mitmRequestSession.bypassAllWithEmptyResponse = true;
-      page = await session.browserContext.newPage();
-      if (cookies && cookies.length) {
-        await session.browserContext.addCookies(cookies, origins);
-      }
-
-      if (hasStorage) {
-        // install scripts so we can restore storage
-        await InjectedScripts.installDomStorageRestore(page);
-
-        for (const origin of origins) {
-          const originStorage = storage[origin];
-          if (
-            !originStorage ||
-            (!originStorage.indexedDB.length &&
-              !originStorage.localStorage.length &&
-              !originStorage.sessionStorage.length)
-          ) {
-            continue;
-          }
-
-          await page.navigate(origin);
-          await page.mainFrame.evaluate(
-            `window.restoreUserStorage(${JSON.stringify(originStorage)})`,
-            true,
-          );
-        }
-      }
-    } finally {
-      session.mitmRequestSession.bypassAllWithEmptyResponse = false;
-      if (page) await page.close();
-      log.info('UserProfile.installed', { sessionId, parentLogId });
-    }
-
     return this;
   }
 
-  public static async installSessionStorage(session: Session, page: IPuppetPage) {
+  public static async installStorage(session: Session, page: IPuppetPage) {
     const { userProfile } = session;
+    const storage = userProfile.storage;
+    if (!storage) return;
 
+    const startMitm = { ...session.mitmRequestSession.blockedResources };
     try {
-      session.mitmRequestSession.bypassAllWithEmptyResponse = true;
+      session.mitmRequestSession.blockedResources = {
+        types: [],
+        urls: Object.keys(storage),
+        handlerFn(req, res, ctx) {
+          let script = '';
+          const originStorage = storage[ctx.url.origin];
+          const sessionStorage = originStorage?.sessionStorage;
+          if (sessionStorage) {
+            script += `
+for (const [key,value] of ${JSON.stringify(sessionStorage)}) {
+  sessionStorage.setItem(key,value);
+}\n`;
+          }
+          const localStorage = originStorage?.localStorage;
+          if (localStorage) {
+            script += `\n
+for (const [key,value] of ${JSON.stringify(localStorage)}) {
+  localStorage.setItem(key,value);
+}\n`;
+          }
+
+          if (originStorage?.indexedDB) {
+            script += `\n\n 
+             ${InjectedScripts.getIndexedDbStorageRestoreScript(originStorage.indexedDB)}`;
+          }
+
+          res.end(`<html><body>
+<h5>${ctx.url.origin}</h5>
+<script>
+${script}
+</script>
+</body></html>`);
+
+          return true;
+        },
+      };
       // reinstall session storage for the
-      for (const [origin, storage] of Object.entries(userProfile?.storage ?? {})) {
-        if (!storage.sessionStorage.length) continue;
-        const load = page.mainFrame.waitOn('frame-lifecycle', event => event.name === 'load');
-        await page.navigate(origin);
-        await load;
-        await page.mainFrame.evaluate(
-          `${JSON.stringify(
-            storage.sessionStorage,
-          )}.forEach(([key,value]) => sessionStorage.setItem(key,value))`,
-          false,
-        );
+      await page.devtoolsSession.send('Page.setDocumentContent', {
+        frameId: page.mainFrame.id,
+        html: `<html>
+<body>
+<h1>Restoring Dom Storage</h1>
+${Object.keys(storage)
+  .map(x => `<iframe src="${x}"></iframe>`)
+  .join('\n')}
+</body>
+</html>`,
+      });
+
+      for (const frame of page.frames) {
+        if (frame === page.mainFrame) {
+          // no loader is set, so need to have special handling
+          if (!page.mainFrame.activeLoader.lifecycle.load) {
+            await page.mainFrame.waitOn('frame-lifecycle', x => x.name === 'load');
+          }
+          continue;
+        }
+        await frame.waitForLifecycleEvent('load');
       }
-      await page.navigate('about:blank');
     } finally {
-      session.mitmRequestSession.bypassAllWithEmptyResponse = false;
+      session.mitmRequestSession.blockedResources = startMitm;
     }
   }
 }

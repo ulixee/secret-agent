@@ -2,10 +2,12 @@ import * as fs from 'fs';
 import { IPuppetPage } from '@secret-agent/interfaces/IPuppetPage';
 import { stringifiedTypeSerializerClass } from '@secret-agent/commons/TypeSerializer';
 import injectedSourceUrl from '@secret-agent/interfaces/injectedSourceUrl';
+import { IIndexedDB } from '@secret-agent/interfaces/IIndexedDB';
 import { IFrontendDomChangeEvent } from '../models/DomChangesTable';
 
 const pageScripts = {
   domStorage: fs.readFileSync(`${__dirname}/../injected-scripts/domStorage.js`, 'utf8'),
+  indexedDbRestore: fs.readFileSync(`${__dirname}/../injected-scripts/indexedDbRestore.js`, 'utf8'),
   domReplayer: fs.readFileSync(`${__dirname}/../injected-scripts/domReplayer.js`, 'utf8'),
   interactReplayer: fs.readFileSync(`${__dirname}/../injected-scripts/interactReplayer.js`, 'utf8'),
   NodeTracker: fs.readFileSync(`${__dirname}/../injected-scripts/NodeTracker.js`, 'utf8'),
@@ -144,15 +146,13 @@ export default class InjectedScripts {
     );
   }
 
-  public static async installDomStorageRestore(puppetPage: IPuppetPage): Promise<void> {
-    await puppetPage.addNewDocumentScript(
-      `(function restoreDomStorage() {
+  public static getIndexedDbStorageRestoreScript(restoreDBs: IIndexedDB[]): string {
+    return `(function restoreIndexedDB(dbs) {
 const exports = {}; // workaround for ts adding an exports variable
 ${stringifiedTypeSerializerClass};
 
-${pageScripts.domStorage};
-})();`,
-      true,
-    );
+${pageScripts.indexedDbRestore};
+restoreUserStorage(dbs);
+})(${JSON.stringify(restoreDBs)});`;
   }
 }

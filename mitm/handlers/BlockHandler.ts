@@ -21,7 +21,7 @@ export default class BlockHandler {
     }
 
     if (ctx.proxyToClientResponse) {
-      if (requestSession.blockHandler(ctx.clientToProxyRequest, ctx.proxyToClientResponse)) {
+      if (requestSession.blockHandler(ctx)) {
         return true;
       }
 

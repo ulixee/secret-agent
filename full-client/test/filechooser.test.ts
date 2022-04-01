@@ -11,9 +11,11 @@ let handler: Handler;
 beforeAll(async () => {
   const coreServer = new CoreServer();
   await coreServer.listen({ port: 0 });
-  Core.use(class BasicHumanEmulator extends HumanEmulator {
-    static id = 'basic';
-  });
+  Core.use(
+    class BasicHumanEmulator extends HumanEmulator {
+      static id = 'basic';
+    },
+  );
   handler = new Handler({ maxConcurrency: 1, host: await coreServer.address });
   Helpers.onClose(() => {
     handler.close();
@@ -66,6 +68,48 @@ describe('Filechooser tests', () => {
     await didSubmit.promise;
   });
 
+  it('can trigger file upload when a user profile is set', async () => {
+    const didSubmit = createPromise<void>();
+
+    koaServer.get('/get-upload-profile', ctx => {
+      ctx.body = `<html>
+<body>
+<h1>Upload form</h1>
+<form name="upload" action="/upload" method="post" enctype="multipart/form-data">
+  <input type="file" name="file" id="files"  />
+  <input type="submit" name="Go" id="submitter">
+</body>
+</html>`;
+    });
+
+    const agent = await handler.createAgent({
+      humanEmulatorId: 'basic',
+      userProfile: {
+        cookies: [],
+        storage: {
+          'https://domain1.com': {
+            indexedDB: [],
+            localStorage: [],
+            sessionStorage: [['2', '1']],
+          },
+          'https://domain2.com': {
+            indexedDB: [],
+            localStorage: [],
+            sessionStorage: [['1', '2']],
+          },
+        },
+      },
+    });
+    Helpers.needsClosing.push(agent);
+
+    await agent.goto(`${koaServer.baseUrl}/get-upload-profile`);
+    await agent.waitForPaintingStable();
+    const input = await agent.document.querySelector('#files');
+    await agent.click(input);
+    const chooser = await agent.waitForFileChooser();
+    expect(chooser).toBeTruthy();
+  });
+
   it('can upload multiple files', async () => {
     const didSubmit = createPromise<void>();
     koaServer.post('/upload-multi', koaServer.upload.array('sourcefiles'), ctx => {
@@ -86,7 +130,9 @@ describe('Filechooser tests', () => {
 </html>`;
     });
 
-    const agent = await handler.createAgent({ humanEmulatorId: 'basic' });
+    const agent = await handler.createAgent({
+      humanEmulatorId: 'basic',
+    });
     Helpers.needsClosing.push(agent);
 
     const file1 = await Fs.promises.readFile(`${__dirname}/filechooser.test.js`);

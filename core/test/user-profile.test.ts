@@ -4,6 +4,8 @@ import IUserProfile from '@secret-agent/interfaces/IUserProfile';
 import HttpRequestHandler from '@secret-agent/mitm/handlers/HttpRequestHandler';
 import { ITestKoaServer } from '@secret-agent/testing/helpers';
 import { createPromise } from '@secret-agent/commons/utils';
+import MitmRequestAgent from '@secret-agent/mitm/lib/MitmRequestAgent';
+import IDomStorage from '@secret-agent/interfaces/IDomStorage';
 import Core from '../index';
 import ConnectionToClient from '../server/ConnectionToClient';
 import Session from '../lib/Session';
@@ -218,6 +220,41 @@ document.querySelector('#session').innerHTML = [session1,session2,session3].join
     await tab2.close();
   });
 
+  it('should be able to restore storage for a large number of sites', async () => {
+    const storage: IDomStorage = {
+      [`http://${koaServer.baseHost}`]: {
+        indexedDB: [],
+        localStorage: [['test', '1']],
+        sessionStorage: [['test', '2']],
+      },
+    };
+    for (let i = 0; i < 100; i += 1) {
+      storage[`https://domain${i}.com`] = {
+        indexedDB: [],
+        localStorage: [
+          ['1', '2'],
+          ['test2', '1'],
+        ],
+        sessionStorage: [
+          ['1', '2'],
+          ['test2', '1'],
+        ],
+      };
+    }
+    const meta = await connection.createSession({
+      userProfile: {
+        storage,
+      },
+    });
+    const tab = Session.getTab(meta);
+    Helpers.needsClosing.push(tab.session);
+
+    await tab.goto(`${koaServer.baseUrl}`);
+    await tab.waitForLoad('PaintingStable');
+    await expect(tab.getJsValue('localStorage.getItem("test")')).resolves.toBe('1');
+    await expect(tab.getJsValue('sessionStorage.getItem("test")')).resolves.toBe('2');
+  });
+
   it("should keep profile information for sites that aren't loaded in a session", async () => {
     const meta = await connection.createSession({
       userProfile: {
@@ -274,7 +311,7 @@ localStorage.setItem('Test1', 'value1');
   });
 
   it('should not make requests to end sites during profile "install"', async () => {
-    const mitmSpy = jest.spyOn(HttpRequestHandler, 'onRequest');
+    const mitmSpy = jest.spyOn(MitmRequestAgent.prototype, 'request');
     await connection.createSession({
       userProfile: {
         cookies: [],

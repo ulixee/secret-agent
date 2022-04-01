@@ -33,6 +33,7 @@ export default class RequestSession extends TypedEventEmitter<IRequestSessionEve
     handlerFn?: (
       request: http.IncomingMessage | http2.Http2ServerRequest,
       response: http.ServerResponse | http2.Http2ServerResponse,
+      context: IMitmRequestContext,
     ) => boolean;
   } = {
     types: [],
@@ -154,11 +155,13 @@ export default class RequestSession extends TypedEventEmitter<IRequestSessionEve
   }
 
   // function to override for
-  public blockHandler(
-    request: http.IncomingMessage | http2.Http2ServerRequest,
-    response: http.ServerResponse | http2.Http2ServerResponse,
-  ): boolean {
-    if (this.blockedResources?.handlerFn) return this.blockedResources.handlerFn(request, response);
+  public blockHandler(ctx: IMitmRequestContext): boolean {
+    if (this.blockedResources?.handlerFn)
+      return this.blockedResources.handlerFn(
+        ctx.clientToProxyRequest,
+        ctx.proxyToClientResponse,
+        ctx,
+      );
     return false;
   }
 
