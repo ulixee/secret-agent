@@ -14,25 +14,13 @@
   },
   "workspaces": {
     "packages": [
-      "client",
       "core",
-      "interfaces",
-      "plugin-utils",
-      "plugins/*",
-      "full-client",
-      "puppet",
-      "puppet-chrome",
       "mitm",
       "mitm-socket",
-      "replay",
-      "replay/frontend",
-      "testing",
-      "commons",
-      "website"
+      "testing"
     ]
   },
   "resolutions": {
-    "remark-slug": "https://github.com/ulixee/remark-slug.git",
     "tough-cookie": "^4.0.0"
   }
 }

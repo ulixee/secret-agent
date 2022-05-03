@@ -13,18 +13,10 @@
   },
   "workspaces": {
     "packages": [
-      "client",
       "core",
-      "interfaces",
-      "plugin-utils",
-      "plugins/*",
-      "full-client",
-      "puppet",
-      "puppet-chrome",
       "mitm",
       "mitm-socket",
-      "replay",
-      "commons"
+      "testing"
     ]
   },
   "resolutions": {

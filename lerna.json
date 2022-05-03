@@ -2,19 +2,10 @@
   "version": "1.6.4",
   "npmClient": "yarn",
   "packages": [
-    "client",
     "core",
-    "interfaces",
-    "plugin-utils",
-    "plugins/*",
-    "full-client",
-    "puppet",
-    "puppet-chrome",
     "mitm",
-    "replay",
-    "testing",
-    "commons",
-    "website"
+    "mitm-socket",
+    "testing"
   ],
   "useWorkspaces": true
 }
