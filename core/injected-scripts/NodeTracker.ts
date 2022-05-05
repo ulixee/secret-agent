@@ -1,5 +1,4 @@
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function NodeTrackerStatics(constructor: IStaticNodeTracker) {}
+function NodeTrackerStatics(staticClass: IStaticNodeTracker) {}
 
 @NodeTrackerStatics
 class NodeTracker {
@@ -21,8 +20,10 @@ class NodeTracker {
     if (!id) {
       // extract so we detect any nodes that haven't been extracted yet. Ie, called from jsPath
       if ('extractDomChanges' in window) {
-        // @ts-ignore
         window.extractDomChanges();
+      }
+      if (!this.has(node) && 'trackElement' in window) {
+        window.trackElement(node as any);
       }
       id = this.track(node);
     }
@@ -52,7 +53,7 @@ class NodeTracker {
   public static restore(id: number, node: Node): void {
     node[this.nodeIdSymbol] = id;
     this.watchedNodesById.set(id, node);
-    if (id > this.nextId) this.nextId = id;
+    if (id > this.nextId) this.nextId = id + 1;
   }
 }
 

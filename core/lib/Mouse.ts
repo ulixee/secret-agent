@@ -14,10 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { IMouseButton } from '@secret-agent/interfaces/IInteractions';
-import { IMouseOptions } from '@secret-agent/interfaces/IPuppetInput';
-import IPoint from '@secret-agent/interfaces/IPoint';
-import { DevtoolsSession } from './DevtoolsSession';
+import { IMouseButton } from '@unblocked/emulator-spec/IInteractions';
+import { IMouseOptions } from '@unblocked/emulator-spec/IInput';
+import IPoint from '@unblocked/emulator-spec/IPoint';
+import DevtoolsSession from './DevtoolsSession';
 import { Keyboard } from './Keyboard';
 
 /**

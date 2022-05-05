@@ -1,19 +1,16 @@
-import Queue from '@secret-agent/commons/Queue';
-import Log from '@secret-agent/commons/Logger';
-import { IBoundLog } from '@secret-agent/interfaces/ILog';
+import Queue from '@ulixee/commons/lib/Queue';
+import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
 import MitmSocket from '@secret-agent/mitm-socket';
-import Resolvable from '@secret-agent/commons/Resolvable';
-import { CanceledPromiseError } from '@secret-agent/commons/interfaces/IPendingWaitEvent';
+import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
+import Resolvable from '@ulixee/commons/lib/Resolvable';
+import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
 import { ClientHttp2Session } from 'http2';
-import EventSubscriber from '@secret-agent/commons/EventSubscriber';
 import RequestSession from '../handlers/RequestSession';
-
-const { log } = Log(module);
 
 export default class SocketPool {
   public alpn: string;
   public isClosing = false;
-  public readonly eventSubscriber = new EventSubscriber();
+  private readonly events = new EventSubscriber();
   private all = new Set<MitmSocket>();
   private pooled = 0;
   private free = new Set<MitmSocket>();
@@ -23,7 +20,7 @@ export default class SocketPool {
   private logger: IBoundLog;
 
   constructor(origin: string, readonly maxConnections, readonly session: RequestSession) {
-    this.logger = log.createChild(module, { sessionId: session.sessionId, origin });
+    this.logger = session.logger.createChild(module, { origin });
     this.queue = new Queue('SOCKET TO ORIGIN');
   }
 
@@ -69,11 +66,11 @@ export default class SocketPool {
       if (this.free.size) {
         const first = this.free.values().next().value;
         this.free.delete(first);
-        return first;
+        if (first) return first;
       }
 
       const mitmSocket = await createSocket();
-      this.eventSubscriber.on(mitmSocket, 'close', this.onSocketClosed.bind(this, mitmSocket));
+      this.events.on(mitmSocket, 'close', this.onSocketClosed.bind(this, mitmSocket));
       this.alpn = mitmSocket.alpn;
 
       this.all.add(mitmSocket);
@@ -98,15 +95,17 @@ export default class SocketPool {
         session.mitmSocket.close();
         session.client.destroy();
         session.client.unref();
+        if (!session.client.socket.destroyed) session.client.socket.destroy();
+        session.client.close();
       } catch (err) {
         // don't need to log closing sessions
       }
     }
     this.http2Sessions.length = 0;
-    this.eventSubscriber.close();
     for (const socket of this.all) {
       socket.close();
     }
+    this.events.close();
     this.all.clear();
     this.free.clear();
     this.queue.stop(new CanceledPromiseError('Shutting down socket pool'));
@@ -121,8 +120,8 @@ export default class SocketPool {
 
     const entry = { mitmSocket, client };
     this.http2Sessions.push(entry);
-    this.eventSubscriber.on(client, 'close', () => this.closeHttp2Session(entry));
-    this.eventSubscriber.on(client, 'goaway', () => this.closeHttp2Session(entry));
+    this.events.on(client, 'close', () => this.closeHttp2Session(entry));
+    this.events.on(client, 'goaway', () => this.closeHttp2Session(entry));
   }
 
   private onSocketClosed(socket: MitmSocket): void {

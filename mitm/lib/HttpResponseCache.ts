@@ -1,4 +1,4 @@
-import IResourceHeaders from '@secret-agent/interfaces/IResourceHeaders';
+import IHttpHeaders from '@unblocked/emulator-spec/IHttpHeaders';
 
 // TODO: implement max-age and last-modified cache control https://tools.ietf.org/id/draft-ietf-httpbis-cache-01.html
 export default class HttpResponseCache {
@@ -15,7 +15,7 @@ export default class HttpResponseCache {
     return entry;
   }
 
-  public add(url: string, file: Buffer, headers: IResourceHeaders): void {
+  public add(url: string, file: Buffer, headers: IHttpHeaders): void {
     const resource = { file } as IResource;
     for (const [key, value] of Object.entries(headers)) {
       const lower = key.toLowerCase();

@@ -1,8 +1,7 @@
 import { Http2Session } from 'http2';
-import { Log } from '@secret-agent/commons/Logger';
-import { IBoundLog } from '@secret-agent/interfaces/ILog';
-import { IEventSubscriber } from '@secret-agent/interfaces/IRegisteredEventListener';
-import { bindFunctions } from '@secret-agent/commons/utils';
+import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
+import { bindFunctions } from '@ulixee/commons/lib/utils';
+import { IEventSubscriber } from '@ulixee/commons/interfaces/IRegisteredEventListener';
 
 export default class Http2SessionBinding {
   private logger: IBoundLog;
@@ -10,10 +9,11 @@ export default class Http2SessionBinding {
   constructor(
     readonly clientSession: Http2Session,
     readonly serverSession: Http2Session,
-    readonly eventSubscriber: IEventSubscriber,
-    logData: { sessionId: string } & any,
+    readonly events: IEventSubscriber,
+    logger: IBoundLog,
+    logData: any,
   ) {
-    this.logger = new Log(module, logData) as IBoundLog;
+    this.logger = logger.createChild(module, logData);
     bindFunctions(this);
     this.bind();
   }
@@ -22,31 +22,33 @@ export default class Http2SessionBinding {
     const clientSession = this.clientSession;
     const serverSession = this.serverSession;
 
-    if (clientSession) {
-      this.eventSubscriber.on(clientSession, 'ping', this.pingServer);
-    }
+    if (clientSession) this.events.on(clientSession, 'ping', this.pingServer);
 
-    this.eventSubscriber.on(serverSession, 'error', this.onServerError);
-    this.eventSubscriber.on(serverSession, 'close', this.onServerClose);
-    this.eventSubscriber.on(serverSession, 'goaway', this.onServerGoaway);
-    this.eventSubscriber.on(serverSession, 'remoteSettings', remoteSettings => {
+    this.events.on(serverSession, 'error', this.onServerError);
+    this.events.on(serverSession, 'close', this.onServerClose);
+    this.events.on(serverSession, 'goaway', this.onServerGoaway);
+
+    this.events.on(serverSession, 'remoteSettings', remoteSettings => {
       this.logger.stats('Http2Client.remoteSettings', {
-        settings: remoteSettings,
+        remoteSettings,
       });
     });
-    this.eventSubscriber.on(serverSession, 'frameError', (frameType, errorCode) => {
+
+    this.events.on(serverSession, 'frameError', (frameType, errorCode) => {
       this.logger.warn('Http2Client.frameError', {
         frameType,
         errorCode,
       });
     });
-    this.eventSubscriber.on(serverSession, 'altsvc', (alt, altOrigin) => {
+
+    this.events.on(serverSession, 'altsvc', (alt, altOrigin) => {
       this.logger.stats('Http2.altsvc', {
         altOrigin,
         alt,
       });
     });
-    this.eventSubscriber.on(serverSession, 'origin', origins => {
+
+    this.events.on(serverSession, 'origin', origins => {
       this.logger.stats('Http2.origin', {
         origins,
       });
@@ -80,7 +82,7 @@ export default class Http2SessionBinding {
     this.logger.stats('Http2.goaway', {
       code,
       lastStreamID,
-      opaqueData,
+      opaqueData: opaqueData ? Buffer.from(opaqueData.buffer).toString() : undefined,
     });
     if (!this.clientSession || this.clientSession.destroyed) return;
     this.clientSession.goaway(code);

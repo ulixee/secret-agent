@@ -1,73 +1,69 @@
-import {
-  BrowserEmulatorClassDecorator,
-  IBrowserEmulator,
-  IBrowserEmulatorConfig,
-} from '@secret-agent/interfaces/ICorePlugin';
-import { PluginTypes } from '@secret-agent/interfaces/IPluginTypes';
-import IUserAgentOption from '@secret-agent/interfaces/IUserAgentOption';
-import DefaultBrowserEmulator from '@secret-agent/default-browser-emulator';
-import IViewport from '@secret-agent/interfaces/IViewport';
+import IViewport from '@unblocked/emulator-spec/IViewport';
+import Browser from 'secret-agent/lib/Browser';
+import ChromeEngine from 'secret-agent/lib/ChromeEngine';
+import { IBrowserContextHooks, IBrowserHooks } from '@unblocked/emulator-spec/IHooks';
+import IBrowser from '@unblocked/emulator-spec/IBrowser';
+import env from './env';
+import { Helpers } from './index';
+import DefaultChrome = require('@ulixee/chrome-98-0');
 
-const id = 'test';
-const locale = 'en';
-const timezoneId = 'est';
-const viewport: IViewport = {
-  screenHeight: 900,
-  screenWidth: 1024,
-  positionY: 0,
-  positionX: 0,
-  height: 900,
-  width: 1024,
-};
+let ChromeApp = DefaultChrome;
+if (env.defaultBrowserId) {
+  ChromeApp = require(`@ulixee/defaultBrowserId`);
+}
 
-const userAgentOption: IUserAgentOption = {
-  browserName: 'chrome',
-  browserVersion: {
-    major: '88',
-    minor: '0',
-  },
+export const defaultBrowserEngine = new ChromeEngine(new ChromeApp());
 
-  operatingSystemPlatform: 'linux',
-  operatingSystemName: 'linux',
-  operatingSystemVersion: {
-    major: '10',
-    minor: '0',
-  },
+export const newPoolOptions = { defaultBrowserEngine };
+export const browserEngineOptions = defaultBrowserEngine;
 
-  string: 'Puppet Test',
-};
+export function createDefaultBrowser(): Browser {
+  const browser = new Browser(defaultBrowserEngine);
+  Helpers.onClose(() => browser.close(), true);
+  return browser;
+}
 
-@BrowserEmulatorClassDecorator
-export default class CustomBrowserEmulator implements IBrowserEmulator {
-  static id = id;
-  static type: PluginTypes.BrowserEmulator = PluginTypes.BrowserEmulator;
+export class PageHooks implements IBrowserHooks, IBrowserContextHooks {
+  viewport: IViewport = {
+    screenHeight: 900,
+    screenWidth: 1024,
+    positionY: 0,
+    positionX: 0,
+    height: 900,
+    width: 1024,
+  };
 
-  id = id;
-  browserName = userAgentOption.browserName;
-  browserVersion = userAgentOption.browserVersion;
-  operatingSystemPlatform = userAgentOption.operatingSystemPlatform;
-  operatingSystemName = userAgentOption.operatingSystemName;
-  operatingSystemVersion = userAgentOption.operatingSystemVersion;
-  userAgentString = userAgentOption.string;
+  locale = 'en';
+  timezoneId = 'America/New_York';
+  userAgentString = 'Browser Test';
+  operatingSystemPlatform = 'linux';
 
-  locale = locale;
-  viewport = viewport;
-  timezoneId = timezoneId;
-  deviceProfile = {};
-
-  configure(config: IBrowserEmulatorConfig): void {
-    config.locale = config.locale || this.locale;
-    config.viewport = config.viewport || this.viewport;
-    config.timezoneId = config.timezoneId || this.timezoneId;
+  constructor(
+    config: {
+      locale?: string;
+      viewport?: IViewport;
+      timezoneId?: string;
+      userAgent?: string;
+      osPlatform?: string;
+    } = {},
+  ) {
+    config.locale ??= this.locale;
+    config.viewport ??= this.viewport;
+    config.timezoneId ??= this.timezoneId;
+    config.osPlatform ??= this.operatingSystemPlatform;
 
     this.locale = config.locale;
     this.viewport = config.viewport;
     this.timezoneId = config.timezoneId;
+    this.operatingSystemPlatform = config.osPlatform;
+    if (config.userAgent) {
+      this.userAgentString = config.userAgent;
+    }
   }
 
-  async onNewPuppetPage(page) {
+  public async onNewPage(page): Promise<void> {
     const devtools = page.devtoolsSession;
-    return Promise.all([
+    await Promise.all([
       devtools.send('Network.setUserAgentOverride', {
         userAgent: this.userAgentString,
         acceptLanguage: this.locale,
@@ -95,7 +91,9 @@ export default class CustomBrowserEmulator implements IBrowserEmulator {
     ]);
   }
 
-  static selectBrowserMeta(userAgentSelector?: string) {
-    return DefaultBrowserEmulator.selectBrowserMeta(userAgentSelector);
+  public async onNewBrowser(browser: IBrowser): Promise<void> {
+    browser.engine.launchArguments.push(
+      '--force-color-profile=srgb', // Force all monitors to be treated as though they have the specified color profile.
+    );
   }
 }

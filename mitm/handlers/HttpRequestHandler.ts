@@ -1,7 +1,7 @@
 import * as http from 'http';
-import Log, { hasBeenLoggedSymbol } from '@secret-agent/commons/Logger';
+import Log, { hasBeenLoggedSymbol } from '@ulixee/commons/lib/Logger';
 import { ClientHttp2Stream, Http2ServerRequest, Http2ServerResponse } from 'http2';
-import { CanceledPromiseError } from '@secret-agent/commons/interfaces/IPendingWaitEvent';
+import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
 import IMitmRequestContext from '../interfaces/IMitmRequestContext';
 import HeadersHandler from './HeadersHandler';
 import MitmRequestContext from '../lib/MitmRequestContext';
@@ -35,18 +35,21 @@ export default class HttpRequestHandler extends BaseHttpHandler {
       clientToProxyRequest.pause();
 
       const proxyToServerRequest = await this.createProxyToServerRequest();
-      if (!proxyToServerRequest) return;
+      if (!proxyToServerRequest) {
+        this.cleanup();
+        return;
+      }
 
       type HttpServerResponse = [
         response: IMitmRequestContext['serverToProxyResponse'],
         flags?: number,
         rawHeaders?: string[],
       ];
-      const responsePromise = new Promise<HttpServerResponse>(resolve => {
-        this.context.eventSubscriber.once(proxyToServerRequest, 'response', (r, flags, headers) =>
+      const responsePromise = new Promise<HttpServerResponse>(resolve =>
+        this.context.events.once(proxyToServerRequest, 'response', (r, flags, headers) =>
           resolve([r, flags, headers]),
-        );
-      });
+        ),
+      );
 
       clientToProxyRequest.resume();
 
@@ -91,7 +94,7 @@ export default class HttpRequestHandler extends BaseHttpHandler {
       );
     }
     // wait for MitmRequestContext to read this
-    context.eventSubscriber.on(
+    context.events.on(
       context.serverToProxyResponse,
       'error',
       this.onError.bind(this, 'ServerToProxy.ResponseError'),
@@ -160,8 +163,10 @@ export default class HttpRequestHandler extends BaseHttpHandler {
 
     try {
       if (!proxyToClientResponse.headersSent) {
+        proxyToClientResponse.sendDate = false;
         proxyToClientResponse.writeHead(status);
-        proxyToClientResponse.end(error.stack);
+        const errorText = this.context.requestSession.respondWithHttpErrorStacks ? error.stack : '';
+        proxyToClientResponse.end(errorText);
       } else if (!proxyToClientResponse.finished) {
         proxyToClientResponse.end();
       }
@@ -172,13 +177,9 @@ export default class HttpRequestHandler extends BaseHttpHandler {
   }
 
   private bindErrorListeners(): void {
-    const { clientToProxyRequest, proxyToClientResponse } = this.context;
-    this.context.eventSubscriber.on(
-      clientToProxyRequest,
-      'error',
-      this.onError.bind(this, 'ClientToProxy.RequestError'),
-    );
-    this.context.eventSubscriber.on(
+    const { clientToProxyRequest, proxyToClientResponse, events } = this.context;
+    events.on(clientToProxyRequest, 'error', this.onError.bind(this, 'ClientToProxy.RequestError'));
+    events.on(
       proxyToClientResponse,
       'error',
       this.onError.bind(this, 'ProxyToClient.ResponseError'),
@@ -218,9 +219,22 @@ export default class HttpRequestHandler extends BaseHttpHandler {
 
   private writeResponseHead(): void {
     const context = this.context;
-    const { serverToProxyResponse, proxyToClientResponse, requestSession } = context;
+    const { serverToProxyResponse, proxyToClientResponse, requestSession, events } = context;
+
+    // NOTE: nodejs won't allow an invalid status, but chrome will.
+    // TODO: we should find a way to keep this value
+    if (context.status > 599) {
+      log.info(`MitmHttpRequest.modifyStatusResponseCode`, {
+        sessionId: requestSession.sessionId,
+        request: `${context.method}: ${context.url.href}`,
+        actualStatus: context.status,
+        responseStatus: 599,
+      });
+      context.status = 599;
+    }
 
     proxyToClientResponse.statusCode = context.status;
+
     // write individually so we properly write header-lists
     for (const [key, value] of Object.entries(context.responseHeaders)) {
       try {
@@ -235,7 +249,7 @@ export default class HttpRequestHandler extends BaseHttpHandler {
       }
     }
 
-    this.context.eventSubscriber.once(serverToProxyResponse, 'trailers', headers => {
+    events.once(serverToProxyResponse, 'trailers', headers => {
       context.responseTrailers = headers;
     });
 

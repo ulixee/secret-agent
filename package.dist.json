@@ -4,22 +4,5 @@
   "license": "MIT",
   "scripts": {
     "postinstall": "yarn workspace @secret-agent/mitm-socket postinstall"
-  },
-  "devDependencies": {
-    "lerna": "^3.4.3"
-  },
-  "engines": {
-    "node": ">=13.2.0"
-  },
-  "workspaces": {
-    "packages": [
-      "core",
-      "mitm",
-      "mitm-socket",
-      "testing"
-    ]
-  },
-  "resolutions": {
-    "tough-cookie": "^4.0.0"
   }
 }

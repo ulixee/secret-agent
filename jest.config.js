@@ -1,8 +1,6 @@
 const pkg = require('./package.json');
 
-const workspaces = pkg.workspaces.packages
-  .filter(x => !x.startsWith('replay') && x !== 'website')
-  .map(x => x.replace('/*', ''));
+const workspaces = pkg.workspaces.packages.map(x => x.replace('/*', ''));
 
 module.exports = {
   verbose: false,
@@ -21,14 +19,12 @@ module.exports = {
     '<rootDir>/.*/start.[ts|js]',
     '<rootDir>/.*/install.[ts|js]',
     '<rootDir>/.*/install/*.[ts|js]',
-    '<rootDir>/.*/server.[ts|js]',
     '<rootDir>/.*/test/.*.js',
     '<rootDir>/.*.d.ts',
     '<rootDir>/.*.json',
   ],
   globalTeardown: './jest.teardown.js',
   globalSetup: './jest.setup.js',
-  setupFilesAfterEnv: ['./jest.setupPerTest.js'],
   testTimeout: 10e3,
   reporters: ['default', 'jest-summary-reporter'],
   roots: workspaces.map(x => `${x}/`),

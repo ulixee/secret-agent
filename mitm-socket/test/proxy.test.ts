@@ -1,4 +1,4 @@
-import { Helpers } from '@secret-agent/testing';
+import { Helpers, TestLogger } from '@secret-agent/testing';
 import * as Proxy from 'proxy';
 import * as http from 'http';
 import {
@@ -8,7 +8,7 @@ import {
 } from '@secret-agent/testing/helpers';
 import * as WebSocket from 'ws';
 import * as socks5 from 'simple-socks';
-import { createPromise } from '@secret-agent/commons/utils';
+import { createPromise } from '@ulixee/commons/lib/utils';
 import * as http2 from 'http2';
 import MitmSocket from '../index';
 import MitmSocketSession from '../lib/MitmSocketSession';
@@ -17,10 +17,13 @@ afterAll(Helpers.afterAll);
 afterEach(Helpers.afterEach);
 
 let sessionId = 0;
-
+beforeEach(() => {
+  sessionId += 1;
+  TestLogger.testNumber = sessionId;
+});
 let mitmSocketSession: MitmSocketSession;
 beforeAll(() => {
-  mitmSocketSession = new MitmSocketSession('proxy.test', {
+  mitmSocketSession = new MitmSocketSession(TestLogger.forTest(module), {
     clientHelloId: 'chrome-83',
     rejectUnauthorized: false,
   });
@@ -35,7 +38,7 @@ test('should be able to send a request through a proxy', async () => {
   proxy.once('connect', connect);
 
   const server = await Helpers.runHttpsServer((req, res) => res.end(htmlString));
-  const tlsConnection = new MitmSocket(`${(sessionId += 1)}`, {
+  const tlsConnection = new MitmSocket(`${sessionId}`, TestLogger.forTest(module), {
     host: 'localhost',
     port: String(server.port),
     servername: 'localhost',
@@ -91,7 +94,7 @@ test('should be able to use a socks5 proxy', async () => {
   proxy.once('proxyConnect', connect);
 
   const server = await Helpers.runHttpsServer((req, res) => res.end(htmlString));
-  const tlsConnection = new MitmSocket(`${(sessionId += 1)}`, {
+  const tlsConnection = new MitmSocket(`${sessionId}`, TestLogger.forTest(module), {
     host: 'localhost',
     port: String(server.port),
     servername: 'localhost',
@@ -130,7 +133,7 @@ test('should be able to use a socks5 proxy with auth', async () => {
 
   const htmlString = 'Proxy proxy echo auth';
   const server = await Helpers.runHttp2Server((req, res) => res.end(htmlString));
-  const tlsConnection = new MitmSocket(`${(sessionId += 1)}`, {
+  const tlsConnection = new MitmSocket(`${sessionId}`, TestLogger.forTest(module), {
     host: 'localhost',
     port: String(server.port),
     servername: 'localhost',

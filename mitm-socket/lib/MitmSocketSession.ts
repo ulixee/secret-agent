@@ -1,18 +1,15 @@
-import Log from '@secret-agent/commons/Logger';
-import { IBoundLog } from '@secret-agent/interfaces/ILog';
+import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
 import MitmSocket from '..';
 import BaseIpcHandler, { IGoIpcOpts } from './BaseIpcHandler';
-
-const { log } = Log(module);
 
 export default class MitmSocketSession extends BaseIpcHandler {
   protected logger: IBoundLog;
 
   private readonly socketsById = new Map<number, MitmSocket>();
 
-  constructor(readonly sessionId: string, options: IGoIpcOpts) {
+  constructor(logger: IBoundLog, options: IGoIpcOpts) {
     super({ ...options, mode: 'proxy' });
-    this.logger = log.createChild(module, { sessionId });
+    this.logger = logger.createChild(module);
   }
 
   public async requestSocket(socket: MitmSocket): Promise<void> {

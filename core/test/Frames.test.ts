@@ -1,33 +1,22 @@
-import BrowserEmulator from '@secret-agent/default-browser-emulator';
-import Log from '@secret-agent/commons/Logger';
-import { IPuppetPage } from '@secret-agent/interfaces/IPuppetPage';
-import IPuppetContext from '@secret-agent/interfaces/IPuppetContext';
-import Core from '@secret-agent/core';
-import CorePlugins from '@secret-agent/core/lib/CorePlugins';
-import { IBoundLog } from '@secret-agent/interfaces/ILog';
 import { TestServer } from './server';
-import Puppet from '../index';
-import { capturePuppetContextLogs, createTestPage, ITestPage } from './TestPage';
-import CustomBrowserEmulator from './_CustomBrowserEmulator';
-
-const { log } = Log(module);
-const browserEmulatorId = CustomBrowserEmulator.id;
+import { attachFrame, setContent } from './_pageTestUtils';
+import { Helpers, TestLogger } from '@secret-agent/testing/index';
+import Agent from '../lib/Agent';
+import { Browser, BrowserContext, Page } from '../index';
+import { browserEngineOptions } from '@secret-agent/testing/browserUtils';
 
 describe('Frames', () => {
   let server: TestServer;
-  let page: ITestPage;
-  let puppet: Puppet;
-  let context: IPuppetContext;
+  let page: Page;
+  let browser: Browser;
+  let context: BrowserContext;
 
   beforeAll(async () => {
-    Core.use(CustomBrowserEmulator);
-    const { browserEngine } = CustomBrowserEmulator.selectBrowserMeta();
-    const plugins = new CorePlugins({ browserEmulatorId }, log as IBoundLog);
     server = await TestServer.create(0);
-    puppet = new Puppet(browserEngine);
-    await puppet.start();
-    context = await puppet.newContext(plugins, log);
-    capturePuppetContextLogs(context, `${browserEngine.fullVersion}-Frames-test`);
+    browser = new Browser(browserEngineOptions);
+    await browser.launch();
+    const logger = TestLogger.forTest(module);
+    context = await browser.newContext({ logger });
   });
 
   afterEach(async () => {
@@ -36,29 +25,26 @@ describe('Frames', () => {
   });
 
   beforeEach(async () => {
-    page = createTestPage(await context.newPage());
+    TestLogger.testNumber += 1;
+    page = await context.newPage();
   });
 
   afterAll(async () => {
     await server.stop();
     await context.close().catch(() => null);
-    await puppet.close();
+    await browser.close();
   });
 
-  function getContexts(puppetPage: IPuppetPage) {
-    const { browserEngine } = BrowserEmulator.selectBrowserMeta();
-    if (browserEngine.name === 'chrome') {
-      const rawPage = puppetPage;
-      // @ts-ignore
-      return rawPage.framesManager.activeContextIds.size;
-    }
-    return null;
+  function getContexts(contextPage: Page): number {
+    // @ts-expect-error
+    return contextPage.framesManager.activeContextIds.size;
   }
 
   describe('basic', () => {
     it('should have different execution contexts', async () => {
       await page.goto(server.emptyPage);
-      await page.attachFrame('frame1', server.emptyPage);
+      await page.waitForLoad('AllContentLoaded');
+      await attachFrame(page, 'frame1', server.emptyPage);
       expect(page.frames.length).toBe(2);
       await page.frames[0].evaluate(`(window.FOO = 'foo')`);
       await page.frames[1].evaluate(`(window.FOO = 'bar')`);
@@ -68,6 +54,7 @@ describe('Frames', () => {
 
     it('should have correct execution contexts', async () => {
       await page.goto(`${server.baseUrl}/frames/one-frame.html`);
+      await page.waitForLoad('AllContentLoaded');
       expect(page.frames.length).toBe(2);
       expect(await page.frames[0].evaluate('document.body.textContent.trim()')).toBe('');
       expect(await page.frames[1].evaluate('document.body.textContent.trim()')).toBe(
@@ -77,6 +64,7 @@ describe('Frames', () => {
 
     it('should dispose context on navigation', async () => {
       await page.goto(`${server.baseUrl}/frames/one-frame.html`);
+      await page.waitForLoad('AllContentLoaded');
       expect(page.frames.length).toBe(2);
       expect(getContexts(page)).toBe(4);
       await page.goto(server.emptyPage);
@@ -86,15 +74,18 @@ describe('Frames', () => {
 
     it('should dispose context on cross-origin navigation', async () => {
       await page.goto(`${server.baseUrl}/frames/one-frame.html`);
+      await page.waitForLoad('AllContentLoaded');
       expect(page.frames.length).toBe(2);
       expect(getContexts(page)).toBe(4);
       await page.goto(`${server.crossProcessBaseUrl}/empty.html`);
+      await page.waitForLoad('AllContentLoaded');
       // isolated context might or might not be loaded
       expect(getContexts(page)).toBeLessThanOrEqual(2);
     });
 
     it('should execute after cross-site navigation', async () => {
       await page.goto(server.emptyPage);
+      await page.waitForLoad('AllContentLoaded');
       const mainFrame = page.mainFrame;
       expect(await mainFrame.evaluate('window.location.href')).toContain('localhost');
       await page.goto(`${server.crossProcessBaseUrl}/empty.html`);
@@ -103,7 +94,8 @@ describe('Frames', () => {
 
     it('should be isolated between frames', async () => {
       await page.goto(server.emptyPage);
-      await page.attachFrame('frame1', server.emptyPage);
+      await page.waitForLoad('AllContentLoaded');
+      await attachFrame(page, 'frame1', server.emptyPage);
       expect(page.frames.length).toBe(2);
       const [frame1, frame2] = page.frames;
       expect(frame1 !== frame2).toBeTruthy();
@@ -122,7 +114,8 @@ describe('Frames', () => {
       // - Chromium and Firefox report empty url.
       // - Chromium does not report main/utility worlds for the iframe.
 
-      await page.setContent(
+      await setContent(
+        page,
         `<meta http-equiv="Content-Security-Policy" content="script-src 'none';">
   <iframe src='javascript:""'></iframe>`,
       );
@@ -155,6 +148,7 @@ describe('Frames', () => {
   describe('hierarchy', () => {
     it('should handle nested frames', async () => {
       await page.goto(`${server.baseUrl}/frames/nested-frames.html`);
+      await page.waitForLoad('AllContentLoaded');
       expect(page.frames).toHaveLength(5);
       const mainFrame = page.mainFrame;
       expect(mainFrame.url).toMatch('nested-frames.html');
@@ -170,9 +164,9 @@ describe('Frames', () => {
 
       const thirdTier = page.frames.filter(x => x.parentId === secondParent.id);
       expect(thirdTier).toHaveLength(2);
-      await thirdTier[0].waitForLoader();
+      await thirdTier[0].waitForNavigationLoader();
       expect(thirdTier[0].url).toMatch('frame.html');
-      await thirdTier[1].waitForLoader();
+      await thirdTier[1].waitForNavigationLoader();
       expect(thirdTier[1].url).toMatch('frame.html');
     });
 
@@ -186,7 +180,7 @@ describe('Frames', () => {
           navigatedFrames.push({ frame });
         });
       });
-      await page.attachFrame('frame1', './assets/frame.html');
+      await attachFrame(page, 'frame1', './assets/frame.html');
       expect(page.frames.length).toBe(2);
       expect(page.frames[1].url).toContain('/assets/frame.html');
 
@@ -199,22 +193,16 @@ describe('Frames', () => {
       expect(navigatedFrames[1].frame.url).toBe(server.emptyPage);
 
       // validate framedetached events
-      await page.detachFrame('frame1');
+      await page.evaluate(`document.getElementById('frame1').remove()`);
       expect(page.frames.length).toBe(1);
-    });
-
-    it('should send "frameNavigated" when navigating on anchor URLs', async () => {
-      await page.goto(server.emptyPage);
-      const frameNavigated = page.mainFrame.waitOn('frame-navigated');
-      await page.goto(`${server.emptyPage}#foo`);
-      expect(page.mainFrame.url).toBe(`${server.emptyPage}#foo`);
-      await expect(frameNavigated).resolves.toBeTruthy();
     });
 
     it('should persist mainFrame on cross-process navigation', async () => {
       await page.goto(server.emptyPage);
+      await page.waitForLoad('AllContentLoaded');
       const mainFrame = page.mainFrame;
       await page.goto(`${server.crossProcessBaseUrl}/empty.html`);
+      await page.waitForLoad('AllContentLoaded');
       expect(page.mainFrame === mainFrame).toBeTruthy();
     });
 
@@ -227,12 +215,15 @@ describe('Frames', () => {
         });
       });
       await page.goto(`${server.baseUrl}/frames/nested-frames.html`);
+      await page.waitForLoad('AllContentLoaded');
       expect(page.frames.length).toBe(5);
-      for (const frame of page.frames) await frame.waitForLoader();
+      for (const frame of page.frames) await frame.waitForNavigationLoader();
       expect(navigatedFrames.length).toBe(5);
 
       navigatedFrames = [];
       await page.goto(server.emptyPage);
+      await page.waitForLoad('AllContentLoaded');
+
       expect(page.frames.length).toBe(1);
       expect(navigatedFrames.length).toBe(1);
     });
@@ -246,8 +237,9 @@ describe('Frames', () => {
         });
       });
       await page.goto(`${server.baseUrl}/frames/frameset.html`);
+      await page.waitForLoad('AllContentLoaded');
       expect(page.frames.length).toBe(5);
-      for (const frame of page.frames) await frame.waitForLoader();
+      for (const frame of page.frames) await frame.waitForNavigationLoader();
       expect(navigatedFrames.length).toBe(5);
 
       navigatedFrames = [];
@@ -258,6 +250,7 @@ describe('Frames', () => {
 
     it('should report frame from-inside shadow DOM', async () => {
       await page.goto(`${server.baseUrl}/shadow.html`);
+      await page.waitForLoad('AllContentLoaded');
       await page.evaluate(`(async (url) => {
         const frame = document.createElement('iframe');
         frame.src = url;
@@ -269,7 +262,7 @@ describe('Frames', () => {
     });
 
     it('should report frame.name', async () => {
-      await page.attachFrame('theFrameId', server.emptyPage);
+      await attachFrame(page, 'theFrameId', server.emptyPage);
       await page.evaluate(`((url) => {
         const frame = document.createElement('iframe');
         frame.name = 'theFrameName';
@@ -283,15 +276,15 @@ describe('Frames', () => {
     });
 
     it('should report frame.parentId', async () => {
-      await page.attachFrame('frame1', server.emptyPage);
-      await page.attachFrame('frame2', server.emptyPage);
+      await attachFrame(page, 'frame1', server.emptyPage);
+      await attachFrame(page, 'frame2', server.emptyPage);
       expect(page.frames[0].parentId).not.toBeTruthy();
       expect(page.frames[1].parentId).toBe(page.mainFrame.id);
       expect(page.frames[2].parentId).toBe(page.mainFrame.id);
     });
 
     it('should report different frame instance when frame re-attaches', async () => {
-      const frame1 = await page.attachFrame('frame1', server.emptyPage);
+      const frame1 = await attachFrame(page, 'frame1', server.emptyPage);
       expect(page.frames.length).toBe(2);
       await page.evaluate(`(() => {
         window.frame = document.querySelector('#frame1');
@@ -313,11 +306,12 @@ describe('Frames', () => {
         );
       });
       await page.goto(server.emptyPage);
-      await page.setContent(
+      await setContent(
+        page,
         `<iframe src="${server.crossProcessBaseUrl}/x-frame-options-deny.html"></iframe>`,
       );
       expect(page.frames).toHaveLength(2);
-      await page.frames[1].waitForLoader();
+      await page.frames[1].waitForNavigationLoader();
       // CHROME redirects to chrome-error://chromewebdata/, not sure about other browsers
       expect(page.frames[1].url).not.toMatch('/x-frame-options-deny.html');
     });
@@ -330,8 +324,7 @@ describe('Frames', () => {
         res.end(`<link rel='stylesheet' href='./one-style.css'>`);
       });
 
-      await page.setContent(`<a href="${server.emptyPage}">empty.html</a>`);
-      await page.mainFrame.waitForLoader();
+      await setContent(page, `<a href="${server.emptyPage}">empty.html</a>`);
 
       const navigate = page.mainFrame.waitOn('frame-navigated');
       await page.click('a');
@@ -344,7 +337,7 @@ describe('Frames', () => {
         res.end(`<link rel='stylesheet' href='./one-style.css'>`);
       });
 
-      await page.setContent(`<a href="${server.crossProcessBaseUrl}/empty.html">empty.html</a>`);
+      await setContent(page, `<a href="${server.crossProcessBaseUrl}/empty.html">empty.html</a>`);
 
       const navigate = page.mainFrame.waitOn('frame-navigated');
       await page.click('a');
@@ -357,11 +350,14 @@ describe('Frames', () => {
         res.end(`<link rel='stylesheet' href='./one-style.css'>`);
       });
 
-      await page.setContent(`
+      await setContent(
+        page,
+        `
   <form action="${server.emptyPage}" method="get">
     <input name="foo" value="bar">
     <input type="submit" value="Submit">
-  </form>`);
+  </form>`,
+      );
       const navigate = page.mainFrame.waitOn('frame-navigated');
       await page.click('input[type=submit]');
       await expect(navigate).resolves.toBeTruthy();
@@ -373,11 +369,14 @@ describe('Frames', () => {
         res.end(`<link rel='stylesheet' href='./one-style.css'>`);
       });
 
-      await page.setContent(`
+      await setContent(
+        page,
+        `
   <form action="${server.emptyPage}" method="post">
     <input name="foo" value="bar">
     <input type="submit" value="Submit">
-  </form>`);
+  </form>`,
+      );
 
       const navigate = page.mainFrame.waitOn('frame-navigated');
       await page.click('input[type=submit]');
@@ -431,10 +430,13 @@ describe('Frames', () => {
         res.end(`<link rel='stylesheet' href='./one-style.css'>`);
       });
 
-      await page.setContent(`
+      await setContent(
+        page,
+        `
   <a href="${server.emptyPage}" target=target>empty.html</a>
   <iframe name=target></iframe>
-`);
+`,
+      );
       const frame = page.frames.find(x => x.name === 'target');
       const nav = frame.waitOn('frame-navigated');
       await page.click('a');
@@ -448,11 +450,14 @@ describe('Frames', () => {
         res.end(`You are logged in`);
       });
 
-      await page.setContent(`
+      await setContent(
+        page,
+        `
   <form action="${server.baseUrl}/login.html" method="get">
     <input type="text">
     <input type="submit" value="Submit">
-  </form>`);
+  </form>`,
+      );
 
       await page.click('input[type=text]');
       await page.type('admin');
@@ -464,9 +469,74 @@ describe('Frames', () => {
         const result = await page.navigate(server.emptyPage);
         expect(result.loaderId).toBeTruthy();
       } catch (error) {
-        // eslint-disable-next-line jest/no-try-expect
-        expect(String(error)).toMatch(/Navigation canceled/);
+        expect(String(error)).toMatch(/net::ERR_ABORTED/);
       }
+    });
+  });
+
+  describe('access', () => {
+    test('should allow query selectors in cross-domain frames', async () => {
+      const koaServer = await Helpers.runKoaServer(false);
+
+      const agent = new Agent({ browserEngine: browserEngineOptions });
+      Helpers.needsClosing.push(agent);
+      await agent.open(browser);
+      koaServer.get('/iframePage', ctx => {
+        ctx.body = `
+        <body>
+        <h1>Iframe Page</h1>
+<iframe src="http://framesy.org/page"></iframe>
+        </body>
+      `;
+      });
+
+      agent.mitmRequestSession.interceptorHandlers.push({
+        urls: ['http://framesy.org/page'],
+        handlerFn(url, type, request, response) {
+          response.end(`<html lang="en"><body>
+<h1>Framesy Page</h1>
+<div>This is content inside the frame</div>
+</body></html>`);
+          return true;
+        },
+      });
+      // eslint-disable-next-line @typescript-eslint/no-shadow
+      const page = await agent.newPage();
+      await page.goto(`${koaServer.baseUrl}/iframePage`);
+      await page.waitForLoad('DomContentLoaded');
+
+      const outerH1 = await page.mainFrame.jsPath.exec<string>([
+        'window',
+        'document',
+        ['querySelector', 'h1'],
+        'textContent',
+      ]);
+      expect(outerH1.value).toBe('Iframe Page');
+
+      // should not allow cross-domain access
+      await expect(
+        page.mainFrame.jsPath.exec<string>([
+          'window',
+          'document',
+          ['querySelector', 'iframe'],
+          'contentDocument',
+          ['querySelector', 'h1'],
+          'textContent',
+        ]),
+      ).rejects.toThrowError();
+
+      await Promise.all(page.frames.map(x => x.waitForLoad({ loadStatus: 'DomContentLoaded' })));
+      const innerFrame = page.frames.find(x => x.url === 'http://framesy.org/page');
+
+      const innerH1 = await innerFrame.jsPath.exec([
+        'window',
+        'document',
+        ['querySelector', 'h1'],
+        'textContent',
+      ]);
+      expect(innerH1.value).toBe('Framesy Page');
+
+      await agent.close();
     });
   });
 });

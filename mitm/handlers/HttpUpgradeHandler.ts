@@ -1,7 +1,6 @@
 import * as net from 'net';
 import * as http from 'http';
-import Log, { hasBeenLoggedSymbol } from '@secret-agent/commons/Logger';
-
+import Log, { hasBeenLoggedSymbol } from '@ulixee/commons/lib/Logger';
 import MitmRequestContext from '../lib/MitmRequestContext';
 import BaseHttpHandler from './BaseHttpHandler';
 import IMitmRequestContext from '../interfaces/IMitmRequestContext';
@@ -17,7 +16,7 @@ export default class HttpUpgradeHandler extends BaseHttpHandler {
   ) {
     super(request, true, null);
     this.context.setState(ResourceState.ClientToProxyRequest);
-    this.context.eventSubscriber.on(
+    this.context.events.on(
       this.clientSocket,
       'error',
       this.onError.bind(this, 'ClientToProxy.UpgradeSocketError'),
@@ -27,9 +26,12 @@ export default class HttpUpgradeHandler extends BaseHttpHandler {
   public async onUpgrade(): Promise<void> {
     try {
       const proxyToServerRequest = await this.createProxyToServerRequest();
-      if (!proxyToServerRequest) return;
+      if (!proxyToServerRequest) {
+        this.cleanup();
+        return;
+      }
 
-      this.context.eventSubscriber.once(
+      this.context.events.once(
         proxyToServerRequest,
         'upgrade',
         this.onResponse.bind(this),
@@ -73,11 +75,11 @@ export default class HttpUpgradeHandler extends BaseHttpHandler {
 
     const clientSocket = this.clientSocket;
 
-    const { proxyToServerMitmSocket, requestSession } = this.context;
+    const { proxyToServerMitmSocket, requestSession, events } = this.context;
 
-    this.context.eventSubscriber.on(clientSocket, 'end', () => proxyToServerMitmSocket.close());
-    this.context.eventSubscriber.on(serverSocket, 'end', () => proxyToServerMitmSocket.close());
-    this.context.eventSubscriber.on(proxyToServerMitmSocket, 'close', () => {
+    events.on(clientSocket, 'end', () => proxyToServerMitmSocket.close());
+    events.on(serverSocket, 'end', () => proxyToServerMitmSocket.close());
+    events.on(proxyToServerMitmSocket, 'close', () => {
       this.context.setState(ResourceState.End);
       // don't try to write again
       try {
@@ -104,12 +106,13 @@ export default class HttpUpgradeHandler extends BaseHttpHandler {
     if (!serverSocket.readable || !serverSocket.writable) {
       this.context.setState(ResourceState.PrematurelyClosed);
       try {
-        return serverSocket.destroy();
+        serverSocket.destroy();
+        return;
       } catch (error) {
         // don't log if error
       }
     }
-    this.context.eventSubscriber.on(
+    events.on(
       serverSocket,
       'error',
       this.onError.bind(this, 'ServerToProxy.UpgradeSocketError'),

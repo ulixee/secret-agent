@@ -1,17 +1,16 @@
 import MitmSocket from '@secret-agent/mitm-socket';
 import * as http2 from 'http2';
 import { ClientHttp2Session, Http2ServerRequest } from 'http2';
-import Log from '@secret-agent/commons/Logger';
+import Log from '@ulixee/commons/lib/Logger';
 import * as https from 'https';
 import * as http from 'http';
 import MitmSocketSession from '@secret-agent/mitm-socket/lib/MitmSocketSession';
-import IResourceHeaders from '@secret-agent/interfaces/IResourceHeaders';
-import ITcpSettings from '@secret-agent/interfaces/ITcpSettings';
-import ITlsSettings from '@secret-agent/interfaces/ITlsSettings';
-import Resolvable from '@secret-agent/commons/Resolvable';
-import IHttp2ConnectSettings from '@secret-agent/interfaces/IHttp2ConnectSettings';
-import IHttpSocketConnectOptions from '@secret-agent/interfaces/IHttpSocketConnectOptions';
-import EventSubscriber from '@secret-agent/commons/EventSubscriber';
+import IHttpHeaders from '@unblocked/emulator-spec/IHttpHeaders';
+import ITcpSettings from '@unblocked/emulator-spec/ITcpSettings';
+import ITlsSettings from '@unblocked/emulator-spec/ITlsSettings';
+import Resolvable from '@ulixee/commons/lib/Resolvable';
+import IHttp2ConnectSettings from '@unblocked/emulator-spec/IHttp2ConnectSettings';
+import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
 import IMitmRequestContext from '../interfaces/IMitmRequestContext';
 import MitmRequestContext from './MitmRequestContext';
 import RequestSession from '../handlers/RequestSession';
@@ -20,34 +19,35 @@ import ResourceState from '../interfaces/ResourceState';
 import SocketPool from './SocketPool';
 import Http2PushPromiseHandler from '../handlers/Http2PushPromiseHandler';
 import Http2SessionBinding from './Http2SessionBinding';
-
-const { log } = Log(module);
+import IHttpSocketConnectOptions from '@unblocked/emulator-spec/IHttpSocketConnectOptions';
+import env from '../env';
+import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
 
 // TODO: this is off by default because golang 1.14 has an issue verifying certain certificate authorities:
 // https://github.com/golang/go/issues/24652
 // https://github.com/golang/go/issues/38365
-const allowUnverifiedCertificates = Boolean(JSON.parse(process.env.MITM_ALLOW_INSECURE ?? 'true'));
 
 export default class MitmRequestAgent {
   public static defaultMaxConnectionsPerOrigin = 6;
   public socketSession: MitmSocketSession;
   private session: RequestSession;
   private readonly maxConnectionsPerOrigin: number;
-  private readonly eventSubscriber = new EventSubscriber();
-
+  private readonly events = new EventSubscriber();
   private readonly socketPoolByOrigin = new Map<string, SocketPool>();
   private readonly socketPoolByResolvedHost = new Map<string, SocketPool>();
+  private logger: IBoundLog;
 
   constructor(session: RequestSession) {
     this.session = session;
 
+    this.logger = session.logger.createChild(module);
     const tcpSettings: ITcpSettings = {};
     const tlsSettings: ITlsSettings = {};
-    session.plugins.onTcpConfiguration(tcpSettings);
-    session.plugins.onTlsConfiguration(tlsSettings);
+    for (const hook of session.hooks) hook.onTcpConfiguration?.(tcpSettings);
+    for (const hook of session.hooks) hook.onTlsConfiguration?.(tlsSettings);
 
-    this.socketSession = new MitmSocketSession(session.sessionId, {
-      rejectUnauthorized: allowUnverifiedCertificates === false,
+    this.socketSession = new MitmSocketSession(session.logger, {
+      rejectUnauthorized: env.allowInsecure === false,
       clientHelloId: tlsSettings?.tlsClientHelloId,
       tcpTtl: tcpSettings?.tcpTtl,
       tcpWindowSize: tcpSettings?.tcpWindowSize,
@@ -67,7 +67,7 @@ export default class MitmRequestAgent {
       host: url.hostname,
       port: url.port || (ctx.isSSL ? 443 : 80),
       headers: ctx.requestHeaders,
-      rejectUnauthorized: allowUnverifiedCertificates === false,
+      rejectUnauthorized: env.allowInsecure === false,
       // @ts-ignore
       insecureHTTPParser: true, // if we don't include this setting, invalid characters in http requests will blow up responses
     };
@@ -80,7 +80,9 @@ export default class MitmRequestAgent {
 
     if (ctx.isServerHttp2) {
       // NOTE: must come after connect to know if http2
-      await ctx.requestSession.plugins.beforeHttpRequest(ctx);
+      for (const hook of ctx.requestSession.hooks) {
+        await hook.beforeHttpRequest?.(ctx);
+      }
       HeadersHandler.prepareRequestHeadersForHttp2(ctx);
       return this.http2Request(ctx);
     }
@@ -89,7 +91,9 @@ export default class MitmRequestAgent {
       ctx.requestHeaders.Host = ctx.url.host;
     }
     HeadersHandler.cleanProxyHeaders(ctx);
-    await ctx.requestSession.plugins.beforeHttpRequest(ctx);
+    for (const hook of ctx.requestSession.hooks) {
+      await hook.beforeHttpRequest?.(ctx);
+    }
 
     requestSettings.headers = ctx.requestHeaders;
     return this.http1Request(ctx, requestSettings);
@@ -120,6 +124,7 @@ export default class MitmRequestAgent {
   }
 
   public close(): void {
+    if (!this.socketSession) return;
     try {
       this.socketSession.close();
       this.socketSession = null;
@@ -131,7 +136,7 @@ export default class MitmRequestAgent {
     }
     this.socketPoolByOrigin.clear();
     this.socketPoolByResolvedHost.clear();
-    this.eventSubscriber.close();
+    this.events.close();
     this.session = null;
   }
 
@@ -148,18 +153,18 @@ export default class MitmRequestAgent {
     const dnsLookupTime = new Date();
     const ipIfNeeded = await session.lookupDns(options.host);
 
-    const mitmSocket = new MitmSocket(session.sessionId, {
+    const mitmSocket = new MitmSocket(session.sessionId, session.logger, {
       host: ipIfNeeded || options.host,
       port: String(options.port),
       isSsl: options.isSsl,
       servername: options.servername || options.host,
       keepAlive: options.keepAlive,
       isWebsocket: options.isWebsocket,
-      keylogPath: process.env.SSLKEYLOGFILE,
+      keylogPath: env.sslKeylogFile,
     });
     mitmSocket.dnsResolvedIp = ipIfNeeded;
     mitmSocket.dnsLookupTime = dnsLookupTime;
-    this.eventSubscriber.once(mitmSocket, 'connect', () =>
+    this.events.on(mitmSocket, 'connect', () =>
       session.emit('socket-connect', { socket: mitmSocket }),
     );
 
@@ -178,14 +183,15 @@ export default class MitmRequestAgent {
 
   private async assignSocket(
     ctx: IMitmRequestContext,
-    options: IHttpSocketConnectOptions & { headers: IResourceHeaders },
+    options: IHttpSocketConnectOptions & { headers: IHttpHeaders },
   ): Promise<MitmSocket> {
     ctx.setState(ResourceState.GetSocket);
     const pool = this.getSocketPoolByOrigin(ctx.url.origin);
 
     options.isSsl = ctx.isSSL;
-    options.keepAlive = !((options.headers.connection ??
-      options.headers.Connection) as string)?.match(/close/i);
+    options.keepAlive = !(
+      (options.headers.connection ?? options.headers.Connection) as string
+    )?.match(/close/i);
     options.isWebsocket = ctx.isUpgrade;
 
     const mitmSocket = await pool.getSocket(options.isWebsocket, () =>
@@ -228,17 +234,16 @@ export default class MitmRequestAgent {
       agent: null,
     });
 
-    function initError(error): void {
+    const initError = (error): void => {
       if (error.code === 'ECONNRESET') {
         didHaveFlushErrors = true;
         return;
       }
-      log.info(`MitmHttpRequest.Http1SendRequestError`, {
-        sessionId: ctx.requestSession.sessionId,
+      this.logger.info(`MitmHttpRequest.Http1SendRequestError`, {
         request: requestSettings,
         error,
       });
-    }
+    };
 
     request.once('error', initError);
 
@@ -329,8 +334,8 @@ export default class MitmRequestAgent {
       settings: clientToProxyH2Session?.remoteSettings,
       localWindowSize: clientToProxyH2Session?.state.localWindowSize,
     };
-    if (ctx.requestSession.plugins.onHttp2SessionConnect) {
-      await ctx.requestSession.plugins.onHttp2SessionConnect(ctx, settings);
+    for (const hook of ctx.requestSession.hooks) {
+      await hook.onHttp2SessionConnect?.(ctx, settings);
     }
 
     const connectPromise = new Resolvable<void>();
@@ -354,29 +359,24 @@ export default class MitmRequestAgent {
     const binding = new Http2SessionBinding(
       clientToProxyH2Session,
       proxyToServerH2Client,
-      originSocketPool.eventSubscriber,
+      this.events,
+      this.session.logger,
       {
-        sessionId: this.session.sessionId,
         origin,
       },
     );
-    originSocketPool.eventSubscriber.on(
-      proxyToServerH2Client,
-      'stream',
-      async (stream, headers, flags, rawHeaders) => {
-        try {
-          const pushPromise = new Http2PushPromiseHandler(ctx, stream, headers, flags, rawHeaders);
-          await pushPromise.onRequest();
-        } catch (error) {
-          log.warn('Http2.ClientToProxy.ReadPushPromiseError', {
-            sessionId: this.session.sessionId,
-            rawHeaders,
-            error,
-          });
-        }
-      },
-    );
-    originSocketPool.eventSubscriber.on(proxyToServerH2Client, 'origin', origins => {
+    this.events.on(proxyToServerH2Client, 'stream', async (stream, headers, flags, rawHeaders) => {
+      try {
+        const pushPromise = new Http2PushPromiseHandler(ctx, stream, headers, flags, rawHeaders);
+        await pushPromise.onRequest();
+      } catch (error) {
+        this.logger.warn('Http2.ClientToProxy.ReadPushPromiseError', {
+          rawHeaders,
+          error,
+        });
+      }
+    });
+    this.events.on(proxyToServerH2Client, 'origin', origins => {
       for (const svcOrigin of origins) {
         this.getSocketPoolByOrigin(svcOrigin).registerHttp2Session(
           proxyToServerH2Client,

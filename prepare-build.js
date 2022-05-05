@@ -7,8 +7,9 @@ function processPackageJson(packagePath) {
   let overridesJson = null;
   if (fs.existsSync(`${packagePath}/package.build.json`)) {
     overridesJson = JSON.parse(fs.readFileSync(`${packagePath}/package.build.json`, 'utf8'));
-    console.log('Has package.json overrides', packagePath, overridesJson);
   }
+
+  console.log({ packageJson, overridesJson });
 
   if (!overridesJson) return;
 
@@ -20,8 +21,14 @@ function processPackageJson(packagePath) {
     devDependencies: overridesJson.devDependencies || packageJson.devDependencies,
     workspaces: overridesJson.workspaces || packageJson.workspaces,
   };
-
-  console.log('writing', `${packagePath}/package.json`);
+  if (finalPackageJson.workspaces) {
+    finalPackageJson.workspaces.packages = finalPackageJson.workspaces.packages.map(x => {
+      if (x.startsWith('../') && !fs.existsSync(`${buildDir}/${x}`)) {
+        return `../${x}`;
+      }
+      return x;
+    });
+  }
   fs.writeFileSync(`${packagePath}/package.json`, JSON.stringify(finalPackageJson, null, 2));
 }
 
@@ -38,4 +45,6 @@ function processDir(path) {
   }
 }
 
+console.log('Preparing package.json for build');
 processDir(buildDir);
+console.log('Completed preparing package.json for build');

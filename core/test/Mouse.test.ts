@@ -1,30 +1,22 @@
-import { IKeyboardKey } from '@secret-agent/interfaces/IKeyboardLayoutUS';
-import Log from '@secret-agent/commons/Logger';
-import IPuppetContext from '@secret-agent/interfaces/IPuppetContext';
-import CorePlugins from '@secret-agent/core/lib/CorePlugins';
-import { IBoundLog } from '@secret-agent/interfaces/ILog';
-import Core from '@secret-agent/core';
+import { IKeyboardKey } from '@unblocked/emulator-spec/IKeyboardLayoutUS';
+import TestLogger from '@secret-agent/testing/TestLogger';
 import { TestServer } from './server';
-import { createTestPage, ITestPage } from './TestPage';
-import Puppet from '../index';
-import CustomBrowserEmulator from './_CustomBrowserEmulator';
-
-const { log } = Log(module);
-const browserEmulatorId = CustomBrowserEmulator.id;
+import { Browser, BrowserContext, Page } from '../index';
+import { setContent } from './_pageTestUtils';
+import { defaultBrowserEngine } from '@secret-agent/testing/browserUtils';
 
 describe('Mouse', () => {
   let server: TestServer;
-  let page: ITestPage;
-  let puppet: Puppet;
-  let context: IPuppetContext;
+  let page: Page;
+  let browser: Browser;
+  let context: BrowserContext;
 
   beforeAll(async () => {
-    Core.use(CustomBrowserEmulator);
     server = await TestServer.create(0);
-    puppet = new Puppet(CustomBrowserEmulator.selectBrowserMeta().browserEngine);
-    await puppet.start();
-    const plugins = new CorePlugins({ browserEmulatorId }, log as IBoundLog);
-    context = await puppet.newContext(plugins, log);
+    browser = new Browser(defaultBrowserEngine);
+    await browser.launch();
+    const logger = TestLogger.forTest(module);
+    context = await browser.newContext({ logger });
   });
 
   afterEach(async () => {
@@ -32,14 +24,15 @@ describe('Mouse', () => {
   });
 
   beforeEach(async () => {
-    page = createTestPage(await context.newPage());
+    TestLogger.testNumber += 1;
+    page = await context.newPage();
     server.reset();
   });
 
   afterAll(async () => {
     await server.stop();
     await context.close();
-    await puppet.close();
+    await browser.close();
   });
 
   it('should click the document', async () => {
@@ -70,7 +63,7 @@ describe('Mouse', () => {
   });
 
   it('should dblclick the div', async () => {
-    await page.setContent(`<div style='width: 100px; height: 100px;'>Click me</div>`);
+    await setContent(page, `<div style='width: 100px; height: 100px;'>Click me</div>`);
     await page.evaluate(`(() => {
       window.dblclickPromise = new Promise(resolve => {
         document.querySelector('div').addEventListener('dblclick', event => {
@@ -100,9 +93,10 @@ describe('Mouse', () => {
 
   it('should select the text with mouse', async () => {
     await page.goto(`${server.baseUrl}/input/textarea.html`);
+    await page.waitForLoad('AllContentLoaded');
     await page.click('textarea');
     const text = "This is the text that we are going to try to select. Let's see how it goes.";
-    await page.type(text);
+    await page.interact([{ command: 'type', keyboardCommands: [{ string: text }] }]);
     // Firefox needs an extra frame here after typing or it will fail to set the scrollTop
     await page.evaluate(`new Promise(requestAnimationFrame)`);
     await page.evaluate(`(document.querySelector('textarea').scrollTop = 0)`);
@@ -121,6 +115,7 @@ describe('Mouse', () => {
 
   it('should trigger hover state', async () => {
     await page.goto(`${server.baseUrl}/input/scrollable.html`);
+    await page.waitForLoad('AllContentLoaded');
     await hover(page, '#button-6');
     expect(await page.evaluate(`document.querySelector('button:hover').id`)).toBe('button-6');
     await hover(page, '#button-2');
@@ -129,6 +124,7 @@ describe('Mouse', () => {
 
   it('should trigger hover state on disabled button', async () => {
     await page.goto(`${server.baseUrl}/input/scrollable.html`);
+    await page.waitForLoad('AllContentLoaded');
     await page.evaluate('document.querySelector("#button-6").disabled = true');
     await hover(page, '#button-6');
     expect(await page.evaluate(`document.querySelector('button:hover').id`)).toBe('button-6');
@@ -136,6 +132,7 @@ describe('Mouse', () => {
 
   it('should trigger hover state with removed window.Node', async () => {
     await page.goto(`${server.baseUrl}/input/scrollable.html`);
+    await page.waitForLoad('AllContentLoaded');
     await page.evaluate(`delete window.Node`);
     await hover(page, '#button-6');
     expect(await page.evaluate(` document.querySelector('button:hover').id`)).toBe('button-6');
@@ -143,6 +140,7 @@ describe('Mouse', () => {
 
   it('should set modifier keys on click', async () => {
     await page.goto(`${server.baseUrl}/input/scrollable.html`);
+    await page.waitForLoad('AllContentLoaded');
     await page.evaluate(`document
         .querySelector('#button-3')
         .addEventListener('mousedown', e => (window.lastEvent = e), true);`);
@@ -154,8 +152,6 @@ describe('Mouse', () => {
       ['Meta', 'metaKey'],
     ]);
 
-    // In Firefox, the Meta modifier only exists on Mac
-    // if (options.FIREFOX && !MAC) delete modifiers.Meta;
     for (const [modifier, key] of modifiers) {
       await page.keyboard.down(modifier);
       await page.click('#button-3');
@@ -199,7 +195,7 @@ const textareaDimensions = `(()=>{
         };
       })();`;
 
-async function hover(page: ITestPage, selector: string) {
+async function hover(page: Page, selector: string) {
   const dimensions: any = await page.evaluate(`(()=>{
         const rect = document.querySelector('${selector}').getBoundingClientRect();
         return {

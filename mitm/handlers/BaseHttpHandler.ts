@@ -1,9 +1,9 @@
-import Log from '@secret-agent/commons/Logger';
+import Log from '@ulixee/commons/lib/Logger';
 import * as http from 'http';
 import * as http2 from 'http2';
 import { ClientHttp2Stream } from 'http2';
 import IMitmRequestContext from '../interfaces/IMitmRequestContext';
-import BlockHandler from './BlockHandler';
+import InterceptorHandler from './InterceptorHandler';
 import HeadersHandler from './HeadersHandler';
 import MitmRequestContext from '../lib/MitmRequestContext';
 import HttpResponseCache from '../lib/HttpResponseCache';
@@ -43,8 +43,8 @@ export default abstract class BaseHttpHandler {
       // need to determine resource type before blocking
       await HeadersHandler.determineResourceType(context);
 
-      if (BlockHandler.shouldBlockRequest(context)) {
-        context.setState(ResourceState.Blocked);
+      if (await InterceptorHandler.shouldIntercept(context)) {
+        context.setState(ResourceState.Intercepted);
         log.info(`Http.RequestBlocked`, {
           sessionId: session.sessionId,
           url: context.url.href,
@@ -60,7 +60,7 @@ export default abstract class BaseHttpHandler {
 
       const request = await session.requestAgent.request(context);
       this.context.proxyToServerRequest = request;
-      this.context.eventSubscriber.on(
+      this.context.events.on(
         request,
         'error',
         this.onError.bind(this, 'ProxyToServer.RequestError'),
@@ -78,7 +78,7 @@ export default abstract class BaseHttpHandler {
   }
 
   protected cleanup(): void {
-    this.context.eventSubscriber.close('error');
+    this.context.events.close('error');
     this.context.proxyToServerRequest = null;
     this.context.clientToProxyRequest = null;
     this.context.requestSession = null;
@@ -93,25 +93,18 @@ export default abstract class BaseHttpHandler {
     stream: http2.Http2Stream,
     session: http2.Http2Session,
   ): void {
+    const events = this.context.events;
     if (!stream.listenerCount('error')) {
-      this.context.eventSubscriber.on(
-        stream,
-        'error',
-        this.onError.bind(this, `${source}.Http2StreamError`),
-      );
+      events.on(stream, 'error', this.onError.bind(this, `${source}.Http2StreamError`));
     }
 
-    this.context.eventSubscriber.on(stream, 'streamClosed', code => {
+    events.on(stream, 'streamClosed', code => {
       if (!code) return;
       this.onError(`${source}.Http2StreamError`, new Error(`Stream Closed ${code}`));
     });
 
     if (session && !session.listenerCount('error')) {
-      this.context.eventSubscriber.on(
-        session,
-        'error',
-        this.onError.bind(this, `${source}.Http2SessionError`),
-      );
+      events.on(session, 'error', this.onError.bind(this, `${source}.Http2SessionError`));
     }
   }
 }

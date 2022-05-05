@@ -1,34 +1,23 @@
-import BrowserEmulator from '@secret-agent/default-browser-emulator';
+import { browserEngineOptions } from '@secret-agent/testing/browserUtils';
+import TestLogger from '@secret-agent/testing/TestLogger';
 import { URL } from 'url';
-import Log from '@secret-agent/commons/Logger';
-import IPuppetContext from '@secret-agent/interfaces/IPuppetContext';
-import CorePlugins from '@secret-agent/core/lib/CorePlugins';
-import { IBoundLog } from '@secret-agent/interfaces/ILog';
-import Core from '@secret-agent/core';
-import { IBrowserEmulatorConfig } from '@secret-agent/interfaces/ICorePlugin';
+import { Browser, BrowserContext, Page } from '../index';
 import { TestServer } from './server';
-import Puppet from '../index';
-import { createTestPage, ITestPage } from './TestPage';
-import CustomBrowserEmulator from './_CustomBrowserEmulator';
-
-const { log } = Log(module);
-const browserEmulatorId = CustomBrowserEmulator.id;
 
 describe('BrowserContext', () => {
   let server: TestServer;
-  let puppet: Puppet;
-  const needsClosing = [];
+  let browser: Browser;
+  const needsClosing: { close: () => Promise<any> | void }[] = [];
 
   beforeAll(async () => {
-    Core.use(CustomBrowserEmulator);
     server = await TestServer.create(0);
-    puppet = new Puppet(BrowserEmulator.selectBrowserMeta().browserEngine);
-    await puppet.start();
+    browser = new Browser(browserEngineOptions);
+    await browser.launch();
   });
 
   afterAll(async () => {
     await server.stop();
-    await puppet.close();
+    await browser.close();
   });
 
   afterEach(async () => {
@@ -38,9 +27,12 @@ describe('BrowserContext', () => {
   });
 
   describe('basic', () => {
+    beforeEach(() => {
+      TestLogger.testNumber += 1;
+    });
     it('should create new context', async () => {
-      const plugins = new CorePlugins({ browserEmulatorId }, log as IBoundLog);
-      const context = await puppet.newContext(plugins, log);
+      const logger = TestLogger.forTest(module);
+      const context = await browser.newContext({ logger });
       needsClosing.push(context);
       expect(context).toBeTruthy();
       await context.close();
@@ -48,12 +40,11 @@ describe('BrowserContext', () => {
 
     it('should isolate localStorage and cookies', async () => {
       // Create two incognito contexts.
-      const plugins1 = new CorePlugins({ browserEmulatorId }, log as IBoundLog);
-      const context1 = await puppet.newContext(plugins1, log);
+      const logger = TestLogger.forTest(module);
+      const context1 = await browser.newContext({ logger });
       needsClosing.push(context1);
 
-      const plugins2 = new CorePlugins({ browserEmulatorId }, log as IBoundLog);
-      const context2 = await puppet.newContext(plugins2, log);
+      const context2 = await browser.newContext({ logger });
       needsClosing.push(context2);
 
       // Create a page in first incognito context.
@@ -85,115 +76,39 @@ describe('BrowserContext', () => {
     });
 
     it('close() should work for empty context', async () => {
-      const plugins = new CorePlugins({ browserEmulatorId }, log as IBoundLog);
-      const context = await puppet.newContext(plugins, log);
+      const logger = TestLogger.forTest(module);
+      const context = await browser.newContext({ logger });
       needsClosing.push(context);
       await expect(context.close()).resolves.toBe(undefined);
     });
 
     it('close() should be callable twice', async () => {
-      const plugins = new CorePlugins({ browserEmulatorId }, log as IBoundLog);
-      const context = await puppet.newContext(plugins, log);
+      const logger = TestLogger.forTest(module);
+      const context = await browser.newContext({ logger });
       needsClosing.push(context);
       await Promise.all([context.close(), context.close()]);
       await expect(context.close()).resolves.toBe(undefined);
     });
-  });
 
-  describe('emulator', () => {
-    it('should set for all pages', async () => {
-      {
-        const plugins = new CorePlugins({ browserEmulatorId }, log as IBoundLog);
-        const { browserEmulator } = plugins;
-        const context = await puppet.newContext(plugins, log);
-        const page = await context.newPage();
-        const config: IBrowserEmulatorConfig = {};
-        plugins.configure(config);
-        needsClosing.push(context);
-        needsClosing.push(page);
-        expect(await page.evaluate(`navigator.userAgent`)).toBe(browserEmulator.userAgentString);
-        expect(await page.evaluate(`navigator.platform`)).toBe(
-          browserEmulator.operatingSystemPlatform,
-        );
-        expect(await page.evaluate(`navigator.languages`)).toStrictEqual(['en']);
-        expect(await page.evaluate('screen.height')).toBe(config.viewport?.height);
-        await context.close();
-      }
-      {
-        const plugins = new CorePlugins({ browserEmulatorId }, log as IBoundLog);
-        plugins.browserEmulator.operatingSystemPlatform = 'Windows';
-        plugins.browserEmulator.userAgentString = 'foobar';
-        plugins.configure({
-          locale: 'de',
-          viewport: {
-            screenHeight: 901,
-            screenWidth: 1024,
-            positionY: 1,
-            positionX: 0,
-            height: 900,
-            width: 1024,
-          },
-        });
-
-        const context = await puppet.newContext(plugins, log);
-        needsClosing.push(context);
-        const page = await context.newPage();
-        needsClosing.push(page);
-        const [request] = await Promise.all([
-          server.waitForRequest('/empty.html'),
-          page.navigate(server.emptyPage),
-        ]);
-        expect(request.headers['user-agent']).toBe('foobar');
-        expect(await page.evaluate(`navigator.userAgent`)).toBe('foobar');
-        expect(await page.evaluate(`navigator.platform`)).toBe('Windows');
-        expect(await page.evaluate(`navigator.languages`)).toStrictEqual(['de']);
-        expect(await page.evaluate('screen.height')).toBe(901);
-        await context.close();
-      }
-    });
-
-    it('should work for subframes', async () => {
-      {
-        const plugins = new CorePlugins({ browserEmulatorId }, log as IBoundLog);
-        const context = await puppet.newContext(plugins, log);
-        needsClosing.push(context);
-        const page = await context.newPage();
-        needsClosing.push(page);
-        expect(await page.evaluate(`navigator.userAgent`)).toContain(
-          plugins.browserEmulator.userAgentString,
-        );
-        await context.close();
-      }
-      {
-        const plugins = new CorePlugins({ browserEmulatorId }, log as IBoundLog);
-        plugins.browserEmulator.userAgentString = 'foobar';
-        const context = await puppet.newContext(plugins, log);
-        needsClosing.push(context);
-        const page = await context.newPage();
-        needsClosing.push(page);
-        const [request] = await Promise.all([
-          server.waitForRequest('/empty.html'),
-          page.evaluate(`(async () => {
-        const frame = document.createElement('iframe');
-        frame.src = '${server.emptyPage}';
-        frame.id = 'frame1';
-        document.body.appendChild(frame);
-        await new Promise(x => frame.onload = x);
-      })()`),
-        ]);
-        expect((request as any).headers['user-agent']).toBe('foobar');
-        await context.close();
-      }
+    it('can create a page with the default context', async () => {
+      const logger = TestLogger.forTest(module);
+      const context = await browser.newContext({ logger, isIncognito: false });
+      needsClosing.push(context);
+      const page = await context.newPage();
+      needsClosing.push(page);
+      await expect(page.navigate(server.emptyPage)).resolves.toBeTruthy();
+      await expect(context.close()).resolves.toBe(undefined);
     });
   });
 
   describe('cookies', () => {
-    let context: IPuppetContext;
-    let page: ITestPage;
+    let context: BrowserContext;
+    let page: Page;
     beforeEach(async () => {
-      const plugins = new CorePlugins({ browserEmulatorId }, log as IBoundLog);
-      context = await puppet.newContext(plugins, log);
-      page = createTestPage(await context.newPage());
+      TestLogger.testNumber += 1;
+      const logger = TestLogger.forTest(module);
+      context = await browser.newContext({ logger });
+      page = await context.newPage();
     });
     afterEach(async () => {
       await page.close();
@@ -284,7 +199,7 @@ describe('BrowserContext', () => {
         [server.emptyPage],
       );
       const cookies = await context.getCookies();
-      expect(cookies[0].expires).toBe('-1');
+      expect(cookies[0].expires).toBe(undefined);
     });
 
     it('should set a cookie with a path', async () => {
@@ -297,18 +212,16 @@ describe('BrowserContext', () => {
           value: 'GRID',
         },
       ]);
-      expect(await context.getCookies()).toStrictEqual([
-        {
-          name: 'gridcookie',
-          value: 'GRID',
-          domain: 'localhost',
-          path: '/grid.html',
-          expires: '-1',
-          secure: false,
-          httpOnly: false,
-          sameSite: 'None',
-        },
-      ]);
+      expect((await context.getCookies())[0]).toMatchObject({
+        name: 'gridcookie',
+        value: 'GRID',
+        domain: 'localhost',
+        path: '/grid.html',
+        expires: undefined,
+        secure: false,
+        httpOnly: false,
+        sameSite: 'None',
+      });
       expect(await page.evaluate('document.cookie')).toBe('gridcookie=GRID');
       await page.goto(server.emptyPage);
       expect(await page.evaluate('document.cookie')).toBe('');
@@ -351,7 +264,7 @@ describe('BrowserContext', () => {
         expect(cookies).toEqual([
           {
             domain: '127.0.0.1',
-            expires: -1,
+            expires: undefined,
             httpOnly: false,
             name: 'username',
             path: '/',
@@ -370,18 +283,18 @@ describe('BrowserContext', () => {
     return document.cookie;
 })()`);
       expect(documentCookie).toBe('username=John Doe');
-      expect(await context.getCookies()).toEqual([
-        {
-          name: 'username',
-          value: 'John Doe',
-          domain: 'localhost',
-          path: '/',
-          expires: '-1',
-          httpOnly: false,
-          secure: false,
-          sameSite: 'None',
-        },
-      ]);
+      const cookies = await context.getCookies();
+      expect(cookies).toHaveLength(1);
+      expect(cookies[0]).toMatchObject({
+        name: 'username',
+        value: 'John Doe',
+        domain: 'localhost',
+        path: '/',
+        expires: undefined,
+        httpOnly: false,
+        secure: false,
+        sameSite: 'None',
+      });
     });
 
     it('should get a non-session cookie', async () => {
@@ -394,18 +307,18 @@ describe('BrowserContext', () => {
     return document.cookie;
   })()`);
       expect(documentCookie).toBe('username=John Doe');
-      expect(await context.getCookies()).toEqual([
-        {
-          name: 'username',
-          value: 'John Doe',
-          domain: 'localhost',
-          path: '/',
-          expires: String(date / 1000),
-          httpOnly: false,
-          secure: false,
-          sameSite: 'None',
-        },
-      ]);
+      const cookies = await context.getCookies();
+      expect(cookies).toHaveLength(1);
+      expect(cookies[0]).toMatchObject({
+        name: 'username',
+        value: 'John Doe',
+        domain: 'localhost',
+        path: '/',
+        expires: new Date('1/1/2038').toISOString(),
+        httpOnly: false,
+        secure: false,
+        sameSite: 'None',
+      });
     });
 
     it('should properly report "Strict" sameSite cookie', async () => {
@@ -450,18 +363,17 @@ describe('BrowserContext', () => {
       ]);
       const cookies = await context.getCookies(new URL('https://foo.com'));
       cookies.sort((a, b) => a.name.localeCompare(b.name));
-      expect(cookies).toEqual([
-        {
-          name: 'doggo',
-          value: 'woofs',
-          domain: 'foo.com',
-          path: '/',
-          expires: '-1',
-          httpOnly: false,
-          secure: true,
-          sameSite: 'None',
-        },
-      ]);
+      expect(cookies).toHaveLength(1);
+      expect(cookies[0]).toMatchObject({
+        name: 'doggo',
+        value: 'woofs',
+        domain: 'foo.com',
+        path: '/',
+        expires: undefined,
+        httpOnly: false,
+        secure: true,
+        sameSite: 'None',
+      });
     });
   });
 });

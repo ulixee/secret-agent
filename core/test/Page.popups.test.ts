@@ -1,39 +1,27 @@
-import Log from '@secret-agent/commons/Logger';
-import { IPuppetPage } from '@secret-agent/interfaces/IPuppetPage';
-import IPuppetContext from '@secret-agent/interfaces/IPuppetContext';
-import CorePlugins from '@secret-agent/core/lib/CorePlugins';
-import { IBoundLog } from '@secret-agent/interfaces/ILog';
-import Core from '@secret-agent/core';
-import { IBrowserEmulatorConfig } from '@secret-agent/interfaces/ICorePlugin';
+import { Browser, BrowserContext, Page } from '../index';
 import { TestServer } from './server';
-import Puppet from '../index';
-import { capturePuppetContextLogs, createTestPage, ITestPage } from './TestPage';
-import CustomBrowserEmulator from './_CustomBrowserEmulator';
-
-const { log } = Log(module);
-const browserEmulatorId = CustomBrowserEmulator.id;
+import { TestLogger } from '@secret-agent/testing';
+import { browserEngineOptions, PageHooks } from '@secret-agent/testing/browserUtils';
 
 describe('Page.popups', () => {
   let server: TestServer;
-  let page: ITestPage;
-  let puppet: Puppet;
-  let context: IPuppetContext;
+  let page: Page;
+  let browser: Browser;
+  let context: BrowserContext;
   const needsClosing = [];
 
   beforeAll(async () => {
-    Core.use(CustomBrowserEmulator);
-    const { browserEngine } = CustomBrowserEmulator.selectBrowserMeta();
     server = await TestServer.create(0);
-    puppet = new Puppet(browserEngine);
-    await puppet.start();
-    const plugins = new CorePlugins({ browserEmulatorId }, log as IBoundLog);
-    const config: IBrowserEmulatorConfig = { locale: 'en-GB' };
-    plugins.browserEmulator.configure(config);
-    plugins.browserEmulator.userAgentString = 'popupcity';
-    plugins.browserEmulator.operatingSystemPlatform = 'Windows95';
-
-    context = await puppet.newContext(plugins, log);
-    capturePuppetContextLogs(context, `${browserEngine.fullVersion}-Page.popups-test`);
+    browser = new Browser(browserEngineOptions);
+    await browser.launch();
+    const hooks = new PageHooks({
+      locale: 'en-GB',
+      userAgent: 'popupcity',
+      osPlatform: 'Windows95',
+    });
+    const logger = TestLogger.forTest(module);
+    context = await browser.newContext({ logger });
+    context.hook(hooks);
     context.on('page', event => {
       needsClosing.push(event.page);
     });
@@ -48,21 +36,22 @@ describe('Page.popups', () => {
   });
 
   beforeEach(async () => {
-    page = createTestPage(await context.newPage());
+    TestLogger.testNumber += 1;
+    page = await context.newPage();
     server.reset();
   });
 
   afterAll(async () => {
     await server.stop();
     await context.close();
-    await puppet.close();
+    await browser.close();
   });
 
   describe('Popup tests', () => {
     it('should focus popups by default', async () => {
       await page.goto(server.emptyPage);
-      const [popup] = await Promise.all<IPuppetPage, any>([
-        page.waitForPopup(),
+      const [popup] = await Promise.all([
+        waitForPopup(page),
         page.evaluate(`(() => {
         window.open('${server.emptyPage}');
       })()`),
@@ -82,7 +71,7 @@ describe('Page.popups', () => {
       expect(await page.evaluate(`navigator.platform`)).toBe('Windows95');
       expect(await page.evaluate(`navigator.languages`)).toStrictEqual(['en-GB']);
 
-      const popupPromise = page.waitForPopup();
+      const popupPromise = waitForPopup(page);
       await page.click('a');
       const popup = await popupPromise;
       needsClosing.push(popup);
@@ -102,18 +91,18 @@ describe('Page.popups', () => {
 
     it('should be able to capture concurrent popup navigations', async () => {
       const concurrent = new Array(5).fill(0).map(async () => {
-        let newPage: ITestPage;
-        let popup: IPuppetPage;
+        let newPage: Page;
+        let popup: Page;
         try {
-          newPage = createTestPage(await context.newPage());
+          newPage = await context.newPage();
           await newPage.goto(server.url('popup.html'));
 
-          const popupNavigate = newPage.waitForPopup();
+          const popupNavigate = waitForPopup(newPage);
 
           await newPage.click('a');
           popup = await popupNavigate;
 
-          await popup.mainFrame.waitForLifecycleEvent('load');
+          await popup.mainFrame.waitForLoad({ loadStatus: 'AllContentLoaded' });
           expect(popup.mainFrame.url).toBe(server.emptyPage);
         } finally {
           await popup?.close();
@@ -124,3 +113,9 @@ describe('Page.popups', () => {
     });
   });
 });
+
+async function waitForPopup(page: Page): Promise<Page> {
+  return new Promise<Page>(resolve => {
+    page.popupInitializeFn = async popup => resolve(popup);
+  });
+}

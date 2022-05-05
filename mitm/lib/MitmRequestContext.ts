@@ -1,14 +1,14 @@
 import { URL } from 'url';
 import * as http from 'http';
 import * as http2 from 'http2';
-import EventSubscriber from '@secret-agent/commons/EventSubscriber';
-import IResourceRequest from '@secret-agent/interfaces/IResourceRequest';
+import IResourceRequest from '@unblocked/emulator-spec/IResourceRequest';
 import { TLSSocket } from 'tls';
 import MitmSocket from '@secret-agent/mitm-socket';
-import OriginType, { isOriginType } from '@secret-agent/interfaces/OriginType';
-import IResourceHeaders from '@secret-agent/interfaces/IResourceHeaders';
-import IResourceResponse from '@secret-agent/interfaces/IResourceResponse';
-import { IPuppetResourceRequest } from '@secret-agent/interfaces/IPuppetNetworkEvents';
+import OriginType, { isOriginType } from '@unblocked/emulator-spec/OriginType';
+import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
+import IHttpHeaders from '@unblocked/emulator-spec/IHttpHeaders';
+import IResourceResponse from '@unblocked/emulator-spec/IResourceResponse';
+import { IBrowserResourceRequest } from '@unblocked/emulator-spec/IBrowserNetworkEvents';
 import HttpResponseCache from './HttpResponseCache';
 import HeadersHandler from '../handlers/HeadersHandler';
 import { IRequestSessionResponseEvent } from '../handlers/RequestSession';
@@ -21,13 +21,13 @@ export default class MitmRequestContext {
   private static contextIdCounter = 0;
 
   public static createFromPuppetResourceRequest(
-    resourceLoadDetails: IPuppetResourceRequest,
+    resourceLoadDetails: IBrowserResourceRequest,
   ): IMitmRequestContext {
     return {
       id: (this.contextIdCounter += 1),
       ...resourceLoadDetails,
       requestOriginalHeaders: { ...resourceLoadDetails.requestHeaders },
-      didBlockResource: !!resourceLoadDetails.browserBlockedReason,
+      didInterceptResource: !!resourceLoadDetails.browserBlockedReason,
       cacheHandler: null,
       clientToProxyRequest: null,
       stateChanges: new Map<ResourceState, Date>([[ResourceState.End, new Date()]]),
@@ -42,13 +42,8 @@ export default class MitmRequestContext {
     >,
     responseCache: HttpResponseCache,
   ): IMitmRequestContext {
-    const {
-      isSSL,
-      proxyToClientResponse,
-      clientToProxyRequest,
-      requestSession,
-      isUpgrade,
-    } = params;
+    const { isSSL, proxyToClientResponse, clientToProxyRequest, requestSession, isUpgrade } =
+      params;
 
     const protocol = isUpgrade ? 'ws' : 'http';
     const expectedProtocol = `${protocol}${isSSL ? 's' : ''}:`;
@@ -96,18 +91,18 @@ export default class MitmRequestContext {
       requestOriginalHeaders: parseRawHeaders(clientToProxyRequest.rawHeaders),
       clientToProxyRequest,
       proxyToClientResponse,
-      requestTime: new Date(),
+      requestTime: Date.now(),
       protocol: (clientToProxyRequest.socket as TLSSocket)?.alpnProtocol || 'http/1.1',
       documentUrl: clientToProxyRequest.headers.origin as string,
       originType: this.getOriginType(url, requestHeaders),
-      didBlockResource: false,
+      didInterceptResource: false,
       cacheHandler: null,
-      eventSubscriber: new EventSubscriber(),
       stateChanges: state,
       setState(stateStep: ResourceState) {
         state.set(stateStep, new Date());
         requestSession.emit('resource-state', { context: ctx, state: stateStep });
       },
+      events: new EventSubscriber(),
     };
 
     if (protocol === 'ws') {
@@ -127,7 +122,7 @@ export default class MitmRequestContext {
       `${parentContext.url.protocol}//${requestHeaders[':authority']}${requestHeaders[':path']}`,
     );
     const state = new Map<ResourceState, Date>();
-    const requestSession = parentContext.requestSession;
+    const { requestSession } = parentContext;
     const ctx = {
       id: (this.contextIdCounter += 1),
       url,
@@ -151,15 +146,15 @@ export default class MitmRequestContext {
       proxyToClientResponse: null,
       serverToProxyResponseStream: null,
       proxyToServerRequest: null,
-      requestTime: new Date(),
-      didBlockResource: false,
+      requestTime: Date.now(),
+      didInterceptResource: false,
       cacheHandler: null,
-      eventSubscriber: new EventSubscriber(),
       stateChanges: state,
       setState(stateStep: ResourceState) {
         state.set(stateStep, new Date());
         requestSession.emit('resource-state', { context: ctx, state: stateStep });
       },
+      events: new EventSubscriber(),
     } as IMitmRequestContext;
 
     ctx.cacheHandler = new CacheHandler(parentContext.cacheHandler.responseCache, ctx);
@@ -167,34 +162,38 @@ export default class MitmRequestContext {
   }
 
   public static toEmittedResource(ctx: IMitmRequestContext): IRequestSessionResponseEvent {
-    const request = {
+    const request: IResourceRequest = {
       url: ctx.url?.href,
       headers: ctx.requestHeaders,
       method: ctx.method,
-      postData: ctx.requestPostData,
-      timestamp: ctx.requestTime.getTime(),
-    } as IResourceRequest;
+      timestamp: ctx.requestTime,
+    };
 
-    const response = {
+    const response: IResourceResponse = {
       url: ctx.responseUrl,
       statusCode: ctx.originalStatus ?? ctx.status,
       statusMessage: ctx.statusMessage,
       headers: ctx.responseHeaders,
       trailers: ctx.responseTrailers,
-      timestamp: ctx.responseTime?.getTime(),
+      timestamp: ctx.responseTime,
       browserServedFromCache: ctx.browserServedFromCache,
       browserLoadFailure: ctx.browserLoadFailure,
+      browserLoadedTime: ctx.browserLoadedTime,
       remoteAddress: ctx.remoteAddress,
-    } as IResourceResponse;
+    };
 
     return {
       id: ctx.id,
       browserRequestId: ctx.browserRequestId,
+      url: ctx.url,
+      frameId: ctx.browserFrameId,
       request,
       response,
+      postData: ctx.requestPostData,
       documentUrl: ctx.documentUrl,
       redirectedToUrl: ctx.redirectedToUrl,
       wasCached: ctx.cacheHandler?.didProposeCachedResource ?? false,
+      wasIntercepted: ctx.didInterceptResource,
       resourceType: ctx.resourceType,
       body: ctx.cacheHandler?.buffer,
       localAddress: ctx.localAddress,
@@ -204,8 +203,7 @@ export default class MitmRequestContext {
       socketId: ctx.proxyToServerMitmSocket?.id,
       protocol: ctx.protocol,
       serverAlpn: ctx.proxyToServerMitmSocket?.alpn,
-      didBlockResource: ctx.didBlockResource,
-      executionMillis: (ctx.responseTime ?? new Date()).getTime() - ctx.requestTime.getTime(),
+      executionMillis: (ctx.responseTime ?? Date.now()) - ctx.requestTime,
       isHttp2Push: ctx.isHttp2Push,
       browserBlockedReason: ctx.browserBlockedReason,
       browserCanceled: ctx.browserCanceled,
@@ -220,7 +218,7 @@ export default class MitmRequestContext {
     ctx.remoteAddress = mitmSocket.remoteAddress;
   }
 
-  public static getOriginType(url: URL, headers: IResourceHeaders): OriginType {
+  public static getOriginType(url: URL, headers: IHttpHeaders): OriginType {
     if (isOriginType(headers['Sec-Fetch-Site'] as string)) {
       return headers['Sec-Fetch-Site'] as OriginType;
     }
@@ -250,7 +248,7 @@ export default class MitmRequestContext {
     ctx.statusMessage = response.statusMessage;
 
     ctx.responseUrl = response.url;
-    ctx.responseTime = new Date();
+    ctx.responseTime = Date.now();
     ctx.serverToProxyResponse = response;
     ctx.responseOriginalHeaders = parseRawHeaders(response.rawHeaders);
     ctx.responseHeaders = HeadersHandler.cleanResponseHeaders(ctx, ctx.responseOriginalHeaders);
@@ -271,7 +269,7 @@ export default class MitmRequestContext {
     const headers = parseRawHeaders(rawHeaders);
     ctx.status = statusCode;
     ctx.originalStatus = statusCode;
-    ctx.responseTime = new Date();
+    ctx.responseTime = Date.now();
     ctx.serverToProxyResponse = response;
     ctx.responseOriginalHeaders = headers;
     ctx.responseHeaders = HeadersHandler.cleanResponseHeaders(ctx, headers);

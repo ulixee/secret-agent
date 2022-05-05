@@ -7,7 +7,7 @@ import * as http from 'http';
 import { IncomingMessage, RequestListener, Server } from 'http';
 import * as https from 'https';
 import { Agent } from 'https';
-import { createPromise } from '@secret-agent/commons/utils';
+import { createPromise } from '@ulixee/commons/lib/utils';
 import * as HttpProxyAgent from 'http-proxy-agent';
 import * as HttpsProxyAgent from 'https-proxy-agent';
 import * as Koa from 'koa';
@@ -17,11 +17,11 @@ import * as net from 'net';
 import * as tls from 'tls';
 import * as http2 from 'http2';
 import * as stream from 'stream';
-import Core, { CoreProcess } from '@secret-agent/core';
-import { CanceledPromiseError } from '@secret-agent/commons/interfaces/IPendingWaitEvent';
+import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
 import MitmSocket from '@secret-agent/mitm-socket';
 import MitmSocketSession from '@secret-agent/mitm-socket/lib/MitmSocketSession';
-import { Helpers } from './index';
+import { Helpers, TestLogger } from './index';
+import MitmEnv from '@secret-agent/mitm/env'; // eslint-disable-line import/no-extraneous-dependencies
 
 export const needsClosing: { close: () => Promise<any> | void; onlyCloseOnFinal?: boolean }[] = [];
 
@@ -35,6 +35,7 @@ export interface ITestKoaServer extends KoaRouter {
   baseUrl: string;
   upload: KoaMulter.Instance;
 }
+
 export interface ITestHttpServer<T> {
   isClosing: boolean;
   onlyCloseOnFinal: boolean;
@@ -277,7 +278,7 @@ export async function http2Get(
   proxyUrl?: string,
 ): Promise<string> {
   const hostUrl = new URL(host);
-  const socketSession = new MitmSocketSession(sessionId, {
+  const socketSession = new MitmSocketSession(TestLogger.forTest(module.parent), {
     clientHelloId: 'Chrome79',
     rejectUnauthorized: false,
   });
@@ -391,14 +392,18 @@ export function getTlsConnection(
   isWebsocket = false,
   proxyUrl?: string,
 ): MitmSocket {
-  const tlsConnection = new MitmSocket(`session${(sessionId += 1)}`, {
-    host,
-    port: String(serverPort),
-    servername: host,
-    isWebsocket,
-    isSsl: true,
-    proxyUrl,
-  });
+  const tlsConnection = new MitmSocket(
+    `session${(sessionId += 1)}`,
+    TestLogger.forTest(module.parent),
+    {
+      host,
+      port: String(serverPort),
+      servername: host,
+      isWebsocket,
+      isSsl: true,
+      proxyUrl,
+    },
+  );
   Helpers.onClose(() => tlsConnection.close());
   return tlsConnection;
 }
@@ -421,8 +426,6 @@ export function afterEach(): Promise<void> {
 
 export async function afterAll(): Promise<void> {
   await closeAll(true);
-  await Core.shutdown(true);
-  await CoreProcess.kill();
 }
 
 async function closeAll(isFinal = false): Promise<void> {
@@ -453,8 +456,8 @@ async function closeAll(isFinal = false): Promise<void> {
 }
 
 function bindSslListeners(server: tls.Server): void {
-  if (process.env.SSLKEYLOGFILE) {
-    const logFile = Fs.createWriteStream(process.env.SSLKEYLOGFILE, { flags: 'a' });
+  if (MitmEnv.sslKeylogFile) {
+    const logFile = Fs.createWriteStream(MitmEnv.sslKeylogFile, { flags: 'a' });
     server.on('keylog', line => logFile.write(line));
   }
 }
@@ -474,7 +477,7 @@ function destroyServerFn(
 ): () => Promise<void> {
   const connections = new Set<net.Socket>();
 
-  server.on('connection', conn => {
+  server.on('connection', (conn: net.Socket) => {
     connections.add(conn);
     conn.on('close', () => connections.delete(conn));
   });

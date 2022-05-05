@@ -1,9 +1,9 @@
-import Resolvable from '@secret-agent/commons/Resolvable';
-import { ILifecycleEvents, IPuppetNavigationLoader } from '@secret-agent/interfaces/IPuppetFrame';
-import { IBoundLog } from '@secret-agent/interfaces/ILog';
+import Resolvable from '@ulixee/commons/lib/Resolvable';
+import { ILifecycleEvents, INavigationLoader } from '@unblocked/emulator-spec/IFrame';
+import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
 
 export class NavigationLoader {
-  public get isNavigationComplete() {
+  public get isNavigationComplete(): boolean {
     return this.navigationResolver.isResolved;
   }
 
@@ -20,7 +20,7 @@ export class NavigationLoader {
     });
   }
 
-  public setNavigationResult(result?: Error | string) {
+  public setNavigationResult(result?: Error | string): void {
     this.navigationResolver.resolve(result ?? null);
     if (result && typeof result === 'string') {
       this.url = result;
@@ -31,13 +31,13 @@ export class NavigationLoader {
     clearTimeout(this.afterStoppedLoadingTimeout);
   }
 
-  public onStoppedLoading() {
+  public onStoppedLoading(): void {
     clearTimeout(this.afterStoppedLoadingTimeout);
 
     this.afterStoppedLoadingTimeout = setTimeout(this.markLoaded.bind(this), 50).unref();
   }
 
-  public onLifecycleEvent(name: string) {
+  public onLifecycleEvent(name: string): void {
     if (
       (name === 'commit' || name === 'DOMContentLoaded' || name === 'load') &&
       !this.isNavigationComplete
@@ -57,7 +57,7 @@ export class NavigationLoader {
     }
   }
 
-  public toJSON(): IPuppetNavigationLoader {
+  public toJSON(): INavigationLoader {
     return {
       id: this.id,
       isNavigationComplete: this.isNavigationComplete,

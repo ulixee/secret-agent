@@ -1,5 +1,5 @@
-import { Helpers } from '@secret-agent/testing';
-import { createPromise } from '@secret-agent/commons/utils';
+import { Helpers, TestLogger } from '@secret-agent/testing';
+import { createPromise } from '@ulixee/commons/lib/utils';
 import * as http2 from 'http2';
 import * as stream from 'stream';
 import * as WebSocket from 'ws';
@@ -12,9 +12,14 @@ import MitmSocketSession from '../lib/MitmSocketSession';
 afterAll(Helpers.afterAll);
 afterEach(Helpers.afterEach);
 
+let sessionId = 1;
 let mitmSocketSession: MitmSocketSession;
+beforeEach(() => {
+  sessionId += 1;
+  TestLogger.testNumber = sessionId;
+});
 beforeAll(() => {
-  mitmSocketSession = new MitmSocketSession('mitmSocket.test', {
+  mitmSocketSession = new MitmSocketSession(TestLogger.forTest(module), {
     clientHelloId: 'chrome-72',
     rejectUnauthorized: false,
   });
@@ -42,7 +47,7 @@ test('should handle http2 requests', async () => {
   await tlsConnection.connect(mitmSocketSession);
   expect(tlsConnection.alpn).toBe('h2');
 
-  const client = http2.connect('https://secretagent.dev', {
+  const client = http2.connect('https://ulixee.org', {
     createConnection: () => tlsConnection.socket,
   });
   closeAfterTest(client);
@@ -54,12 +59,12 @@ test('should handle http2 requests', async () => {
 });
 
 test('should be able to hit google using a Chrome Emulator', async () => {
-  const socketSession = new MitmSocketSession('mitmSocket.test', {
+  const socketSession = new MitmSocketSession(TestLogger.forTest(module), {
     clientHelloId: 'chrome-79',
     rejectUnauthorized: false,
   });
   Helpers.needsClosing.push(socketSession);
-  const tlsConnection = new MitmSocket('1', {
+  const tlsConnection = new MitmSocket(String(sessionId), TestLogger.forTest(module), {
     host: 'google.com',
     port: '443',
     servername: 'google.com',
@@ -82,7 +87,7 @@ test('should be able to hit google using a Chrome Emulator', async () => {
 });
 
 test('should be able to hit gstatic using a Chrome Emulator', async () => {
-  const tlsConnection = new MitmSocket('optimove', {
+  const tlsConnection = new MitmSocket(String(sessionId), TestLogger.forTest(module), {
     host: 'www.gstatic.com',
     port: '443',
     servername: 'www.gstatic.com',
@@ -112,7 +117,7 @@ test('should be able to hit a server that disconnects', async () => {
     );
   });
 
-  const tlsConnection = new MitmSocket('disconnect', {
+  const tlsConnection = new MitmSocket(String(sessionId), TestLogger.forTest(module), {
     host: `localhost`,
     port: String(server.port),
     servername: 'localhost',
@@ -146,12 +151,12 @@ test('should be able to hit a server that disconnects', async () => {
 // only test this manually
 // eslint-disable-next-line jest/no-disabled-tests
 test.skip('should be able to get scripts from unpkg using Chrome emulator', async () => {
-  const socketSession = new MitmSocketSession('mitmSocket.test', {
+  const socketSession = new MitmSocketSession(TestLogger.forTest(module), {
     clientHelloId: 'chrome-79',
     rejectUnauthorized: false,
   });
   Helpers.needsClosing.push(socketSession);
-  const tlsConnection = new MitmSocket('3', {
+  const tlsConnection = new MitmSocket(String(sessionId), TestLogger.forTest(module), {
     host: 'unpkg.com',
     port: '443',
     servername: 'unpkg.com',

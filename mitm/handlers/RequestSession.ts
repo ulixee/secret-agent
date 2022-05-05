@@ -1,72 +1,82 @@
 import * as http from 'http';
-import IResolvablePromise from '@secret-agent/interfaces/IResolvablePromise';
-import { createPromise } from '@secret-agent/commons/utils';
-import ResourceType from '@secret-agent/interfaces/ResourceType';
-import IHttpResourceLoadDetails from '@secret-agent/interfaces/IHttpResourceLoadDetails';
-import IResourceRequest from '@secret-agent/interfaces/IResourceRequest';
-import IResourceHeaders from '@secret-agent/interfaces/IResourceHeaders';
+import IResolvablePromise from '@ulixee/commons/interfaces/IResolvablePromise';
+import { createPromise } from '@ulixee/commons/lib/utils';
+import IResourceType from '@unblocked/emulator-spec/IResourceType';
+import IHttpResourceLoadDetails from '@unblocked/emulator-spec/IHttpResourceLoadDetails';
+import IResourceRequest from '@unblocked/emulator-spec/IResourceRequest';
+import IHttpHeaders from '@unblocked/emulator-spec/IHttpHeaders';
 import * as http2 from 'http2';
-import IResourceResponse from '@secret-agent/interfaces/IResourceResponse';
+import IResourceResponse from '@unblocked/emulator-spec/IResourceResponse';
 import * as net from 'net';
-import { TypedEventEmitter } from '@secret-agent/commons/eventUtils';
-import Log from '@secret-agent/commons/Logger';
+import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
 import MitmSocket from '@secret-agent/mitm-socket/index';
-import ICorePlugins from '@secret-agent/interfaces/ICorePlugins';
 import { URL } from 'url';
 import MitmRequestAgent from '../lib/MitmRequestAgent';
 import IMitmRequestContext from '../interfaces/IMitmRequestContext';
 import { Dns } from '../lib/Dns';
 import ResourceState from '../interfaces/ResourceState';
-import BrowserRequestMatcher from '../lib/BrowserRequestMatcher';
+import IBrowserRequestMatcher from '../interfaces/IBrowserRequestMatcher';
+import { IBrowserContextHooks, INetworkHooks } from '@unblocked/emulator-spec/IHooks';
+import { IPage } from '@unblocked/emulator-spec/IPage';
+import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
+import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
 
-const { log } = Log(module);
-
-export default class RequestSession extends TypedEventEmitter<IRequestSessionEvents> {
+export default class RequestSession
+  extends TypedEventEmitter<IRequestSessionEvents>
+  implements IBrowserContextHooks
+{
   public websocketBrowserResourceIds: {
     [headersHash: string]: IResolvablePromise<string>;
   } = {};
 
   public isClosing = false;
-  public blockedResources: {
-    types: ResourceType[];
-    urls: string[];
+  public interceptorHandlers: {
+    types?: IResourceType[];
+    urls?: string[];
     handlerFn?: (
+      url: URL,
+      type: IResourceType,
       request: http.IncomingMessage | http2.Http2ServerRequest,
       response: http.ServerResponse | http2.Http2ServerResponse,
-      context: IMitmRequestContext,
-    ) => boolean;
-  } = {
-    types: [],
-    urls: [],
-  };
+    ) => boolean | Promise<boolean>;
+  }[] = [];
 
   public requestAgent: MitmRequestAgent;
   public requestedUrls: {
     url: string;
     redirectedToUrl: string;
     redirectChain: string[];
-    responseTime: Date;
+    responseTime: number;
   }[] = [];
 
-  public readonly browserRequestMatcher: BrowserRequestMatcher;
+  public respondWithHttpErrorStacks = true;
 
   // use this to bypass the mitm and just return a dummy response (ie for UserProfile setup)
   public bypassAllWithEmptyResponse: boolean;
+  public bypassResourceRegistrationForHost: URL;
+  public browserRequestMatcher?: IBrowserRequestMatcher;
+  public logger: IBoundLog;
+
+  public readonly hooks: INetworkHooks[] = [];
 
   private readonly dns: Dns;
+  private events = new EventSubscriber();
 
   constructor(
     readonly sessionId: string,
-    readonly plugins: ICorePlugins,
+    hooks: INetworkHooks,
+    logger: IBoundLog,
     public upstreamProxyUrl?: string,
   ) {
     super();
-    this.logger = log.createChild(module, {
-      sessionId,
-    });
+    this.logger = logger.createChild(module);
     this.requestAgent = new MitmRequestAgent(this);
     this.dns = new Dns(this);
-    this.browserRequestMatcher = new BrowserRequestMatcher(this);
+    if (hooks) this.hook(hooks);
+  }
+
+  public hook(hooks: INetworkHooks): void {
+    this.hooks.push(hooks);
   }
 
   public trackResourceRedirects(resource: IHttpResourceLoadDetails): void {
@@ -80,8 +90,7 @@ export default class RequestSession extends TypedEventEmitter<IRequestSessionEve
 
     const redirect = this.requestedUrls.find(
       x =>
-        x.redirectedToUrl === resourceRedirect.url &&
-        resource.requestTime.getTime() - x.responseTime.getTime() < 5e3,
+        x.redirectedToUrl === resourceRedirect.url && resource.requestTime - x.responseTime < 5e3,
     );
     resource.isFromRedirect = !!redirect;
     if (redirect) {
@@ -96,10 +105,13 @@ export default class RequestSession extends TypedEventEmitter<IRequestSessionEve
     context.setState(ResourceState.EmulationWillSendResponse);
 
     if (context.resourceType === 'Document' && context.status === 200) {
-      this.plugins.websiteHasFirstPartyInteraction(context.url);
+      for (const hook of this.hooks) {
+        await hook.websiteHasFirstPartyInteraction?.(context.url);
+      }
     }
-
-    await this.plugins.beforeHttpResponse(context);
+    for (const hook of this.hooks) {
+      await hook.beforeHttpResponse?.(context);
+    }
   }
 
   public async lookupDns(host: string): Promise<string> {
@@ -107,8 +119,7 @@ export default class RequestSession extends TypedEventEmitter<IRequestSessionEve
       try {
         return await this.dns.lookupIp(host);
       } catch (error) {
-        log.info('DnsLookup.Error', {
-          sessionId: this.sessionId,
+        this.logger.info('DnsLookup.Error', {
           error,
         });
         // if fails, pass through to returning host untouched
@@ -118,7 +129,7 @@ export default class RequestSession extends TypedEventEmitter<IRequestSessionEve
   }
 
   public getProxyCredentials(): string {
-    return `secret-agent:${this.sessionId}`;
+    return `ulixee:${this.sessionId}`;
   }
 
   public close(): void {
@@ -126,7 +137,9 @@ export default class RequestSession extends TypedEventEmitter<IRequestSessionEve
     const logid = this.logger.stats('MitmRequestSession.Closing');
     this.isClosing = true;
     const errors: Error[] = [];
-    this.browserRequestMatcher.cancelPending();
+    this.events.close();
+    this.browserRequestMatcher?.cancelPending();
+    this.browserRequestMatcher = null;
     try {
       this.requestAgent.close();
     } catch (err) {
@@ -139,60 +152,79 @@ export default class RequestSession extends TypedEventEmitter<IRequestSessionEve
     }
     this.logger.stats('MitmRequestSession.Closed', { parentLogId: logid, errors });
 
-    setImmediate(() => this.emit('close'));
+    setImmediate(() => {
+      this.emit('close');
+      this.removeAllListeners();
+    });
   }
 
-  public shouldBlockRequest(url: string): boolean {
-    if (!this.blockedResources?.urls) {
-      return false;
+  public shouldInterceptRequest(url: string): boolean {
+    for (const handler of this.interceptorHandlers) {
+      if (!handler.urls) continue;
+      for (const blockedUrlFragment of handler.urls) {
+        if (url.includes(blockedUrlFragment) || url.match(blockedUrlFragment)) {
+          return true;
+        }
+      }
     }
-    for (const blockedUrlFragment of this.blockedResources.urls) {
-      if (url.includes(blockedUrlFragment) || url.match(blockedUrlFragment)) {
+    return false;
+  }
+
+  public async didHandleInterceptResponse(
+    ctx: IMitmRequestContext,
+    request: http.IncomingMessage | http2.Http2ServerRequest,
+    response: http.ServerResponse | http2.Http2ServerResponse,
+  ): Promise<boolean> {
+    const url = ctx.url.href;
+    for (const handler of this.interceptorHandlers) {
+      const isMatch =
+        handler.types?.includes(ctx.resourceType) ||
+        handler.urls?.some(x => url.includes(x) || url.match(x));
+      if (
+        isMatch &&
+        handler.handlerFn &&
+        (await handler.handlerFn(ctx.url, ctx.resourceType, request, response))
+      ) {
         return true;
       }
     }
     return false;
   }
 
-  // function to override for
-  public blockHandler(ctx: IMitmRequestContext): boolean {
-    if (this.blockedResources?.handlerFn)
-      return this.blockedResources.handlerFn(
-        ctx.clientToProxyRequest,
-        ctx.proxyToClientResponse,
-        ctx,
-      );
-    return false;
+  /////// / BROWSER HOOKS ///////////////////////////////////////////////////////////////////////////////////////////////
+
+  public onNewPage(page: IPage): Promise<void> {
+    this.events.on(page, 'websocket-handshake', this.registerWebsocketHeaders.bind(this));
+    this.events.on(page, 'navigation-response', this.recordDocumentUserActivity.bind(this));
+    return Promise.resolve();
   }
 
-  public recordDocumentUserActivity(documentUrl: string): void {
-    this.plugins.websiteHasFirstPartyInteraction(new URL(documentUrl));
+  public recordDocumentUserActivity(event: { url: string }): void {
+    for (const hook of this.hooks) {
+      void hook.websiteHasFirstPartyInteraction?.(new URL(event.url));
+    }
   }
 
   /////// Websockets ///////////////////////////////////////////////////////////
 
-  public getWebsocketUpgradeRequestId(headers: IResourceHeaders): Promise<string> {
+  public getWebsocketUpgradeRequestId(headers: IHttpHeaders): Promise<string> {
     const key = this.getWebsocketHeadersKey(headers);
 
     this.websocketBrowserResourceIds[key] ??= createPromise<string>(30e3);
     return this.websocketBrowserResourceIds[key].promise;
   }
 
-  public registerWebsocketHeaders(
-    tabId: number,
-    message: {
-      browserRequestId: string;
-      headers: IResourceHeaders;
-    },
-  ): void {
-    this.browserRequestMatcher.requestIdToTabId.set(message.browserRequestId, tabId);
+  public registerWebsocketHeaders(message: {
+    browserRequestId: string;
+    headers: IHttpHeaders;
+  }): void {
     const key = this.getWebsocketHeadersKey(message.headers);
 
     this.websocketBrowserResourceIds[key] ??= createPromise<string>();
     this.websocketBrowserResourceIds[key].resolve(message.browserRequestId);
   }
 
-  private getWebsocketHeadersKey(headers: IResourceHeaders): string {
+  private getWebsocketHeadersKey(headers: IHttpHeaders): string {
     let websocketKey: string;
     let host: string;
     for (const key of Object.keys(headers)) {
@@ -232,11 +264,12 @@ export interface IResourceStateChangeEvent {
 
 export interface IRequestSessionResponseEvent extends IRequestSessionRequestEvent {
   browserRequestId: string;
+  frameId: number;
   response: IResourceResponse;
   wasCached: boolean;
   dnsResolvedIp?: string;
-  resourceType: ResourceType;
-  responseOriginalHeaders?: IResourceHeaders;
+  resourceType: IResourceType;
+  responseOriginalHeaders?: IHttpHeaders;
   body: Buffer;
   redirectedToUrl?: string;
   executionMillis: number;
@@ -246,14 +279,16 @@ export interface IRequestSessionResponseEvent extends IRequestSessionRequestEven
 
 export interface IRequestSessionRequestEvent {
   id: number;
+  url: URL;
   request: IResourceRequest;
+  postData: Buffer;
   documentUrl: string;
   serverAlpn: string;
   protocol: string;
   socketId: number;
   isHttp2Push: boolean;
-  didBlockResource: boolean;
-  originalHeaders: IResourceHeaders;
+  wasIntercepted: boolean;
+  originalHeaders: IHttpHeaders;
   localAddress: string;
 }
 

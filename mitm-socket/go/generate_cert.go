@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
@@ -9,8 +8,10 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"math/big"
+	"log"
 	"net"
 	"os"
 	"sync/atomic"
@@ -37,31 +38,10 @@ type CertConfig struct {
 	organization string // Organization (will be used for generated certificates)
 }
 
-func readBytesFromDisk(filename string) ([]byte, error) {
-	// first check files
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	pemfileinfo, _ := file.Stat()
-	var size int64 = pemfileinfo.Size()
-	bytes := make([]byte, size)
-
-	buffer := bufio.NewReader(file)
-	_, err = buffer.Read(bytes)
-	if err != nil {
-		return nil, err
-	}
-
-	return bytes, nil
-
-}
-
 func readCertFromDisk(file string) (*x509.Certificate, error) {
 
-	bytes, err := readBytesFromDisk(file)
+	bytes, err := os.ReadFile(file)
+
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +55,7 @@ func readCertFromDisk(file string) (*x509.Certificate, error) {
 
 func readPrivateKeyFromDisk(file string) (*rsa.PrivateKey, error) {
 
-	bytes, err := readBytesFromDisk(file)
+	bytes, err := os.ReadFile(file)
 	if err != nil {
 		return nil, err
 	}
@@ -92,18 +72,6 @@ func readPrivateKeyFromDisk(file string) (*rsa.PrivateKey, error) {
 	return privatePkcs8RsaKey, nil
 }
 
-func writeKeyToDisk(bytes []byte, file string) error {
-	out, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
-
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	out.Write(bytes)
-
-	return nil
-}
 
 // NewAuthority creates a new CA certificate and associated private key.
 func NewAuthority() (*x509.Certificate, *rsa.PrivateKey, error) {
@@ -111,14 +79,18 @@ func NewAuthority() (*x509.Certificate, *rsa.PrivateKey, error) {
 	var caKeyFile string = "caKey.der"
 
 	certFromDisk, err := readCertFromDisk(caFile)
-	if err == nil {
+
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+       log.Printf("Error reading cert from disk", caFile, err)
+    } else if err == nil {
 		keyFromDisk, err := readPrivateKeyFromDisk(caKeyFile)
 		if err != nil {
-			fmt.Printf("Error reading private key from disk", caKeyFile, err)
+            log.Printf("Error reading private key from disk", caKeyFile, err)
 		} else {
 			return certFromDisk, keyFromDisk, nil
 		}
 	}
+
 
 	// Generating the private key that will be used for domain certificates
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -146,7 +118,7 @@ func NewAuthority() (*x509.Certificate, *rsa.PrivateKey, error) {
 	tmpl := &x509.Certificate{
 		SerialNumber: big.NewInt(serial),
 		Subject: pkix.Name{
-			CommonName:   "SecretAgentCA",
+			CommonName:   "UlixeeCA",
 			Organization: []string{"Data Liberation Foundation"},
 		},
 		SubjectKeyId:          keyID,
@@ -155,7 +127,7 @@ func NewAuthority() (*x509.Certificate, *rsa.PrivateKey, error) {
 		BasicConstraintsValid: true,
 		NotBefore:             time.Now().AddDate(-1, 0, 0),
 		NotAfter:              time.Now().AddDate(1, 0, 0),
-		DNSNames:              []string{"SecretAgentCA"},
+		DNSNames:              []string{"UlixeeCA"},
 		IsCA:                  true,
 	}
 
@@ -164,12 +136,19 @@ func NewAuthority() (*x509.Certificate, *rsa.PrivateKey, error) {
 		return nil, nil, err
 	}
 
-	writeKeyToDisk(raw, caFile)
+    err = os.WriteFile(caFile, raw, 0600)
+    if err != nil {
+		return nil, nil, err
+	}
+
 	privBytes, err := x509.MarshalPKCS8PrivateKey(priv)
 	if err != nil {
 		return nil, nil, err
 	}
-	writeKeyToDisk(privBytes, caKeyFile)
+    err = os.WriteFile(caKeyFile, privBytes, 0600)
+    if err != nil {
+		return nil, nil, err
+	}
 
 	// Parse certificate bytes so that we have a leaf certificate.
 	x509c, err := x509.ParseCertificate(raw)
@@ -211,7 +190,10 @@ func NewCertConfig(ca *x509.Certificate, caPrivateKey *rsa.PrivateKey) (*CertCon
 	}
 
 	if needsSave {
-		writeKeyToDisk(privBytes, "privKey.der")
+	    err = os.WriteFile("privKey.der", privBytes, 0600)
+	    if err != nil {
+	        return nil,err
+	    }
 	}
 	pub := priv.Public()
 

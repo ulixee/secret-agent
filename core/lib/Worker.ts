@@ -1,21 +1,21 @@
-import EventSubscriber from '@secret-agent/commons/EventSubscriber';
-import { TypedEventEmitter } from '@secret-agent/commons/eventUtils';
+import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
 import Protocol from 'devtools-protocol';
-import { IPuppetWorker, IPuppetWorkerEvents } from '@secret-agent/interfaces/IPuppetWorker';
-import { createPromise } from '@secret-agent/commons/utils';
-import { IBoundLog } from '@secret-agent/interfaces/ILog';
-import { CanceledPromiseError } from '@secret-agent/commons/interfaces/IPendingWaitEvent';
-import ICorePlugins from '@secret-agent/interfaces/ICorePlugins';
-import { BrowserContext } from './BrowserContext';
-import { DevtoolsSession } from './DevtoolsSession';
-import { NetworkManager } from './NetworkManager';
+import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
+import { IWorker, IWorkerEvents } from '@unblocked/emulator-spec/IWorker';
+import { createPromise } from '@ulixee/commons/lib/utils';
+import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
+import { IBrowserContextHooks } from '@unblocked/emulator-spec/IHooks';
+import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
+import BrowserContext from './BrowserContext';
+import DevtoolsSession from './DevtoolsSession';
+import NetworkManager from './NetworkManager';
 import ConsoleMessage from './ConsoleMessage';
 import ConsoleAPICalledEvent = Protocol.Runtime.ConsoleAPICalledEvent;
 import TargetInfo = Protocol.Target.TargetInfo;
 import ExceptionThrownEvent = Protocol.Runtime.ExceptionThrownEvent;
 import ExecutionContextCreatedEvent = Protocol.Runtime.ExecutionContextCreatedEvent;
 
-export class Worker extends TypedEventEmitter<IPuppetWorkerEvents> implements IPuppetWorker {
+export class Worker extends TypedEventEmitter<IWorkerEvents> implements IWorker {
   public readonly browserContext: BrowserContext;
   public isReady: Promise<Error | null>;
   public get isInitializationSent(): Promise<void> {
@@ -31,7 +31,7 @@ export class Worker extends TypedEventEmitter<IPuppetWorkerEvents> implements IP
   private readonly networkManager: NetworkManager;
   private readonly targetInfo: TargetInfo;
 
-  private readonly eventSubscriber = new EventSubscriber();
+  private readonly events = new EventSubscriber();
   private readonly executionContextId = createPromise<number>();
 
   public get id(): string {
@@ -42,8 +42,8 @@ export class Worker extends TypedEventEmitter<IPuppetWorkerEvents> implements IP
     return this.targetInfo.url;
   }
 
-  public get type(): IPuppetWorker['type'] {
-    return this.targetInfo.type as IPuppetWorker['type'];
+  public get type(): IWorker['type'] {
+    return this.targetInfo.type as IWorker['type'];
   }
 
   constructor(
@@ -62,17 +62,16 @@ export class Worker extends TypedEventEmitter<IPuppetWorkerEvents> implements IP
       workerType: this.type,
     });
     this.networkManager = new NetworkManager(devtoolsSession, this.logger, browserContext.proxy);
-    const events = this.eventSubscriber;
-    events.on(devtoolsSession, 'Runtime.consoleAPICalled', this.onRuntimeConsole.bind(this));
-    events.on(devtoolsSession, 'Runtime.exceptionThrown', this.onRuntimeException.bind(this));
-    events.on(devtoolsSession, 'Runtime.executionContextCreated', this.onContextCreated.bind(this));
-    events.on(devtoolsSession, 'disconnected', this.emit.bind(this, 'close'));
-
+    const session = this.devtoolsSession;
+    this.events.on(session, 'Runtime.consoleAPICalled', this.onRuntimeConsole.bind(this));
+    this.events.on(session, 'Runtime.exceptionThrown', this.onRuntimeException.bind(this));
+    this.events.on(session, 'Runtime.executionContextCreated', this.onContextCreated.bind(this));
+    this.events.once(session, 'disconnected', this.emit.bind(this, 'close'));
     this.isReady = this.initialize(parentNetworkManager).catch(err => err);
   }
 
   initialize(pageNetworkManager: NetworkManager): Promise<void> {
-    const { plugins } = this.browserContext;
+    const { hooks } = this.browserContext;
     const result = Promise.all([
       this.networkManager.initializeFromParent(pageNetworkManager).catch(err => {
         // web workers can use parent network
@@ -80,7 +79,7 @@ export class Worker extends TypedEventEmitter<IPuppetWorkerEvents> implements IP
         throw err;
       }),
       this.devtoolsSession.send('Runtime.enable'),
-      this.initializeEmulation(plugins),
+      this.initializeEmulation(hooks as IBrowserContextHooks[]),
       this.devtoolsSession.send('Runtime.runIfWaitingForDebugger'),
     ]);
 
@@ -108,10 +107,10 @@ export class Worker extends TypedEventEmitter<IPuppetWorkerEvents> implements IP
   close(): void {
     this.networkManager.close();
     this.cancelPendingEvents('Worker closing', ['close']);
-    this.eventSubscriber.close();
+    this.events.close();
   }
 
-  toJSON() {
+  toJSON(): unknown {
     return {
       id: this.id,
       url: this.url,
@@ -119,11 +118,11 @@ export class Worker extends TypedEventEmitter<IPuppetWorkerEvents> implements IP
     };
   }
 
-  private initializeEmulation(plugins: ICorePlugins): Promise<any> {
-    if (!plugins.onNewPuppetWorker) return;
+  private initializeEmulation(hooks: IBrowserContextHooks[]): Promise<any> {
+    if (!hooks.some(x => !!x.onNewWorker)) return;
 
     return Promise.all([
-      plugins.onNewPuppetWorker(this),
+      ...hooks.map(x => x.onNewWorker?.(this)),
       this.devtoolsSession.send('Debugger.enable'),
       this.devtoolsSession.send('Debugger.setBreakpointByUrl', {
         lineNumber: 0,

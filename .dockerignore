@@ -1,8 +1,4 @@
 build
-website
-replay
 **/*.ts
 **/node_modules
-.sessions
-.mitm-ca
 **socket/connect

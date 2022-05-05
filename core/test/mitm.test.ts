@@ -1,11 +1,11 @@
-import { Helpers } from '@secret-agent/testing';
+import { BrowserUtils, Helpers, TestLogger } from '@secret-agent/testing';
 import MitmRequestContext from '@secret-agent/mitm/lib/MitmRequestContext';
-import { createPromise } from '@secret-agent/commons/utils';
-import { LocationStatus } from '@secret-agent/interfaces/Location';
+import { createPromise } from '@ulixee/commons/lib/utils';
+import { LocationStatus } from '@unblocked/emulator-spec/Location';
 import { ITestKoaServer } from '@secret-agent/testing/helpers';
-import Resolvable from '@secret-agent/commons/Resolvable';
-import GlobalPool from '../lib/GlobalPool';
-import Core, { Session } from '../index';
+import Resolvable from '@ulixee/commons/lib/Resolvable';
+import { Pool } from '../index';
+import env from '@secret-agent/mitm/env';
 
 const mocks = {
   MitmRequestContext: {
@@ -14,13 +14,16 @@ const mocks = {
 };
 
 let koa: ITestKoaServer;
+let pool: Pool;
 beforeAll(async () => {
   koa = await Helpers.runKoaServer(true);
-  await GlobalPool.start();
+  pool = new Pool(BrowserUtils.newPoolOptions);
+  await pool.start();
 });
 
 beforeEach(async () => {
   mocks.MitmRequestContext.create.mockClear();
+  TestLogger.testNumber += 1;
 });
 
 afterAll(Helpers.afterAll);
@@ -35,13 +38,13 @@ test('should send a Host header to secure http1 Chrome requests', async () => {
   });
 
   const url = `${server.baseUrl}/`;
-  const session = await GlobalPool.createSession({});
-  Helpers.needsClosing.push(session);
-  const tab = await session.createTab();
-  process.env.MITM_ALLOW_INSECURE = 'true';
-  await tab.goto(url);
+  const agent = await pool.createAgent({ logger: TestLogger.forTest(module) });
+  Helpers.needsClosing.push(agent);
+  const page = await agent.newPage();
+  env.allowInsecure = true;
+  await page.goto(url);
   expect(rawHeaders[0]).toBe('Host');
-  process.env.MITM_ALLOW_INSECURE = 'false';
+  env.allowInsecure = false;
 });
 
 test('should send preflight requests', async () => {
@@ -61,13 +64,12 @@ test('should send preflight requests', async () => {
     });
   });
 
-  const session = await GlobalPool.createSession({});
-  Helpers.needsClosing.push(session);
-  session.mitmRequestSession.blockedResources.urls = [
-    'http://dataliberationfoundation.org/postback',
-  ];
-  session.mitmRequestSession.blockedResources.handlerFn = (request, response) => {
-    response.end(`<html lang="en">
+  const agent = await pool.createAgent({ logger: TestLogger.forTest(module) });
+  Helpers.needsClosing.push(agent);
+  agent.mitmRequestSession.interceptorHandlers.push({
+    urls: ['http://dataliberationfoundation.org/postback'],
+    handlerFn(url, type, request, response) {
+      response.end(`<html lang="en">
 <body>
 <script type="text/javascript">
 const xhr = new XMLHttpRequest();
@@ -79,10 +81,11 @@ xhr.send('<person><name>DLF</name></person>');
 </body>
 </html>
     `);
-    return true;
-  };
-  const tab = await session.createTab();
-  await tab.goto(`http://dataliberationfoundation.org/postback`);
+      return true;
+    },
+  });
+  const page = await agent.newPage();
+  await page.goto(`http://dataliberationfoundation.org/postback`);
   await expect(corsPromise).resolves.toBeTruthy();
   await expect(postPromise).resolves.toBeTruthy();
 
@@ -122,11 +125,11 @@ myWorker.postMessage('send');
       resolve(requestBody.toString());
     });
   });
-  const session = await GlobalPool.createSession({});
-  Helpers.needsClosing.push(session);
-  const tab = await session.createTab();
-  await tab.goto(`${koa.baseUrl}/testWorker`);
-  await tab.waitForLoad('PaintingStable');
+  const agent = await pool.createAgent({ logger: TestLogger.forTest(module) });
+  Helpers.needsClosing.push(agent);
+  const page = await agent.newPage();
+  await page.goto(`${koa.baseUrl}/testWorker`);
+  await page.mainFrame.waitForLoad({ loadStatus: 'PaintingStable' });
   await expect(serviceXhr).resolves.toBe('FromWorker');
   expect(mocks.MitmRequestContext.create).toHaveBeenCalledTimes(3);
 });
@@ -169,11 +172,11 @@ sharedWorker.port.addEventListener('message', message => {
       xhrResolvable.resolve(requestBody.toString());
     }
   });
-  const session = await GlobalPool.createSession({});
-  Helpers.needsClosing.push(session);
-  const tab = await session.createTab();
-  await tab.goto(`${server.baseUrl}/testSharedWorker`);
-  await tab.waitForLoad('PaintingStable');
+  const agent = await pool.createAgent({ logger: TestLogger.forTest(module) });
+  Helpers.needsClosing.push(agent);
+  const page = await agent.newPage();
+  await page.goto(`${server.baseUrl}/testSharedWorker`);
+  await page.mainFrame.waitForLoad({ loadStatus: 'PaintingStable' });
   await expect(xhrResolvable.promise).resolves.toBe('FromSharedWorker');
   expect(mocks.MitmRequestContext.create).toHaveBeenCalledTimes(3);
 });
@@ -266,12 +269,12 @@ window.addEventListener('load', function() {
     }
   });
 
-  process.env.MITM_ALLOW_INSECURE = 'true';
-  const session = await GlobalPool.createSession({});
-  Helpers.needsClosing.push(session);
-  const tab = await session.createTab();
-  await tab.goto(`${server.baseUrl}/service-worker`);
-  await tab.waitForLoad('PaintingStable');
+  env.allowInsecure = true;
+  const agent = await pool.createAgent({ logger: TestLogger.forTest(module) });
+  Helpers.needsClosing.push(agent);
+  const page = await agent.newPage();
+  await page.goto(`${server.baseUrl}/service-worker`);
+  await page.mainFrame.waitForLoad({ loadStatus: 'PaintingStable' });
   const [originalHeaders, headersFromWorker] = await Promise.all([
     xhrHeaders.promise,
     xhrHeadersFromWorker.promise,
@@ -284,26 +287,23 @@ window.addEventListener('load', function() {
 });
 
 test('should proxy iframe requests', async () => {
-  const connection = Core.addConnection();
-  Helpers.onClose(() => connection.disconnect());
+  const agent = await pool.createAgent({ logger: TestLogger.forTest(module) });
+  const page = await agent.newPage();
 
-  const meta = await connection.createSession();
-  const tab = Session.getTab(meta);
-
-  const session = tab.session;
-
-  session.mitmRequestSession.blockedResources.urls = [
-    'https://dataliberationfoundation.org/iframe',
-    'https://dataliberationfoundation.org/test.css',
-    'https://dataliberationfoundation.org/dlfSite.png',
-  ];
-  session.mitmRequestSession.blockedResources.handlerFn = (request, response) => {
-    response.end(`<html lang="en">
+  agent.mitmRequestSession.interceptorHandlers.push({
+    urls: [
+      'https://dataliberationfoundation.org/iframe',
+      'https://dataliberationfoundation.org/test.css',
+      'https://dataliberationfoundation.org/dlfSite.png',
+    ],
+    handlerFn(url, type, request, response) {
+      response.end(`<html lang="en">
 <head><link rel="stylesheet" type="text/css" href="/test.css"/></head>
 <body><img alt="none" src="/dlfSite.png"/></body>
 </html>`);
-    return true;
-  };
+      return true;
+    },
+  });
   koa.get('/iframe-test', async ctx => {
     ctx.body = `<html lang="en">
 <body>
@@ -312,8 +312,8 @@ This is the main body
 </body>
 </html>`;
   });
-  await tab.goto(`${koa.baseUrl}/iframe-test`);
-  await tab.waitForLoad(LocationStatus.AllContentLoaded);
+  await page.goto(`${koa.baseUrl}/iframe-test`);
+  await page.waitForLoad(LocationStatus.AllContentLoaded);
   expect(mocks.MitmRequestContext.create).toHaveBeenCalledTimes(4);
   const urls = mocks.MitmRequestContext.create.mock.results.map(x => x.value.url.href);
   expect(urls).toEqual([

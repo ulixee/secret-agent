@@ -17,13 +17,7 @@ tsconfig.tsbuildinfo
 **/build/
 /build-dist/
 
-emulators/data/DOM-*.json
-
-/.mitm-ca
-.sessions
 .gh
 **/dist
 /.eslintcache
-/.network.db
-/website/scripts/generateAwaitedDOM.js
 connect

@@ -20,10 +20,9 @@ import * as https from 'https';
 import * as url from 'url';
 import * as fs from 'fs';
 import * as Path from 'path';
-import { Server as WebSocketServer } from 'ws';
 import { AddressInfo, Socket } from 'net';
 import { createGzip } from 'zlib';
-import Log from '@secret-agent/commons/Logger';
+import Log from '@ulixee/commons/lib/Logger';
 
 const { log } = Log(module);
 const fulfillSymbol = Symbol('fulfill callback');
@@ -37,7 +36,6 @@ export class TestServer {
   }
 
   private readonly server: http.Server | https.Server;
-  private wsServer: WebSocketServer;
   private readonly dirPath = Path.resolve(__dirname, '../assets');
   private startTime: Date;
   private sockets = new Set<Socket>();
@@ -56,9 +54,6 @@ export class TestServer {
       this.protocol = 'https:';
     } else this.server = http.createServer(this.onRequest.bind(this));
     this.server.on('connection', socket => this.onSocket(socket));
-    this.wsServer = new WebSocketServer({ server: this.server, path: '/ws' });
-    this.wsServer.on('connection', this.onWebSocketConnection.bind(this));
-
     this.startTime = new Date();
     this.cachedPathPrefix = null;
   }
@@ -88,14 +83,6 @@ export class TestServer {
       if ((error as any).code !== 'ECONNRESET') throw error;
     });
     socket.once('close', () => this.sockets.delete(socket));
-  }
-
-  enableHTTPCache(pathPrefix: string) {
-    this.cachedPathPrefix = pathPrefix;
-  }
-
-  setAuth(path: string, username: string, password: string) {
-    this.auths.set(path, { username, password });
   }
 
   enableGzip(path: string) {
@@ -224,10 +211,6 @@ export class TestServer {
     } else {
       stream.pipe(response);
     }
-  }
-
-  private onWebSocketConnection(ws) {
-    ws.send('incoming');
   }
 
   static async create(port: number) {

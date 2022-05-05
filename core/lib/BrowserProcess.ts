@@ -1,32 +1,15 @@
-/**
- * Copyright 2017 Google Inc. All rights reserved.
- * Modifications copyright (c) Data Liberation Foundation Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 import * as childProcess from 'child_process';
 import { ChildProcess } from 'child_process';
 import * as readline from 'readline';
-import Log from '@secret-agent/commons/Logger';
+import Log from '@ulixee/commons/lib/Logger';
 import * as Fs from 'fs';
-import { TypedEventEmitter } from '@secret-agent/commons/eventUtils';
-import IBrowserEngine from '@secret-agent/interfaces/IBrowserEngine';
-import { bindFunctions } from '@secret-agent/commons/utils';
+import IBrowserEngine from '@unblocked/emulator-spec/IBrowserEngine';
+import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
+import { bindFunctions } from '@ulixee/commons/lib/utils';
 import { PipeTransport } from './PipeTransport';
+import env from '../env';
 
 const { log } = Log(module);
-
-const logProcessExit = process.env.NODE_ENV !== 'test';
 
 export default class BrowserProcess extends TypedEventEmitter<{ close: void }> {
   public readonly transport: PipeTransport;
@@ -34,7 +17,7 @@ export default class BrowserProcess extends TypedEventEmitter<{ close: void }> {
   private processKilled = false;
   private readonly launchedProcess: ChildProcess;
 
-  constructor(private browserEngine: IBrowserEngine, private env?: NodeJS.ProcessEnv) {
+  constructor(private browserEngine: IBrowserEngine, private processEnv?: NodeJS.ProcessEnv) {
     super();
 
     bindFunctions(this);
@@ -66,7 +49,7 @@ export default class BrowserProcess extends TypedEventEmitter<{ close: void }> {
       // process tree with `.kill(-pid)` command. @see
       // https://nodejs.org/api/child_process.html#child_process_options_detached
       detached: process.platform !== 'win32',
-      env: this.env,
+      env: this.processEnv,
       stdio: ['ignore', 'pipe', 'pipe', 'pipe', 'pipe'],
     });
   }
@@ -137,12 +120,13 @@ export default class BrowserProcess extends TypedEventEmitter<{ close: void }> {
     } catch (e) {
       // drown
     }
-    if (logProcessExit) {
+    if (!env.isTest) {
       const name = this.browserEngine.name;
       log.stats(`${name}.ProcessExited`, { exitCode, signal, sessionId: null });
     }
 
     this.emit('close');
+    this.removeAllListeners();
     this.cleanDataDir();
   }
 
