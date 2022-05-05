@@ -1,33 +1,22 @@
-import Log from '@secret-agent/commons/Logger';
-import IPuppetContext from '@secret-agent/interfaces/IPuppetContext';
-import CorePlugins from '@secret-agent/core/lib/CorePlugins';
-import { IBoundLog } from '@secret-agent/interfaces/ILog';
-import Core from '@secret-agent/core';
 import { TestServer } from './server';
-import Puppet from '../index';
-import { createTestPage, ITestPage } from './TestPage';
-import CustomBrowserEmulator from './_CustomBrowserEmulator';
-
-const { log } = Log(module);
-const browserEmulatorId = CustomBrowserEmulator.id;
+import { Browser, BrowserContext, Page } from '../index';
+import { BrowserUtils, TestLogger } from '@secret-agent/testing/index';
 
 describe('Page.navigate', () => {
   let server: TestServer;
   let httpsServer: TestServer;
-  let page: ITestPage;
-  let puppet: Puppet;
-  let context: IPuppetContext;
+  let page: Page;
+  let browser: Browser;
+  let context: BrowserContext;
   const needsClosing = [];
-  const { browserEngine } = CustomBrowserEmulator.selectBrowserMeta();
 
   beforeAll(async () => {
-    Core.use(CustomBrowserEmulator);
     server = await TestServer.create(0);
     httpsServer = await TestServer.createHTTPS(0);
-    puppet = new Puppet(browserEngine);
-    await puppet.start();
-    const plugins = new CorePlugins({ browserEmulatorId }, log as IBoundLog);
-    context = await puppet.newContext(plugins, log);
+    browser = new Browser(BrowserUtils.browserEngineOptions);
+    await browser.launch();
+    const logger = TestLogger.forTest(module);
+    context = await browser.newContext({ logger });
     context.on('page', event => {
       needsClosing.push(event.page);
     });
@@ -41,7 +30,8 @@ describe('Page.navigate', () => {
   });
 
   beforeEach(async () => {
-    page = createTestPage(await context.newPage());
+    TestLogger.testNumber += 1;
+    page = await context.newPage();
     server.reset();
     httpsServer.reset();
   });
@@ -50,16 +40,8 @@ describe('Page.navigate', () => {
     await server.stop();
     await httpsServer.stop();
     await context.close();
-    await puppet.close();
+    await browser.close();
   });
-
-  const options = {
-    CHROME: browserEngine.name === 'chrome',
-    WEBKIT: browserEngine.name === 'webkit',
-    FIREFOX: browserEngine.name === 'firefox',
-  };
-
-  const isWindows = process.platform === 'win32';
 
   describe('navigate', () => {
     it('should work with anchor navigation', async () => {
@@ -83,7 +65,7 @@ describe('Page.navigate', () => {
         res.statusCode = 204;
         res.end();
       });
-      await expect(page.goto(`${server.baseUrl}/frames/one-frame.html`)).resolves.toBe(undefined);
+      await expect(page.goto(`${server.baseUrl}/frames/one-frame.html`)).resolves.toBeTruthy();
     });
 
     it('should work with subframes return 204 with domcontentloaded', async () => {
@@ -108,10 +90,7 @@ describe('Page.navigate', () => {
       let error = null;
       await page.goto(server.emptyPage).catch(e => (error = e));
       expect(error).not.toBe(null);
-      if (browserEngine.name === 'chrome') expect(error.message).toContain('net::ERR_ABORTED');
-      else if (browserEngine.name === 'webkit')
-        expect(error.message).toContain('Aborted: 204 No Content');
-      else expect(error.message).toContain('NS_BINDING_ABORTED');
+      expect(error.message).toContain('net::ERR_ABORTED');
     });
 
     it('should work when page calls history API in beforeunload', async () => {
@@ -134,19 +113,13 @@ describe('Page.navigate', () => {
     it('should fail when navigating to bad url', async () => {
       let error = null;
       await page.goto('asdfasdf').catch(e => (error = e));
-      if (options.CHROME || options.WEBKIT)
-        expect(error.message).toContain('Cannot navigate to invalid URL');
-      else expect(error.message).toContain('Invalid url');
+      expect(error.message).toContain('Cannot navigate to an invalid URL');
     });
 
     it('should fail when main resources failed to load', async () => {
       let error = null;
       await page.goto('http://localhost:44123/non-existing-url').catch(e => (error = e));
-      if (options.CHROME) expect(error.message).toContain('net::ERR_CONNECTION_REFUSED');
-      else if (options.WEBKIT && isWindows)
-        expect(error.message).toContain(`Couldn't connect to server`);
-      else if (options.WEBKIT) expect(error.message).toContain('Could not connect');
-      else expect(error.message).toContain('NS_ERROR_CONNECTION_REFUSED');
+      expect(error.message).toContain('net::ERR_CONNECTION_REFUSED');
     });
 
     it('should fail when replaced by another navigation', async () => {
@@ -157,9 +130,7 @@ describe('Page.navigate', () => {
       });
       const error = await page.goto(`${server.baseUrl}/empty.html`).catch(e => e);
       await anotherPromise;
-      if (options.CHROME) expect(error.message).toContain('net::ERR_ABORTED');
-      else if (options.WEBKIT) expect(error.message).toContain('cancelled');
-      else expect(error.message).toContain('NS_BINDING_ABORTED');
+      expect(error.message).toContain('net::ERR_ABORTED');
     });
 
     it('should work when navigating to data url', async () => {
@@ -202,15 +173,15 @@ describe('Page.navigate', () => {
     });
 
     it('should work with self requesting page', async () => {
-      await expect(page.goto(`${server.baseUrl}/self-request.html`)).resolves.toBe(undefined);
+      await expect(page.goto(`${server.baseUrl}/self-request.html`)).resolves.toBeTruthy();
     });
 
     it('should be able to navigate to a page controlled by service worker', async () => {
       await page.goto(`${server.baseUrl}/serviceworkers/fetch/sw.html`);
       await page.evaluate(`window.activationPromise`);
-      await expect(page.goto(`${server.baseUrl}/serviceworkers/fetch/sw.html`)).resolves.toBe(
-        undefined,
-      );
+      await expect(
+        page.goto(`${server.baseUrl}/serviceworkers/fetch/sw.html`),
+      ).resolves.toBeTruthy();
     });
 
     it('should fail when canceled by another navigation', async () => {
@@ -231,16 +202,14 @@ describe('Page.navigate', () => {
       httpsServer.setRoute('/mixedcontent.html', (req, res) => {
         res.end(`<iframe src=${server.emptyPage}></iframe>`);
       });
-      await expect(page.goto(`${httpsServer.baseUrl}/mixedcontent.html`, 'load')).resolves.toBe(
-        undefined,
-      );
+      await expect(page.goto(`${httpsServer.baseUrl}/mixedcontent.html`)).resolves.toBeTruthy();
       expect(page.frames).toHaveLength(2);
     });
   });
 
   describe('history', () => {
     it('page.goBack should work', async () => {
-      expect(await page.goBack()).toBe(null);
+      expect(await page.goBack()).toBe('about:blank');
 
       await page.goto(server.emptyPage);
       await page.goto(server.url('grid.html'));

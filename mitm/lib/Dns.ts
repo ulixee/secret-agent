@@ -1,9 +1,9 @@
 import * as moment from 'moment';
 import * as net from 'net';
 import { promises as dns } from 'dns';
-import { createPromise } from '@secret-agent/commons/utils';
-import IResolvablePromise from '@secret-agent/interfaces/IResolvablePromise';
-import IDnsSettings from '@secret-agent/interfaces/IDnsSettings';
+import { createPromise } from '@ulixee/commons/lib/utils';
+import IResolvablePromise from '@ulixee/commons/interfaces/IResolvablePromise';
+import IDnsSettings from '@bureau/interfaces/IDnsSettings';
 import DnsOverTlsSocket from './DnsOverTlsSocket';
 import RequestSession from '../handlers/RequestSession';
 
@@ -13,14 +13,16 @@ export class Dns {
   private readonly dnsSettings: IDnsSettings = {};
 
   constructor(private requestSession?: RequestSession) {
-    requestSession?.plugins?.onDnsConfiguration(this.dnsSettings);
+    if (requestSession) {
+      for (const hook of requestSession.hooks) {
+        hook.onDnsConfiguration?.(this.dnsSettings);
+      }
+    }
   }
 
   public async lookupIp(host: string, retries = 3): Promise<string> {
-    // disable dns lookups when using a proxy
     if (this.requestSession.upstreamProxyUrl) return host;
-    if (!this.dnsSettings.dnsOverTlsConnection || host === 'localhost' || net.isIP(host))
-      return host;
+    if (host === 'localhost' || net.isIP(host)) return host;
 
     try {
       // get cached (or in process resolver)
@@ -35,9 +37,11 @@ export class Dns {
     // if not found in cache, perform dns lookup
     let lookupError: Error;
     try {
-      const dnsEntry = await this.lookupDnsEntry(host);
-      const ip = this.nextIp(dnsEntry);
-      if (ip) return ip;
+      if (this.dnsSettings.dnsOverTlsConnection) {
+        const dnsEntry = await this.lookupDnsEntry(host);
+        const ip = this.nextIp(dnsEntry);
+        if (ip) return ip;
+      }
     } catch (error) {
       lookupError = error;
     }
@@ -60,8 +64,16 @@ export class Dns {
 
   private async systemLookup(host: string): Promise<IDnsEntry> {
     const dnsEntry = createPromise<IDnsEntry>(10e3);
-    Dns.dnsEntries.set(host, dnsEntry);
+    void this.doSystemLookup(host, dnsEntry).then(() => null);
+    return await dnsEntry.promise;
+  }
+
+  private async doSystemLookup(
+    host: string,
+    dnsEntry: IResolvablePromise<IDnsEntry>,
+  ): Promise<void> {
     try {
+      Dns.dnsEntries.set(host, dnsEntry);
       const lookupAddresses = await dns.lookup(host.split(':').shift(), {
         all: true,
         family: 4,
@@ -77,26 +89,33 @@ export class Dns {
       dnsEntry.reject(error);
       Dns.dnsEntries.delete(host);
     }
-    return dnsEntry.promise;
   }
 
   private async lookupDnsEntry(host: string): Promise<IDnsEntry> {
     const existing = Dns.dnsEntries.get(host);
     if (existing && !existing.isResolved) return existing.promise;
 
+    this.socket ??= new DnsOverTlsSocket(
+      this.dnsSettings,
+      this.requestSession,
+      () => (this.socket = null),
+    );
+
     const dnsEntry = createPromise<IDnsEntry>(10e3);
-    Dns.dnsEntries.set(host, dnsEntry);
+
+    // don't wait for promise... allow timeout
+    void this.doLookupDnsOverTls(host, dnsEntry).then(() => null);
+
+    return await dnsEntry.promise;
+  }
+
+  private async doLookupDnsOverTls(
+    host: string,
+    dnsEntry: IResolvablePromise<IDnsEntry>,
+  ): Promise<void> {
     try {
-      if (!this.socket) {
-        this.socket = new DnsOverTlsSocket(
-          this.dnsSettings,
-          this.requestSession,
-          () => (this.socket = null),
-        );
-      }
-
+      Dns.dnsEntries.set(host, dnsEntry);
       const response = await this.socket.lookupARecords(host);
-
       const entry = <IDnsEntry>{
         aRecords: response.answers
           .filter(x => x.type === 'A') // gives non-query records sometimes
@@ -110,7 +129,6 @@ export class Dns {
       dnsEntry.reject(error);
       Dns.dnsEntries.delete(host);
     }
-    return dnsEntry.promise;
   }
 
   private nextIp(dnsEntry: IDnsEntry): string {

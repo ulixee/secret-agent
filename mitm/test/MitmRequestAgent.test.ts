@@ -4,20 +4,13 @@ import * as https from 'https';
 import * as net from 'net';
 import * as WebSocket from 'ws';
 import * as HttpProxyAgent from 'http-proxy-agent';
-import { Helpers } from '@secret-agent/testing';
+import { Helpers, TestLogger } from '@secret-agent/testing';
 import { getProxyAgent, runHttpsServer } from '@secret-agent/testing/helpers';
-import BrowserEmulator from '@secret-agent/default-browser-emulator';
-import CorePlugins from '@secret-agent/core/lib/CorePlugins';
-import { IBoundLog } from '@secret-agent/interfaces/ILog';
-import Log from '@secret-agent/commons/Logger';
 import MitmServer from '../lib/MitmProxy';
 import RequestSession from '../handlers/RequestSession';
 import HeadersHandler from '../handlers/HeadersHandler';
 import MitmRequestAgent from '../lib/MitmRequestAgent';
-
-const { log } = Log(module);
-const browserEmulatorId = BrowserEmulator.id;
-const selectBrowserMeta = BrowserEmulator.selectBrowserMeta();
+import env from '../env';
 
 const mocks = {
   HeadersHandler: {
@@ -34,7 +27,8 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
-  process.env.MITM_ALLOW_INSECURE = 'false';
+  env.allowInsecure = false;
+  TestLogger.testNumber += 1;
 });
 
 afterAll(Helpers.afterAll);
@@ -56,7 +50,7 @@ test('should create up to a max number of secure connections per origin', async 
   const connectionsByOrigin = session.requestAgent.socketPoolByOrigin;
 
   const proxyCredentials = session.getProxyCredentials();
-  process.env.MITM_ALLOW_INSECURE = 'true';
+  env.allowInsecure = true;
   const promises = [];
   for (let i = 0; i < 10; i += 1) {
     // eslint-disable-next-line jest/valid-expect-in-promise
@@ -66,7 +60,7 @@ test('should create up to a max number of secure connections per origin', async 
       proxyCredentials,
       { connection: 'keep-alive' },
     ).then(
-      // eslint-disable-next-line promise/always-return
+      // eslint-disable-next-line promise/always-return,@typescript-eslint/no-floating-promises
       res => {
         expect(res).toBe('I am here');
       },
@@ -98,7 +92,7 @@ test('should create new connections as needed when no keepalive', async () => {
   const connectionsByOrigin = session.requestAgent.socketPoolByOrigin;
 
   const proxyCredentials = session.getProxyCredentials();
-  process.env.MITM_ALLOW_INSECURE = 'true';
+  env.allowInsecure = true;
   const promises = [];
   for (let i = 0; i < 4; i += 1) {
     // eslint-disable-next-line jest/valid-expect-in-promise
@@ -107,7 +101,7 @@ test('should create new connections as needed when no keepalive', async () => {
       `http://localhost:${mitmServer.port}`,
       proxyCredentials,
     ).then(
-      // eslint-disable-next-line promise/always-return
+      // eslint-disable-next-line promise/always-return,@typescript-eslint/no-floating-promises
       res => {
         expect(res).toBe('here 2');
       },
@@ -141,7 +135,7 @@ test('should be able to handle a reused socket that closes on server', async () 
 
   const session = createMitmSession(mitmServer);
   const proxyCredentials = session.getProxyCredentials();
-  process.env.MITM_ALLOW_INSECURE = 'true';
+  env.allowInsecure = true;
 
   {
     let headers: IncomingHttpHeaders;
@@ -168,7 +162,7 @@ test('should be able to handle a reused socket that closes on server', async () 
   httpRequestSpy.mockImplementationOnce(async (ctx, settings) => {
     serverSocket.destroy();
     await new Promise(setImmediate);
-    return await originalFn(ctx, settings);
+    return await originalFn(ctx as any, settings);
   });
 
   {
@@ -211,7 +205,7 @@ test('it should not put upgrade connections in a pool', async () => {
   const session = createMitmSession(mitmServer);
 
   httpServer.server.on('upgrade', (request, socket, head) => {
-    wsServer.handleUpgrade(request, socket, head, async (ws: WebSocket) => {
+    wsServer.handleUpgrade(request, socket as net.Socket, head, async (ws: WebSocket) => {
       expect(ws).toBeTruthy();
     });
   });
@@ -249,7 +243,7 @@ test('it should reuse http2 connections', async () => {
   const proxyCredentials = session.getProxyCredentials();
 
   const proxyUrl = `http://${proxyCredentials}@localhost:${mitmServer.port}`;
-  process.env.MITM_ALLOW_INSECURE = 'true';
+  env.allowInsecure = true;
   const results = await Promise.all([
     Helpers.http2Get(baseUrl, { ':path': '/test1' }, session.sessionId, proxyUrl),
     Helpers.http2Get(baseUrl, { ':path': '/test2' }, session.sessionId, proxyUrl),
@@ -257,7 +251,7 @@ test('it should reuse http2 connections', async () => {
   ]);
   expect(results).toStrictEqual(['/test1', '/test2', '/test3']);
 
-  process.env.MITM_ALLOW_INSECURE = 'false';
+  env.allowInsecure = false;
   const host = baseUrl.replace('https://', '');
   // not reusable, so should not be here
   // @ts-ignore
@@ -275,8 +269,7 @@ async function startMitmServer() {
 let counter = 1;
 function createMitmSession(mitmServer: MitmServer) {
   counter += 1;
-  const plugins = new CorePlugins({ browserEmulatorId, selectBrowserMeta }, log as IBoundLog);
-  const session = new RequestSession(`${counter}`, plugins, null);
+  const session = new RequestSession(`${counter}`, {}, TestLogger.forTest(module));
   mitmServer.registerSession(session, false);
   return session;
 }

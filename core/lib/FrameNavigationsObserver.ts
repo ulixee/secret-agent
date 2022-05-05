@@ -1,31 +1,35 @@
-import { assert, createPromise } from '@secret-agent/commons/utils';
-import type {
-  ILocationStatus,
+import { assert } from '@ulixee/commons/lib/utils';
+import {
+  ILoadStatus,
   ILocationTrigger,
-  IPipelineStatus,
-} from '@secret-agent/interfaces/Location';
-import { LocationStatus, LocationTrigger, PipelineStatus } from '@secret-agent/interfaces/Location';
-import INavigation, { LoadStatus, NavigationReason } from '@secret-agent/interfaces/INavigation';
-import type ICommandMeta from '@secret-agent/interfaces/ICommandMeta';
-import type IWaitForOptions from '@secret-agent/interfaces/IWaitForOptions';
-import type IResolvablePromise from '@secret-agent/interfaces/IResolvablePromise';
-import { CanceledPromiseError } from '@secret-agent/commons/interfaces/IPendingWaitEvent';
-import * as moment from 'moment';
-import type { IBoundLog } from '@secret-agent/interfaces/ILog';
+  LoadStatus,
+  LoadStatusPipeline,
+  LocationStatus,
+  LocationTrigger,
+} from '@bureau/interfaces/Location';
+import { NavigationReason } from '@bureau/interfaces/NavigationReason';
+import INavigation, { ContentPaint, NavigationStatus } from '@bureau/interfaces/INavigation';
+import type IResolvablePromise from '@ulixee/commons/interfaces/IResolvablePromise';
+import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
+import type { IBoundLog } from '@ulixee/commons/interfaces/ILog';
+import Resolvable from '@ulixee/commons/lib/Resolvable';
 import type FrameNavigations from './FrameNavigations';
+import type IWaitForOptions from '../interfaces/IWaitForOptions';
+
+interface IStatusTrigger {
+  status: LocationStatus;
+  resolvable: IResolvablePromise<INavigation>;
+  startCommandId: number;
+  waitingForLoadTimeout?: NodeJS.Timeout;
+}
 
 export default class FrameNavigationsObserver {
+  // this is the default "starting" point for a wait-for location change if a previous command id is not specified
   private readonly navigations: FrameNavigations;
 
-  // this is the default "starting" point for a wait-for location change if a previous command id is not specified
-  private defaultWaitForLocationCommandId = 0;
-
-  private waitingForLoadTimeout: NodeJS.Timeout;
   private resourceIdResolvable: IResolvablePromise<number>;
-  private statusTriggerResolvable: IResolvablePromise<void>;
-  private statusTrigger: ILocationStatus;
-  private statusTriggerStartCommandId: number;
   private logger: IBoundLog;
+  private readonly statusTriggers: IStatusTrigger[] = [];
 
   constructor(navigations: FrameNavigations) {
     this.navigations = navigations;
@@ -33,86 +37,74 @@ export default class FrameNavigationsObserver {
     navigations.on('status-change', this.onLoadStatusChange.bind(this));
   }
 
-  // this function will find the "starting command" to look for waitForLocation(change/reload)
-  public willRunCommand(newCommand: ICommandMeta, previousCommands: ICommandMeta[]) {
-    let last: ICommandMeta;
-    for (const command of previousCommands) {
-      // if this is a goto, set this to the "waitForLocation(change/reload)" command marker
-      if (command.name === 'goto') this.defaultWaitForLocationCommandId = command.id;
-      // find the last "waitFor" command that is not followed by another waitFor
-      if (last?.name.startsWith('waitFor') && !command.name.startsWith('waitFor')) {
-        this.defaultWaitForLocationCommandId = command.id;
-      }
-      last = command;
-    }
-    // handle cases like waitForLocation two times in a row
-    if (
-      newCommand.name === 'waitForLocation' &&
-      last &&
-      last.name.startsWith('waitFor') &&
-      last.name !== 'waitForMillis'
-    ) {
-      this.defaultWaitForLocationCommandId = newCommand.id;
-    }
-  }
-
-  public waitForLocation(status: ILocationTrigger, options: IWaitForOptions = {}): Promise<void> {
+  public waitForLocation(
+    status: ILocationTrigger,
+    options: IWaitForOptions = {},
+  ): Promise<INavigation> {
     assert(LocationTrigger[status], `Invalid location status: ${status}`);
+    this.navigations.frame.page.browserContext.commandMarker.incrementMark?.('waitForLocation');
 
     // determine if this location trigger has already been satisfied
     const sinceCommandId = Number.isInteger(options.sinceCommandId)
       ? options.sinceCommandId
-      : this.defaultWaitForLocationCommandId;
-    if (this.hasLocationTrigger(status, sinceCommandId)) {
-      return Promise.resolve();
-    }
+      : this.navigations.frame.page.browserContext.commandMarker.getStartingCommandIdFor(
+          'waitForLocation',
+        );
+
+    const trigger = this.hasLocationTrigger(status, sinceCommandId);
+    if (trigger) return Promise.resolve(trigger);
     // otherwise set pending
     return this.createStatusTriggeredPromise(status, options.timeoutMs, sinceCommandId);
   }
 
-  public waitForLoad(status: IPipelineStatus, options: IWaitForOptions = {}): Promise<void> {
-    assert(PipelineStatus[status], `Invalid load status: ${status}`);
-
-    if (options.sinceCommandId) {
-      throw new Error('Not implemented');
+  public async waitForLoad(
+    status: ILoadStatus,
+    options: IWaitForOptions = {},
+  ): Promise<INavigation> {
+    if (
+      !this.navigations.top &&
+      this.navigations.frame.isDefaultUrl &&
+      !this.navigations.frame.parentId
+    ) {
+      await this.navigations.frame.waitForDefaultLoader();
+      return;
     }
+    this.navigations.frame.page.browserContext.commandMarker.incrementMark?.('waitForLoad');
+    assert(LoadStatus[status], `Invalid load status: ${status}`);
 
     const top = this.navigations.top;
-    if (top) {
-      if (top.stateChanges.has(status as LoadStatus)) {
-        return;
-      }
-      if (status === LocationStatus.DomContentLoaded && top.stateChanges.has(LoadStatus.Load)) {
-        return;
-      }
-      if (status === LocationStatus.PaintingStable && this.getPaintStableStatus().isStable) {
-        return;
-      }
-    }
-    const promise = this.createStatusTriggeredPromise(status, options.timeoutMs);
+    if (top && top.statusChanges.has(status)) return Promise.resolve(top);
+
+    const promise = this.createStatusTriggeredPromise(
+      status,
+      options.timeoutMs,
+      options.sinceCommandId,
+    );
 
     if (top) this.onLoadStatusChange();
     return promise;
   }
 
-  public waitForReady(): Promise<void> {
-    return this.waitForLoad(LocationStatus.HttpResponded);
-  }
+  public async waitForNavigationResourceId(navigation?: INavigation): Promise<number> {
+    const nav = navigation ?? this.navigations.top;
 
-  public async waitForNavigationResourceId(): Promise<number> {
-    const top = this.navigations.top;
-
-    this.resourceIdResolvable = top?.resourceId;
+    this.resourceIdResolvable = nav?.resourceIdResolvable;
     const resourceId = await this.resourceIdResolvable?.promise;
-    if (top?.navigationError) {
-      throw top.navigationError;
+    if (nav?.navigationError) {
+      throw nav.navigationError;
     }
     return resourceId;
   }
 
   public cancelWaiting(cancelMessage: string): void {
-    clearTimeout(this.waitingForLoadTimeout);
-    for (const promise of [this.resourceIdResolvable, this.statusTriggerResolvable]) {
+    const statusPromises: IResolvablePromise[] = [];
+    for (const status of this.statusTriggers) {
+      clearTimeout(status.waitingForLoadTimeout);
+      statusPromises.push(status.resolvable);
+    }
+    this.statusTriggers.length = 0;
+
+    for (const promise of [this.resourceIdResolvable, ...statusPromises]) {
       if (!promise || promise.isResolved) continue;
 
       const canceled = new CanceledPromiseError(cancelMessage);
@@ -121,113 +113,114 @@ export default class FrameNavigationsObserver {
     }
   }
 
-  public getPaintStableStatus(): { isStable: boolean; timeUntilReadyMs?: number } {
-    const top = this.navigations.top;
-    if (!top) return { isStable: false };
+  private onLoadStatusChange(): void {
+    for (const trigger of [...this.statusTriggers]) {
+      if (trigger.resolvable.isResolved) continue;
 
-    // need to wait for both load + painting stable, or wait 3 seconds after either one
-    const loadDate = top.stateChanges.get(LoadStatus.Load);
-    const contentPaintedDate = top.stateChanges.get(LoadStatus.ContentPaint);
-
-    if (contentPaintedDate) return { isStable: true };
-    if (!loadDate && !contentPaintedDate) return { isStable: false };
-
-    // NOTE: LargestContentfulPaint, which currently drives PaintingStable will NOT trigger if the page
-    // doesn't have any "contentful" items that are eligible (image, headers, divs, paragraphs that fill the page)
-
-    // have contentPaintedDate date, but no load
-    const timeUntilReadyMs = moment().diff(contentPaintedDate ?? loadDate, 'milliseconds');
-    return {
-      isStable: timeUntilReadyMs >= 3e3,
-      timeUntilReadyMs: Math.min(3e3, 3e3 - timeUntilReadyMs),
-    };
+      if (trigger.status === LocationTrigger.change || trigger.status === LocationTrigger.reload) {
+        const resolver = this.hasLocationTrigger(trigger.status, trigger.startCommandId);
+        if (resolver) {
+          this.resolvePendingTrigger(trigger, trigger.status, resolver);
+        }
+      } else if (trigger.status === LoadStatus.PaintingStable) {
+        this.refreshPendingLoadTrigger(trigger);
+      } else {
+        const top = this.navigations.top;
+        const resolution = this.getResolutionStatus(trigger);
+        if (resolution !== null) {
+          this.resolvePendingTrigger(trigger, resolution, top);
+        }
+      }
+    }
   }
 
-  private onLoadStatusChange(): void {
-    if (
-      this.statusTrigger === LocationTrigger.change ||
-      this.statusTrigger === LocationTrigger.reload
-    ) {
-      if (this.hasLocationTrigger(this.statusTrigger, this.statusTriggerStartCommandId)) {
-        this.resolvePendingStatus(this.statusTrigger);
-      }
-      return;
-    }
-
-    const loadTrigger = PipelineStatus[this.statusTrigger];
-    if (!this.statusTriggerResolvable || this.statusTriggerResolvable.isResolved || !loadTrigger)
-      return;
-
-    if (this.statusTrigger === LocationStatus.PaintingStable) {
-      this.waitForPageLoaded();
-      return;
-    }
+  private getResolutionStatus(trigger: IStatusTrigger): NavigationStatus {
+    const desiredPipeline = LoadStatusPipeline[trigger.status];
 
     // otherwise just look for state changes > the trigger
-    for (const state of this.navigations.top.stateChanges.keys()) {
+    const top = this.navigations.top;
+    for (const statusChange of top.statusChanges.keys()) {
       // don't resolve states for redirected
-      if (state === LocationStatus.HttpRedirected) continue;
-      let pipelineStatus = PipelineStatus[state as IPipelineStatus];
-      if (state === LoadStatus.Load) {
-        pipelineStatus = PipelineStatus.AllContentLoaded;
+      if (statusChange === LoadStatus.HttpRedirected) continue;
+
+      let pipelineStatus: number = LoadStatusPipeline[statusChange];
+      if (statusChange === LoadStatus.AllContentLoaded) {
+        pipelineStatus = LoadStatusPipeline.AllContentLoaded;
       }
-      if (pipelineStatus >= loadTrigger) {
-        this.resolvePendingStatus(state);
-        return;
+      if (pipelineStatus >= desiredPipeline) {
+        return statusChange;
       }
     }
+    return null;
   }
 
-  private waitForPageLoaded(): void {
-    clearTimeout(this.waitingForLoadTimeout);
+  private refreshPendingLoadTrigger(trigger: IStatusTrigger): void {
+    clearTimeout(trigger.waitingForLoadTimeout);
 
-    const { isStable, timeUntilReadyMs } = this.getPaintStableStatus();
+    const { isStable, timeUntilReadyMs } = this.navigations.getPaintStableStatus();
 
-    if (isStable) this.resolvePendingStatus('PaintingStable + Load');
-
-    if (!isStable && timeUntilReadyMs) {
-      const loadDate = this.navigations.top.stateChanges.get(LoadStatus.Load);
-      const contentPaintDate = this.navigations.top.stateChanges.get(LoadStatus.ContentPaint);
-      this.waitingForLoadTimeout = setTimeout(
-        () =>
-          this.resolvePendingStatus(
-            `TimeElapsed. Loaded="${loadDate}", ContentPaint="${contentPaintDate}"`,
-          ),
-        timeUntilReadyMs,
-      ).unref();
+    if (isStable) {
+      this.resolvePendingTrigger(trigger, 'PaintingStable + Load', this.navigations.top);
+      return;
     }
+
+    if (timeUntilReadyMs === undefined) return;
+
+    trigger.waitingForLoadTimeout = setTimeout(() => {
+      const top = this.navigations.top;
+      const loadDate = top.statusChanges.get(LoadStatus.AllContentLoaded);
+      const contentPaintDate = top.statusChanges.get(ContentPaint);
+      this.resolvePendingTrigger(
+        trigger,
+        `TimeElapsed. Loaded="${loadDate}", ContentPaint="${contentPaintDate}"`,
+        top,
+      );
+    }, timeUntilReadyMs).unref();
   }
 
-  private resolvePendingStatus(resolvedWithStatus: string): void {
-    if (this.statusTriggerResolvable && !this.statusTriggerResolvable?.isResolved) {
-      this.logger.info(`Resolving pending "${this.statusTrigger}" with trigger`, {
+  private resolvePendingTrigger(
+    trigger: IStatusTrigger,
+    resolvedWithStatus: string,
+    navigation: INavigation,
+  ): void {
+    if (!trigger.resolvable.isResolved) {
+      this.logger.info(`Resolving pending "${trigger.status}" with trigger`, {
         resolvedWithStatus,
-        waitingForStatus: this.statusTrigger,
-        url: this.navigations.currentUrl,
+        waitingForStatus: trigger.status,
+        url: navigation.finalUrl ?? navigation.requestedUrl,
       });
-      clearTimeout(this.waitingForLoadTimeout);
-      this.statusTriggerResolvable.resolve();
-      this.statusTriggerResolvable = null;
-      this.statusTrigger = null;
-      this.statusTriggerStartCommandId = null;
     }
+
+    clearTimeout(trigger.waitingForLoadTimeout);
+    trigger.resolvable.resolve(navigation);
+    const index = this.statusTriggers.indexOf(trigger);
+    if (index >= 0) this.statusTriggers.splice(index, 1);
   }
 
-  private hasLocationTrigger(trigger: ILocationTrigger, sinceCommandId: number) {
+  private hasLocationTrigger(
+    trigger: ILocationTrigger,
+    sinceCommandId: number,
+  ): INavigation | null {
     let previousLoadedNavigation: INavigation;
     for (const history of this.navigations.history) {
       const isMatch = history.startCommandId >= sinceCommandId;
+      const hasResponse =
+        (history.statusChanges.has(LoadStatus.HttpResponded) ||
+          history.statusChanges.has(LoadStatus.DomContentLoaded) ||
+          history.statusChanges.has(LoadStatus.AllContentLoaded)) &&
+        !history.statusChanges.has(LoadStatus.HttpRedirected);
+
       if (isMatch) {
-        let isLocationChange = false;
+        let isTriggered = false;
         if (trigger === LocationTrigger.reload) {
-          isLocationChange = FrameNavigationsObserver.isNavigationReload(history.navigationReason);
+          isTriggered = FrameNavigationsObserver.isNavigationReload(history.navigationReason);
           if (
-            !isLocationChange &&
-            !history.stateChanges.has(LoadStatus.HttpRedirected) &&
+            !isTriggered &&
+            !history.statusChanges.has(LoadStatus.HttpRedirected) &&
             previousLoadedNavigation &&
             previousLoadedNavigation.finalUrl === history.finalUrl
           ) {
-            isLocationChange = previousLoadedNavigation.loaderId !== history.loaderId;
+            isTriggered = previousLoadedNavigation.loaderId !== history.loaderId;
           }
         }
 
@@ -235,48 +228,57 @@ export default class FrameNavigationsObserver {
         if (
           trigger === LocationTrigger.change &&
           previousLoadedNavigation &&
-          previousLoadedNavigation.finalUrl !== history.finalUrl
+          previousLoadedNavigation.finalUrl !== history.finalUrl &&
+          hasResponse
         ) {
           // Don't accept adding a slash as a page change
           const isInPageUrlAdjust =
             history.navigationReason === 'inPage' &&
             history.finalUrl.replace(previousLoadedNavigation.finalUrl, '').length <= 1;
 
-          if (!isInPageUrlAdjust) isLocationChange = true;
+          if (!isInPageUrlAdjust) isTriggered = true;
         }
 
-        if (isLocationChange) {
+        if (isTriggered) {
           this.logger.info(`Resolving waitForLocation(${trigger}) with navigation history`, {
             historyEntry: history,
             status: trigger,
             sinceCommandId,
           });
-          return true;
+          return history;
         }
       }
 
-      if (
-        (history.stateChanges.has(LoadStatus.HttpResponded) ||
-          history.stateChanges.has(LoadStatus.DomContentLoaded)) &&
-        !history.stateChanges.has(LoadStatus.HttpRedirected)
-      ) {
+      if (hasResponse) {
         previousLoadedNavigation = history;
       }
     }
-    return false;
+    return null;
   }
 
   private createStatusTriggeredPromise(
-    status: ILocationStatus,
+    status: LocationStatus,
     timeoutMs: number,
-    sinceCommandId?: number,
-  ): Promise<void> {
-    if (this.statusTriggerResolvable) this.cancelWaiting('New location trigger created');
+    startCommandId?: number,
+  ): Promise<INavigation> {
+    const existing = this.statusTriggers.find(
+      x => x.status === status && x.startCommandId === startCommandId,
+    );
+    if (existing) {
+      return existing.resolvable.promise;
+    }
 
-    this.statusTrigger = status;
-    this.statusTriggerStartCommandId = sinceCommandId;
-    this.statusTriggerResolvable = createPromise<void>(timeoutMs ?? 60e3);
-    return this.statusTriggerResolvable.promise;
+    const resolvable = new Resolvable<INavigation>(
+      timeoutMs ?? 60e3,
+      `Timeout waiting for navigation "${status}"`,
+    );
+    this.statusTriggers.push({
+      status,
+      startCommandId,
+      resolvable,
+    });
+
+    return resolvable.promise;
   }
 
   private static isNavigationReload(reason: NavigationReason): boolean {

@@ -1,265 +1,285 @@
-import * as Fs from 'fs';
-import * as Path from 'path';
-import IResolvablePromise from '@secret-agent/interfaces/IResolvablePromise';
-import { createPromise } from '@secret-agent/commons/utils';
-import Log from '@secret-agent/commons/Logger';
+import Log from '@ulixee/commons/lib/Logger';
 import { MitmProxy } from '@secret-agent/mitm';
-import ISessionCreateOptions from '@secret-agent/interfaces/ISessionCreateOptions';
-import Puppet from '@secret-agent/puppet';
-import * as Os from 'os';
-import { TypedEventEmitter } from '@secret-agent/commons/eventUtils';
-import IBrowserEngine from '@secret-agent/interfaces/IBrowserEngine';
-import { CanceledPromiseError } from '@secret-agent/commons/interfaces/IPendingWaitEvent';
-import IPuppetLaunchArgs from '@secret-agent/interfaces/IPuppetLaunchArgs';
-import SessionsDb from '../dbs/SessionsDb';
-import Session from './Session';
+import Resolvable from '@ulixee/commons/lib/Resolvable';
+import IBrowserEngine from '@bureau/interfaces/IBrowserEngine';
+import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
+import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
+import env from '../env';
 import DevtoolsPreferences from './DevtoolsPreferences';
+import Queue from '@ulixee/commons/lib/Queue';
+import ICertificateGenerator, {
+  ICertificateStore,
+} from '@secret-agent/mitm/interfaces/ICertificateGenerator';
+import Agent, { IAgentCreateOptions } from './Agent';
+import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
+import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
+import Browser from './Browser';
+import IResolvablePromise from '@ulixee/commons/interfaces/IResolvablePromise';
+import IBrowserLaunchArgs from '@bureau/interfaces/IBrowserLaunchArgs';
+import { IHooksProvider } from '@bureau/interfaces/IHooks';
 
 const { log } = Log(module);
-let sessionsDir = process.env.SA_SESSIONS_DIR || Path.join(Os.tmpdir(), '.secret-agent'); // transferred to GlobalPool below class definition
-const disableMitm = Boolean(JSON.parse(process.env.SA_DISABLE_MITM ?? 'false'));
 
-export default class GlobalPool {
-  public static maxConcurrentAgentsCount = 10;
-  public static localProxyPortStart = 0;
-  public static get activeSessionCount() {
-    return this._activeSessionCount;
+interface ICreatePoolOptions {
+  maxConcurrentAgents?: number;
+  certificateStore?: ICertificateStore;
+  defaultBrowserEngine?: IBrowserEngine;
+  dataDir?: string;
+  logger?: IBoundLog;
+}
+
+export default class Pool extends TypedEventEmitter<{
+  'agent-created': { agent: Agent };
+  'browser-launched': { browser: Browser };
+  'browser-has-no-open-windows': { browser: Browser };
+  'all-browsers-closed': void;
+}> {
+  public get hasAvailability(): boolean {
+    return this.activeAgentsCount < this.maxConcurrentAgents;
   }
 
-  public static get hasAvailability() {
-    return this.activeSessionCount < GlobalPool.maxConcurrentAgentsCount;
+  public get activeAgentsCount(): number {
+    return this.#activeAgentsCount;
   }
 
-  public static events = new TypedEventEmitter<{
-    'browser-has-no-open-windows': { puppet: Puppet };
-    'all-browsers-closed': void;
-  }>();
+  public maxConcurrentAgents = 10;
+  public readonly browsersById = new Map<string, Browser>();
+  public readonly agentsById = new Map<string, Agent>();
+  public sharedMitmProxy: MitmProxy;
 
-  private static isClosing = false;
-  private static defaultLaunchArgs: IPuppetLaunchArgs;
-  private static _activeSessionCount = 0;
-  private static puppets: Puppet[] = [];
-  private static mitmServer: MitmProxy;
-  private static mitmStartPromise: Promise<MitmProxy>;
-  private static waitingForAvailability: {
-    options: ISessionCreateOptions;
-    promise: IResolvablePromise<Session>;
+  #activeAgentsCount = 0;
+  #waitingForAvailability: {
+    options: IAgentCreateOptions;
+    promise: IResolvablePromise<Agent>;
   }[] = [];
 
-  public static async start(): Promise<void> {
-    this.isClosing = false;
-    log.info('StartingGlobalPool', {
-      sessionId: null,
-    });
-    await this.startMitm();
+  private isClosing: Resolvable<void>;
+  private mitmStartPromise: Promise<MitmProxy>;
+
+  private browserCreationQueue = new Queue(`BROWSER_CREATION_Q`, 1);
+  private events = new EventSubscriber();
+  private certificateGenerator: ICertificateGenerator;
+
+  constructor(readonly options: ICreatePoolOptions = {}) {
+    super();
+    this.maxConcurrentAgents = options.maxConcurrentAgents ?? 10;
+    this.logger = options.logger?.createChild(module) ?? log.createChild(module, {});
   }
 
-  public static createSession(options: ISessionCreateOptions): Promise<Session> {
-    log.info('AcquiringChrome', {
-      sessionId: null,
-      activeSessionCount: this.activeSessionCount,
-      waitingForAvailability: this.waitingForAvailability.length,
-      maxConcurrentAgentsCount: this.maxConcurrentAgentsCount,
+  public async start(): Promise<void> {
+    if (this.isClosing) await this.isClosing;
+    this.isClosing = null;
+    this.logger.info('Pool.start');
+    await this.startSharedMitm();
+  }
+
+  public createAgent(options?: IAgentCreateOptions): Promise<Agent> {
+    options ??= {};
+    options.browserEngine ??= this.options.defaultBrowserEngine;
+
+    if (!options.browserEngine)
+      throw new Error('A browserEngine is required create a new Agent instance.');
+
+    this.logger.info('Pool.createAgent', {
+      maxConcurrentAgents: this.maxConcurrentAgents,
+      activeAgentsCount: this.activeAgentsCount,
+      waitingForAvailability: this.#waitingForAvailability.length,
     });
 
     if (!this.hasAvailability) {
-      const resolvablePromise = createPromise<Session>();
-      this.waitingForAvailability.push({ options, promise: resolvablePromise });
+      const resolvablePromise = new Resolvable<Agent>();
+      this.#waitingForAvailability.push({
+        options,
+        promise: resolvablePromise,
+      });
       return resolvablePromise.promise;
     }
-    return this.createSessionNow(options);
+    return this.createAgentNow(options);
   }
 
-  public static close(): Promise<void> {
-    if (this.isClosing) return Promise.resolve();
-    this.isClosing = true;
-    const logId = log.stats('GlobalPool.Closing');
-
-    for (const { promise } of this.waitingForAvailability) {
-      promise.reject(new CanceledPromiseError('Puppet pool shutting down'));
-    }
-    this.waitingForAvailability.length = 0;
-    const closePromises: Promise<any>[] = [];
-    while (this.puppets.length) {
-      const puppetBrowser = this.puppets.shift();
-      closePromises.push(puppetBrowser.close().catch(err => err));
-    }
-    MitmProxy.close();
-    if (this.mitmServer) {
-      this.mitmServer.close();
-      this.mitmServer = null;
-    }
-    SessionsDb.shutdown();
-    return Promise.all(closePromises)
-      .then(() => {
-        log.stats('GlobalPool.Closed', { parentLogId: logId, sessionId: null });
-        return null;
-      })
-      .catch(error => {
-        log.error('Error in GlobalPoolShutdown', { parentLogId: logId, sessionId: null, error });
-      });
-  }
-
-  private static getPuppet(browserEngine: IBrowserEngine): Promise<Puppet> {
-    const args = this.getPuppetLaunchArgs();
-    const puppet = new Puppet(browserEngine, args);
-
-    const existing = this.puppets.find(x =>
-      this.isSameEngine(puppet.browserEngine, x.browserEngine),
-    );
-    if (existing) return Promise.resolve(existing);
-
-    this.puppets.push(puppet);
-    puppet.once('close', this.onEngineClosed.bind(this, browserEngine));
-    const browserDir = browserEngine.executablePath.split(browserEngine.fullVersion).shift();
-
-    const preferencesInterceptor = new DevtoolsPreferences(
-      `${browserDir}/devtoolsPreferences.json`,
-    );
-
-    return puppet.start(preferencesInterceptor.installOnConnect);
-  }
-
-  private static async startMitm(): Promise<void> {
-    if (this.mitmServer || disableMitm === true) return;
-    if (this.mitmStartPromise) await this.mitmStartPromise;
-    else {
-      this.mitmStartPromise = MitmProxy.start(this.localProxyPortStart, this.sessionsDir);
-      this.mitmServer = await this.mitmStartPromise;
-    }
-  }
-
-  private static async createSessionNow(options: ISessionCreateOptions): Promise<Session> {
-    await this.startMitm();
-
-    this._activeSessionCount += 1;
-    try {
-      const session = new Session(options);
-
-      const puppet = await this.getPuppet(session.browserEngine);
-
-      if (disableMitm !== true) {
-        await session.registerWithMitm(this.mitmServer, puppet.supportsBrowserContextProxy);
-      }
-
-      const browserContext = await puppet.newContext(
-        session.plugins,
-        log.createChild(module, {
-          sessionId: session.id,
-        }),
-        session.getMitmProxy(),
+  public async createMitmProxy(): Promise<MitmProxy> {
+    if (!this.certificateGenerator) {
+      this.certificateGenerator = MitmProxy.createCertificateGenerator(
+        this.options.certificateStore,
+        this.options.dataDir,
       );
-      await session.initialize(browserContext);
+    }
+    return await MitmProxy.start(this.certificateGenerator);
+  }
 
-      session.on('all-tabs-closed', this.checkForInactiveBrowserEngine.bind(this, session));
+  public async getBrowser(
+    engine: IBrowserEngine,
+    hooks: IHooksProvider,
+    launchArgs?: IBrowserLaunchArgs,
+  ): Promise<Browser> {
+    return await this.browserCreationQueue.run(async () => {
+      if (!this.sharedMitmProxy) await this.start();
 
-      session.once('closing', this.releaseConnection.bind(this));
-      return session;
+      launchArgs ??= {};
+      launchArgs.proxyPort ??= this.sharedMitmProxy?.port;
+      const browser = new Browser(engine, hooks, launchArgs);
+
+      const existing = this.browserWithEngine(browser.engine);
+      if (existing) return existing;
+
+      this.browsersById.set(browser.id, browser);
+      this.events.once(browser, 'close', this.onBrowserClosed.bind(this, browser.id));
+      DevtoolsPreferences.install(browser);
+
+      await browser.launch();
+      this.emit('browser-launched', { browser });
+
+      return browser;
+    });
+  }
+
+  public async close(): Promise<void> {
+    if (this.isClosing) return this.isClosing.promise;
+    this.isClosing = new Resolvable<void>();
+    try {
+      const logId = log.stats('Pool.Closing', {
+        sessionId: null,
+        browsers: this.browsersById.size,
+      });
+      for (const { promise } of this.#waitingForAvailability) {
+        promise.reject(new CanceledPromiseError('Agent pool shutting down'));
+      }
+      this.#waitingForAvailability.length = 0;
+      this.browserCreationQueue.stop(new CanceledPromiseError('Browser pool shutting down'));
+
+      const closePromises: Promise<Error | void>[] = [];
+
+      for (const agent of this.agentsById.values()) {
+        closePromises.push(agent.close().catch(err => err));
+      }
+      for (const browser of this.browsersById.values()) {
+        closePromises.push(browser.close().catch(err => err));
+      }
+      this.browsersById.clear();
+
+      if (this.certificateGenerator) this.certificateGenerator.close();
+
+      if (this.mitmStartPromise) {
+        this.mitmStartPromise.then(x => x.close()).catch(err => err);
+        this.mitmStartPromise = null;
+      }
+      if (this.sharedMitmProxy) {
+        this.sharedMitmProxy.close();
+        this.sharedMitmProxy = null;
+      }
+      try {
+        const errors = await Promise.all(closePromises);
+        this.events.close();
+        log.stats('Pool.Closed', {
+          parentLogId: logId,
+          sessionId: null,
+          errors: errors.filter(Boolean),
+        });
+      } catch (error) {
+        log.error('Error in Pool.Close', { parentLogId: logId, sessionId: null, error });
+      }
+    } finally {
+      this.isClosing.resolve();
+    }
+  }
+
+  protected async createAgentNow(options: IAgentCreateOptions): Promise<Agent> {
+    this.#activeAgentsCount += 1;
+    try {
+      const agent = new Agent(options);
+      this.agentsById.set(agent.id, agent);
+      this.emit('agent-created', { agent });
+
+      await agent.openInPool(this);
+      this.events.on(
+        agent.browserContext,
+        'all-pages-closed',
+        this.checkForInactiveBrowserEngine.bind(this, agent.browserContext.browser.id),
+      );
+      this.events.once(agent, 'close', this.onAgentClosed.bind(this, agent));
+      return agent;
     } catch (err) {
-      this._activeSessionCount -= 1;
+      this.#activeAgentsCount -= 1;
 
       throw err;
     }
   }
 
-  private static async onEngineClosed(engine: IBrowserEngine): Promise<void> {
-    if (this.isClosing) return;
-    for (const session of Session.sessionsWithBrowserEngine(this.isSameEngine.bind(this, engine))) {
-      await session.close();
-    }
-    log.info('PuppetEngine.closed', {
-      engine,
-      sessionId: null,
+  private onAgentClosed(agent: Agent): void {
+    this.#activeAgentsCount -= 1;
+    this.agentsById.delete(agent.id);
+
+    this.logger.info('ReleasingChrome', {
+      maxConcurrentAgents: this.maxConcurrentAgents,
+      activeAgentsCount: this.activeAgentsCount,
+      waitingForAvailability: this.#waitingForAvailability.length,
     });
-    const idx = this.puppets.findIndex(x => this.isSameEngine(engine, x.browserEngine));
-    if (idx >= 0) this.puppets.splice(idx, 1);
-    if (this.puppets.length === 0) {
-      this.events.emit('all-browsers-closed');
+    if (!this.#waitingForAvailability.length || !this.hasAvailability) {
+      return;
+    }
+    const { options, promise } = this.#waitingForAvailability.shift();
+
+    // NOTE: we want this to blow up if an exception occurs inside the promise
+    // eslint-disable-next-line promise/catch-or-return, @typescript-eslint/no-floating-promises
+    this.createAgentNow(options).then(session => promise.resolve(session));
+  }
+
+  private async startSharedMitm(): Promise<void> {
+    if (this.sharedMitmProxy || env.disableMitm === true) return;
+    if (this.mitmStartPromise) {
+      await this.mitmStartPromise;
+    } else {
+      this.mitmStartPromise = this.createMitmProxy();
+      this.certificateGenerator ??= MitmProxy.createCertificateGenerator(
+        this.options.certificateStore,
+        this.options.dataDir,
+      );
+      this.sharedMitmProxy = await this.mitmStartPromise;
     }
   }
 
-  private static checkForInactiveBrowserEngine(session: Session): void {
-    const sessionsUsingEngine = Session.sessionsWithBrowserEngine(
-      this.isSameEngine.bind(this, session.browserEngine),
-    );
-    const hasWindows = sessionsUsingEngine.some(x => x.tabsById.size > 0);
+  private async onBrowserClosed(browserId: string): Promise<void> {
+    if (this.isClosing) return;
+    for (const agent of this.agentsById.values()) {
+      if (agent.browserContext?.browserId === browserId) await agent.close();
+    }
 
-    log.info('Session.allTabsClosed', {
-      sessionId: session.id,
+    this.logger.info('BrowserEngine.closed', {
+      engine: this.browsersById.get(browserId)?.engine,
+      browserId,
+    });
+    this.browsersById.delete(browserId);
+    if (this.browsersById.size === 0) {
+      this.emit('all-browsers-closed');
+    }
+  }
+
+  private checkForInactiveBrowserEngine(browserId: string): void {
+    let hasWindows = false;
+    for (const agent of this.agentsById.values()) {
+      if (agent.browserContext?.browserId === browserId) {
+        hasWindows = agent.browserContext.pagesById.size > 0;
+        if (hasWindows) break;
+      }
+    }
+
+    this.logger.info('Browser.allTabsClosed', {
+      browserId,
       engineHasOtherOpenTabs: hasWindows,
     });
     if (hasWindows) return;
 
-    const puppet = this.puppets.find(x =>
-      this.isSameEngine(session.browserEngine, x.browserEngine),
-    );
-
-    if (puppet) {
-      this.events.emit('browser-has-no-open-windows', { puppet });
+    const browser = this.browsersById.get(browserId);
+    if (browser) {
+      this.emit('browser-has-no-open-windows', { browser });
     }
   }
 
-  private static releaseConnection(): void {
-    this._activeSessionCount -= 1;
-
-    const wasTransferred = this.resolveWaitingConnection();
-    if (wasTransferred) {
-      log.info('ReleasingChrome', {
-        sessionId: null,
-        activeSessionCount: this.activeSessionCount,
-        waitingForAvailability: this.waitingForAvailability.length,
-      });
+  private browserWithEngine(engine: IBrowserEngine): Browser {
+    for (const existingBrowser of this.browsersById.values()) {
+      if (existingBrowser.isEqualEngine(engine)) {
+        return existingBrowser;
+      }
     }
-  }
-
-  private static resolveWaitingConnection(): boolean {
-    if (!this.waitingForAvailability.length) {
-      return false;
-    }
-    const { options, promise } = this.waitingForAvailability.shift();
-
-    // NOTE: we want this to blow up if an exception occurs inside the promise
-    // eslint-disable-next-line promise/catch-or-return
-    this.createSessionNow(options).then(session => promise.resolve(session));
-
-    log.info('TransferredChromeToWaitingAcquirer');
-    return true;
-  }
-
-  private static getPuppetLaunchArgs(): IPuppetLaunchArgs {
-    this.defaultLaunchArgs ??= {
-      showBrowser: Boolean(
-        JSON.parse(process.env.SA_SHOW_BROWSER ?? process.env.SHOW_BROWSER ?? 'false'),
-      ),
-      disableDevtools: Boolean(JSON.parse(process.env.SA_DISABLE_DEVTOOLS ?? 'true')),
-      noChromeSandbox: Boolean(JSON.parse(process.env.SA_NO_CHROME_SANDBOX ?? 'false')),
-      disableGpu: Boolean(JSON.parse(process.env.SA_DISABLE_GPU ?? 'false')),
-      enableMitm: !disableMitm,
-    };
-    return {
-      ...this.defaultLaunchArgs,
-      proxyPort: this.mitmServer?.port,
-    };
-  }
-
-  private static isSameEngine(engineA: IBrowserEngine, engineB: IBrowserEngine): boolean {
-    return (
-      engineA.executablePath === engineB.executablePath &&
-      engineA.launchArguments.toString() === engineB.launchArguments.toString()
-    );
-  }
-
-  public static get sessionsDir(): string {
-    return sessionsDir;
-  }
-
-  public static set sessionsDir(dir: string) {
-    const absoluteDir = Path.isAbsolute(dir) ? dir : Path.join(process.cwd(), dir);
-    if (!Fs.existsSync(`${absoluteDir}`)) {
-      Fs.mkdirSync(`${absoluteDir}`, { recursive: true });
-    }
-    sessionsDir = absoluteDir;
   }
 }
-
-GlobalPool.sessionsDir = sessionsDir;

@@ -1,3 +1,9 @@
 {
-  "dependencies": {}
+  "name": "@secret-agent/examples",
+  "private": true,
+  "version": "1.0.0",
+  "dependencies": {
+    "@ulixee/chrome-98-0": "^4758.102.4",
+    "secret-agent": "2.0.0-alpha.1"
+  }
 }

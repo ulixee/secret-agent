@@ -17,16 +17,16 @@
 
 import { ProtocolMapping } from 'devtools-protocol/types/protocol-mapping';
 import { Protocol } from 'devtools-protocol';
-import { CanceledPromiseError } from '@secret-agent/commons/interfaces/IPendingWaitEvent';
-import { TypedEventEmitter } from '@secret-agent/commons/eventUtils';
-import IResolvablePromise from '@secret-agent/interfaces/IResolvablePromise';
-import { createPromise } from '@secret-agent/commons/utils';
+import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
+import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
+import IResolvablePromise from '@ulixee/commons/interfaces/IResolvablePromise';
+import { createPromise } from '@ulixee/commons/lib/utils';
 import IDevtoolsSession, {
   DevtoolsEvents,
   IDevtoolsEventMessage,
   IDevtoolsResponseMessage,
-} from '@secret-agent/interfaces/IDevtoolsSession';
-import ProtocolError from './ProtocolError';
+} from '@bureau/interfaces/IDevtoolsSession';
+import ProtocolError from '../errors/ProtocolError';
 import { Connection } from './Connection';
 import RemoteObject = Protocol.Runtime.RemoteObject;
 
@@ -35,10 +35,10 @@ import RemoteObject = Protocol.Runtime.RemoteObject;
  *
  * https://chromedevtools.github.io/devtools-protocol/
  */
-export class DevtoolsSession extends TypedEventEmitter<DevtoolsEvents> implements IDevtoolsSession {
+export default class DevtoolsSession extends TypedEventEmitter<DevtoolsEvents> implements IDevtoolsSession {
   public connection: Connection;
   public messageEvents = new TypedEventEmitter<IMessageEvents>();
-  public get id() {
+  public get id(): string {
     return this.sessionId;
   }
 
@@ -65,13 +65,22 @@ export class DevtoolsSession extends TypedEventEmitter<DevtoolsEvents> implement
       throw new CanceledPromiseError(`${method} called after session closed (${this.sessionId})`);
     }
 
+    const id = this.connection.nextId;
     const message = {
       sessionId: this.sessionId || undefined,
       method,
       params,
+      id,
     };
     const timestamp = new Date();
-    const id = this.connection.sendMessage(message);
+    const resolvable = createPromise<ProtocolMapping.Commands[T]['returnType']>();
+    this.pendingMessages.set(id, { resolvable, method });
+
+    if (!this.connection.sendMessage(message)) {
+      resolvable.reject(new CanceledPromiseError('Connection failed to send message'));
+      this.pendingMessages.delete(id);
+    }
+
     this.messageEvents.emit(
       'send',
       {
@@ -81,9 +90,6 @@ export class DevtoolsSession extends TypedEventEmitter<DevtoolsEvents> implement
       },
       sendInitiator,
     );
-    const resolvable = createPromise<ProtocolMapping.Commands[T]['returnType']>();
-
-    this.pendingMessages.set(id, { resolvable, method });
     return await resolvable.promise;
   }
 
@@ -129,7 +135,7 @@ export class DevtoolsSession extends TypedEventEmitter<DevtoolsEvents> implement
     this.emit('disconnected');
   }
 
-  public isConnected() {
+  isConnected(): boolean {
     return this.connection && !this.connection.isClosed;
   }
 }

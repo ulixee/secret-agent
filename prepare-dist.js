@@ -12,7 +12,7 @@ const defaults = {
   contributors: rootPackageJson.contributors,
   homepage: rootPackageJson.homepage,
   engines: {
-    node: '>=13.2.0',
+    node: '>=14.6.0',
   },
   publishConfig: {
     access: 'public',
@@ -31,10 +31,6 @@ function processPackageJson(packagePath) {
     fs.unlinkSync(`${packagePath}/package.dist.json`);
   }
 
-  if (packageJson.private) {
-    console.log('Private package, skipping', packagePath);
-    return;
-  }
   fs.copyFileSync(licensePath, `${packagePath}/LICENSE.md`);
   const finalPackageJson = {
     name: overridesJson.name || packageJson.name,
@@ -47,9 +43,22 @@ function processPackageJson(packagePath) {
     ...defaults,
     scripts: overridesJson.scripts,
     dependencies: overridesJson.dependencies || packageJson.dependencies,
-    engine: packageJson.engine, // this is used by emulators
     bin: packageJson.bin,
   };
+
+  if (packageJson.private) {
+    if (!packageJson.workspaces) return;
+    finalPackageJson.private = true;
+    finalPackageJson.publishConfig = undefined;
+    finalPackageJson.workspaces = overridesJson.workspaces ?? packageJson.workspaces;
+
+    finalPackageJson.workspaces.packages = finalPackageJson.workspaces.packages.map(x => {
+      if (x.startsWith('../') && !fs.existsSync(`${buildDistDir}/${x}`)) {
+        return `../${x}`;
+      }
+      return x;
+    });
+  }
 
   // check if index exists
   if (!finalPackageJson.files && !finalPackageJson.main) {

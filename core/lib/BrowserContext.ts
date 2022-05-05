@@ -1,81 +1,110 @@
-import { assert } from '@secret-agent/commons/utils';
-import IPuppetContext, {
-  IPuppetContextEvents,
-  IPuppetPageOptions,
-} from '@secret-agent/interfaces/IPuppetContext';
-import { ICookie } from '@secret-agent/interfaces/ICookie';
+import { assert } from '@ulixee/commons/lib/utils';
+import IBrowserContext, { IBrowserContextEvents } from '@bureau/interfaces/IBrowserContext';
+import { ICookie } from '@bureau/interfaces/ICookie';
+import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
 import { URL } from 'url';
 import Protocol from 'devtools-protocol';
-import EventSubscriber from '@secret-agent/commons/EventSubscriber';
-import { TypedEventEmitter } from '@secret-agent/commons/eventUtils';
-import { IBoundLog } from '@secret-agent/interfaces/ILog';
-import { CanceledPromiseError } from '@secret-agent/commons/interfaces/IPendingWaitEvent';
-import { IPuppetWorker } from '@secret-agent/interfaces/IPuppetWorker';
+import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
+import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
+import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
 import ProtocolMapping from 'devtools-protocol/types/protocol-mapping';
-import ICorePlugins from '@secret-agent/interfaces/ICorePlugins';
-import { IPuppetPage } from '@secret-agent/interfaces/IPuppetPage';
-import IProxyConnectionOptions from '@secret-agent/interfaces/IProxyConnectionOptions';
-import Resolvable from '@secret-agent/commons/Resolvable';
-import {
-  IDevtoolsEventMessage,
-  IDevtoolsResponseMessage,
-} from '@secret-agent/interfaces/IDevtoolsSession';
-import { Page } from './Page';
-import { Browser } from './Browser';
-import { DevtoolsSession } from './DevtoolsSession';
-import Frame from './Frame';
+import { IPage } from '@bureau/interfaces/IPage';
+import { IBrowserContextHooks, IInteractHooks } from '@bureau/interfaces/IHooks';
+import IProxyConnectionOptions from '../interfaces/IProxyConnectionOptions';
+import Resolvable from '@ulixee/commons/lib/Resolvable';
+import ICommandMarker from '../interfaces/ICommandMarker';
+import Page, { IPageCreateOptions } from './Page';
+import { Worker } from './Worker';
+import Browser from './Browser';
+import DevtoolsSession from './DevtoolsSession';
+import IDomStorage from '@bureau/interfaces/IDomStorage';
+import Resources from './Resources';
+import WebsocketMessages from './WebsocketMessages';
+import Log from '@ulixee/commons/lib/Logger';
+import { DefaultCommandMarker } from './DefaultCommandMarker';
+import DevtoolsSessionLogger from './DevtoolsSessionLogger';
 import CookieParam = Protocol.Network.CookieParam;
 import TargetInfo = Protocol.Target.TargetInfo;
 
-export class BrowserContext
-  extends TypedEventEmitter<IPuppetContextEvents>
-  implements IPuppetContext {
-  public logger: IBoundLog;
+const { log } = Log(module);
 
-  public workersById = new Map<string, IPuppetWorker>();
+export interface IBrowserContextCreateOptions {
+  logger?: IBoundLog;
+  proxy?: IProxyConnectionOptions;
+  isIncognito?: boolean;
+  commandMarker?: ICommandMarker;
+}
+
+export default class BrowserContext
+  extends TypedEventEmitter<IBrowserContextEvents>
+  implements IBrowserContext
+{
+  public logger: IBoundLog;
+  public lastOpenedPage: Page;
+
+  public resources: Resources;
+  public websocketMessages: WebsocketMessages;
+  public workersById = new Map<string, Worker>();
   public pagesById = new Map<string, Page>();
-  public plugins: ICorePlugins;
+  public pagesByTabId = new Map<number, Page>();
+  public devtoolsSessionsById = new Map<string, DevtoolsSession>();
+  public devtoolsSessionLogger: DevtoolsSessionLogger;
   public proxy: IProxyConnectionOptions;
+  public domStorage: IDomStorage;
   public readonly id: string;
 
+  public readonly browser: Browser;
+  public get browserId(): string {
+    return this.browser.id;
+  }
+
+  public isIncognito = true;
+
+  public readonly idTracker = {
+    navigationId: 0,
+    tabId: 0,
+    frameId: 0,
+  };
+
+  public readonly commandMarker: ICommandMarker;
+  public readonly hooks: (IBrowserContextHooks | IInteractHooks)[] = [];
+
   private attachedTargetIds = new Set<string>();
-  private pageOptionsByTargetId = new Map<string, IPuppetPageOptions>();
+  private pageOptionsByTargetId = new Map<string, IPageCreateOptions>();
   private readonly createdTargetIds = new Set<string>();
   private creatingTargetPromises: Promise<void>[] = [];
   private waitForPageAttachedById = new Map<string, Resolvable<Page>>();
-  private readonly browser: Browser;
 
-  private isClosing = false;
+  private isClosing: Promise<void>;
 
-  private devtoolsSessions = new WeakSet<DevtoolsSession>();
-  private eventSubscriber = new EventSubscriber();
-  private browserContextInitiatedMessageIds = new Set<number>();
+  private readonly events = new EventSubscriber();
 
-  constructor(
-    browser: Browser,
-    plugins: ICorePlugins,
-    contextId: string,
-    logger: IBoundLog,
-    proxy?: IProxyConnectionOptions,
-  ) {
+  constructor(browser: Browser, contextId: string, options?: IBrowserContextCreateOptions) {
     super();
-    this.plugins = plugins;
     this.browser = browser;
     this.id = contextId;
-    this.logger = logger.createChild(module, {
+    this.isIncognito = !!contextId;
+    this.logger = (options?.logger ?? log).createChild(module, {
       browserContextId: contextId,
     });
-    this.proxy = proxy;
-    this.browser.browserContextsById.set(this.id, this);
+    this.proxy = options?.proxy;
+    this.commandMarker = options?.commandMarker ?? new DefaultCommandMarker(this);
+    this.resources = new Resources(this);
+    this.websocketMessages = new WebsocketMessages(this.logger);
+    this.devtoolsSessionLogger = new DevtoolsSessionLogger(this);
 
-    this.subscribeToDevtoolsMessages(this.browser.devtoolsSession, {
+    this.devtoolsSessionLogger.subscribeToDevtoolsMessages(this.browser.devtoolsSession, {
       sessionType: 'browser',
     });
   }
 
-  public defaultPageInitializationFn: (page: IPuppetPage) => Promise<any> = () => Promise.resolve();
+  public hook(hooks: IBrowserContextHooks | IInteractHooks): void {
+    this.hooks.push(hooks);
+  }
 
-  async newPage(options?: IPuppetPageOptions): Promise<Page> {
+  public defaultPageInitializationFn: (page: IPage) => Promise<any> = () => Promise.resolve();
+
+  async newPage(options?: IPageCreateOptions): Promise<Page> {
     const createTargetPromise = new Resolvable<void>();
     this.creatingTargetPromises.push(createTargetPromise.promise);
 
@@ -97,7 +126,7 @@ export class BrowserContext
     if (!page) {
       const pageAttachedPromise = new Resolvable<Page>(
         60e3,
-        'Error creating page. Timed out waiting to attach',
+        'Error creating page. Timed-out waiting to attach',
       );
       this.waitForPageAttachedById.set(targetId, pageAttachedPromise);
       page = await pageAttachedPromise.promise;
@@ -109,12 +138,19 @@ export class BrowserContext
     return page;
   }
 
-  initializePage(page: Page): Promise<any> {
-    if (this.pageOptionsByTargetId.get(page.targetId)?.runPageScripts === false) return;
+  trackPage(page: Page): void {
+    this.pagesById.set(page.id, page);
+    this.pagesByTabId.set(page.tabId, page);
+  }
 
-    const promises = [this.defaultPageInitializationFn(page).catch(err => err)];
-    promises.push(this.plugins.onNewPuppetPage(page).catch(err => err));
-    return Promise.all(promises);
+  initializePage(page: Page): Promise<any> {
+    if (this.pageOptionsByTargetId.get(page.targetId)?.runPageScripts === false)
+      return Promise.resolve();
+
+    return Promise.all([
+      this.defaultPageInitializationFn(page),
+      ...this.hooks.map(x => (x as IBrowserContextHooks).onNewPage?.(page)),
+    ]);
   }
 
   async onPageAttached(devtoolsSession: DevtoolsSession, targetInfo: TargetInfo): Promise<Page> {
@@ -122,7 +158,7 @@ export class BrowserContext
     await Promise.all(this.creatingTargetPromises);
     if (this.pagesById.has(targetInfo.targetId)) return;
 
-    this.subscribeToDevtoolsMessages(devtoolsSession, {
+    this.devtoolsSessionLogger.subscribeToDevtoolsMessages(devtoolsSession, {
       sessionType: 'page',
       pageTargetId: targetInfo.targetId,
     });
@@ -138,26 +174,64 @@ export class BrowserContext
       opener = this.pagesById.values().next().value;
     }
 
-    const page = new Page(devtoolsSession, targetInfo.targetId, this, this.logger, opener);
-    this.pagesById.set(page.targetId, page);
+    const page = new Page(
+      devtoolsSession,
+      targetInfo.targetId,
+      this,
+      this.logger,
+      opener,
+      pageOptions,
+    );
+    this.lastOpenedPage = page;
     this.waitForPageAttachedById.get(page.targetId)?.resolve(page);
     await page.isReady;
     this.emit('page', { page });
     return page;
   }
 
-  onPageDetached(targetId: string) {
+  onTargetDetached(targetId: string): void {
     this.attachedTargetIds.delete(targetId);
     const page = this.pagesById.get(targetId);
     if (page) {
       this.pagesById.delete(targetId);
+      this.pagesByTabId.delete(page.tabId);
       page.didClose();
+      if (this.pagesById.size === 0) {
+        this.emit('all-pages-closed');
+      }
+      return;
+    }
+
+    const devtoolsSession = this.devtoolsSessionsById.get(targetId);
+    if (devtoolsSession) {
+      this.onDevtoolsPanelDetached(devtoolsSession);
     }
   }
 
-  async onSharedWorkerAttached(devtoolsSession: DevtoolsSession, targetInfo: TargetInfo) {
+  onDevtoolsPanelAttached(devtoolsSession: DevtoolsSession, targetInfo: TargetInfo): void {
+    this.devtoolsSessionsById.set(targetInfo.targetId, devtoolsSession);
+    for (const hook of this.hooks) {
+      if ('onDevtoolsPanelAttached' in hook) {
+        hook.onDevtoolsPanelAttached(devtoolsSession).catch(() => null);
+      }
+    }
+  }
+
+  onDevtoolsPanelDetached(devtoolsSession: DevtoolsSession): void {
+    for (const hook of this.hooks) {
+      if ('onDevtoolsPanelDetached' in hook) {
+        hook.onDevtoolsPanelDetached(devtoolsSession).catch(() => null);
+      }
+    }
+  }
+
+  async onSharedWorkerAttached(
+    devtoolsSession: DevtoolsSession,
+    targetInfo: TargetInfo,
+  ): Promise<void> {
     const page: Page =
       [...this.pagesById.values()].find(x => !x.isClosed) ?? this.pagesById.values().next().value;
+
     await page.onWorkerAttached(devtoolsSession, targetInfo);
   }
 
@@ -165,32 +239,32 @@ export class BrowserContext
     devtoolsSession: DevtoolsSession,
     workerTargetId: string,
     pageTargetId: string,
-  ) {
-    this.subscribeToDevtoolsMessages(devtoolsSession, {
+  ): void {
+    this.devtoolsSessionLogger.subscribeToDevtoolsMessages(devtoolsSession, {
       sessionType: 'worker' as const,
       pageTargetId,
       workerTargetId,
     });
   }
 
-  onWorkerAttached(worker: IPuppetWorker) {
+  onWorkerAttached(worker: Worker): void {
     this.workersById.set(worker.id, worker);
-    worker.on('close', () => this.workersById.delete(worker.id));
+    this.events.once(worker, 'close', () => this.workersById.delete(worker.id));
     this.emit('worker', { worker });
   }
 
-  targetDestroyed(targetId: string) {
+  targetDestroyed(targetId: string): void {
     this.attachedTargetIds.delete(targetId);
     const page = this.pagesById.get(targetId);
     if (page) page.didClose();
   }
 
-  targetKilled(targetId: string, errorCode: number) {
+  targetKilled(targetId: string, errorCode: number): void {
     const page = this.pagesById.get(targetId);
     if (page) page.onTargetKilled(errorCode);
   }
 
-  async attachToTarget(targetId: string) {
+  async attachToTarget(targetId: string): Promise<void> {
     // chrome 80 still needs you to manually attach
     if (!this.attachedTargetIds.has(targetId)) {
       await this.sendWithBrowserDevtoolsSession('Target.attachToTarget', {
@@ -200,7 +274,7 @@ export class BrowserContext
     }
   }
 
-  async attachToWorker(targetInfo: TargetInfo) {
+  async attachToWorker(targetInfo: TargetInfo): Promise<void> {
     await this.sendWithBrowserDevtoolsSession('Target.attachToTarget', {
       targetId: targetInfo.targetId,
       flatten: true,
@@ -208,23 +282,37 @@ export class BrowserContext
   }
 
   async close(): Promise<void> {
-    if (this.isClosing) return;
-    this.isClosing = true;
-
-    for (const waitingPage of this.waitForPageAttachedById.values()) {
-      waitingPage.reject(new CanceledPromiseError('BrowserContext shutting down'));
+    if (this.isClosing) return this.isClosing;
+    const resolvable = new Resolvable<void>();
+    this.isClosing = resolvable.promise;
+    try {
+      const logId = this.logger.info('BrowserContext.Closing');
+      for (const waitingPage of this.waitForPageAttachedById.values()) {
+        await waitingPage.reject(new CanceledPromiseError('BrowserContext shutting down'));
+      }
+      if (this.browser.devtoolsSession.isConnected()) {
+        await Promise.all([...this.pagesById.values()].map(x => x.close()));
+        // can only close with id
+        if (this.id) {
+          await this.sendWithBrowserDevtoolsSession('Target.disposeBrowserContext', {
+            browserContextId: this.id,
+          }).catch(err => {
+            if (err instanceof CanceledPromiseError) return;
+            throw err;
+          });
+        }
+      }
+      this.websocketMessages.cleanup();
+      this.resources.cleanup();
+      this.events.close();
+      this.emit('close');
+      this.devtoolsSessionLogger.close();
+      this.removeAllListeners();
+      this.logger.stats('BrowserContext.Closed', { parentLogId: logId });
+    } finally {
+      resolvable.resolve();
     }
-    if (this.browser.devtoolsSession.isConnected()) {
-      await Promise.all([...this.pagesById.values()].map(x => x.close()));
-      await this.sendWithBrowserDevtoolsSession('Target.disposeBrowserContext', {
-        browserContextId: this.id,
-      }).catch(err => {
-        if (err instanceof CanceledPromiseError) return;
-        throw err;
-      });
-    }
-    this.eventSubscriber.close();
-    this.browser.browserContextsById.delete(this.id);
+    return this.isClosing;
   }
 
   async getCookies(url?: URL): Promise<ICookie[]> {
@@ -233,13 +321,17 @@ export class BrowserContext
     });
     return cookies
       .map(c => {
-        const copy: any = { sameSite: 'None', ...c };
-        delete copy.size;
-        delete copy.priority;
-        delete copy.session;
-
-        copy.expires = String(copy.expires);
-        return copy as ICookie;
+        return <ICookie>{
+          name: c.name,
+          value: c.value,
+          secure: c.secure,
+          sameSite: c.sameSite ?? 'None',
+          sameParty: (c as any).sameParty,
+          expires: c.expires === -1 ? undefined : new Date(c.expires * 1000).toISOString(),
+          httpOnly: c.httpOnly,
+          path: c.path,
+          domain: c.domain,
+        };
       })
       .filter(c => {
         if (!url) return true;
@@ -254,7 +346,7 @@ export class BrowserContext
   async addCookies(
     cookies: (Omit<ICookie, 'expires'> & { expires?: string | Date | number })[],
     origins?: string[],
-  ) {
+  ): Promise<void> {
     const originUrls = (origins ?? []).map(x => new URL(x));
     const parsedCookies: CookieParam[] = [];
     for (const cookie of cookies) {
@@ -264,13 +356,16 @@ export class BrowserContext
 
       let expires = cookie.expires ?? -1;
       if (expires && typeof expires === 'string') {
-        if (expires.match(/\d+/)) {
+        if (expires === '-1') {
+          expires = undefined;
+        } else if (expires.match(/^[.\d]+$/)) {
           expires = parseInt(expires, 10);
+          if (expires > 1e10) expires = expires / 1e3;
         } else {
-          expires = new Date(expires).getTime();
+          expires = new Date(expires).getTime() / 1e3;
         }
       } else if (expires && expires instanceof Date) {
-        expires = expires.getTime();
+        expires = expires.getTime() / 1e3;
       }
 
       const cookieToSend: CookieParam = {
@@ -299,54 +394,10 @@ export class BrowserContext
     });
   }
 
-  sendWithBrowserDevtoolsSession<T extends keyof ProtocolMapping.Commands>(
+  private sendWithBrowserDevtoolsSession<T extends keyof ProtocolMapping.Commands>(
     method: T,
     params: ProtocolMapping.Commands[T]['paramsType'][0] = {},
   ): Promise<ProtocolMapping.Commands[T]['returnType']> {
     return this.browser.devtoolsSession.send(method, params, this);
-  }
-
-  private subscribeToDevtoolsMessages(
-    devtoolsSession: DevtoolsSession,
-    details: Pick<
-      IPuppetContextEvents['devtools-message'],
-      'pageTargetId' | 'sessionType' | 'workerTargetId'
-    >,
-  ) {
-    if (this.devtoolsSessions.has(devtoolsSession)) return;
-
-    this.devtoolsSessions.add(devtoolsSession);
-    const shouldFilter = details.sessionType === 'browser';
-
-    this.eventSubscriber.on(devtoolsSession.messageEvents, 'receive', event => {
-      if (shouldFilter) {
-        // see if this was initiated by this browser context
-        const { id } = event as IDevtoolsResponseMessage;
-        if (id && !this.browserContextInitiatedMessageIds.has(id)) return;
-
-        // see if this has a browser context target
-        const target = (event as IDevtoolsEventMessage).params?.targetInfo as TargetInfo;
-        if (target && target.browserContextId && target.browserContextId !== this.id) return;
-      }
-      this.emit('devtools-message', {
-        direction: 'receive',
-        ...details,
-        ...event,
-      });
-    });
-    this.eventSubscriber.on(devtoolsSession.messageEvents, 'send', (event, initiator?: any) => {
-      if (shouldFilter) {
-        if (initiator && initiator !== this) return;
-        if ('id' in event) this.browserContextInitiatedMessageIds.add(event.id);
-      }
-      if (initiator && initiator instanceof Frame) {
-        (event as any).frameId = initiator.id;
-      }
-      this.emit('devtools-message', {
-        direction: 'send',
-        ...details,
-        ...event,
-      });
-    });
   }
 }

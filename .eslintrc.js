@@ -1,24 +1,4 @@
-const Fs = require('fs');
-const pkg = require('./package.json');
-
-const workspaces = [];
-const workspacesWithModules = ['node_modules'];
-for (const workspaceDir of pkg.workspaces.packages) {
-  const workspace = workspaceDir.replace('/*', '');
-  workspaces.push(workspace);
-  workspacesWithModules.push(workspace);
-  workspacesWithModules.push(`${workspace}/node_modules`);
-  if (workspaceDir.endsWith('/*')) {
-    const baseDir = `${__dirname}/${workspace}`;
-    for (const sub of Fs.readdirSync(baseDir)) {
-      if (Fs.lstatSync(`${baseDir}/${sub}`).isDirectory()) {
-        workspaces.push(`${workspace}/${sub}`);
-        workspacesWithModules.push(`${workspace}/${sub}`);
-        workspacesWithModules.push(`${workspace}/${sub}/node_modules`);
-      }
-    }
-  }
-}
+const Path = require('path');
 
 module.exports = {
   root: true,
@@ -36,15 +16,14 @@ module.exports = {
   ],
   plugins: ['monorepo-cop'],
   parserOptions: {
-    project: 'tsconfig.json',
+    project: Path.join(__dirname, 'tsconfig.json'),
     extraFileExtensions: ['.mjs'],
   },
   settings: {
-    'import/core-modules': ['electron'],
-    'import/external-module-folders': workspacesWithModules,
+    'import/external-module-folders': ['core', 'mitm', 'mitm-socket', 'testing'],
     'import/resolver': {
       typescript: {
-        project: ['tsconfig.json', 'replay/tsconfig.json', 'replay/frontend/tsconfig.json'],
+        project: ['tsconfig.json'],
       },
     },
   },
@@ -56,34 +35,17 @@ module.exports = {
   },
   overrides: [
     {
-      files: ['*client/**/*.ts', '*interfaces/**/*.ts', 'commons/**/*.ts', 'mitm*/**/*.ts'],
-      rules: {
-        '@typescript-eslint/explicit-function-return-type': [
-          'error',
-          { allowExpressions: true, allowHigherOrderFunctions: true },
-        ],
-      },
-    },
-    {
-      files: 'plugin*/**/test/*.ts',
-      rules: {
-        'no-console': 'off',
-      },
-    },
-    {
-      files: 'plugin*/**/*.d.ts',
-      rules: {
-        'import/no-extraneous-dependencies': 'off',
-      },
-    },
-    {
       files: ['global.d.ts'],
       rules: {
         '@typescript-eslint/no-unused-vars': 'off',
       },
     },
     {
-      files: ['**/injected-scripts/**/*.js', '**/injected-scripts/**/*.ts'],
+      files: [
+        '**/injected-scripts/**/*.js',
+        '**/injected-scripts/**/*.ts',
+        '**/injected-scripts/*',
+      ],
       rules: {
         'no-console': 'off',
         'no-undef': 'off',
@@ -91,6 +53,7 @@ module.exports = {
         'max-classes-per-file': 'off',
         'func-names': 'off',
         '@typescript-eslint/no-unused-vars': 'off',
+        '@typescript-eslint/explicit-function-return-type': 'off',
       },
     },
     {
@@ -100,16 +63,25 @@ module.exports = {
         'no-console': 'off',
         '@typescript-eslint/no-unused-vars': 'off',
         'import/no-extraneous-dependencies': 'off',
-        '@typescript-eslint/no-shadow': 'off',
+        '@typescript-eslint/no-floating-promises': 'off',
+        '@typescript-eslint/explicit-function-return-type': 'off',
       },
     },
     {
-      files: '**/test/*.ts',
+      files: ['**/test/*.ts', '**/test/**/*', '**/testing/*'],
       rules: {
         'max-classes-per-file': 'off',
         'promise/valid-params': 'off',
         '@typescript-eslint/explicit-function-return-type': 'off',
         'require-await': 'off',
+        '@typescript-eslint/require-await': 'off',
+        '@typescript-eslint/no-unused-vars': 'off',
+      },
+    },
+    {
+      files: ['**/*.js', '**/docs/**'],
+      rules: {
+        '@typescript-eslint/explicit-function-return-type': 'off',
       },
     },
     {
@@ -140,9 +112,9 @@ module.exports = {
     '**/DomExtractor.js',
   ],
   rules: {
-    'import/no-named-as-default-member': 'off',
+    'import/no-named-as-default': 'off',
     'import/prefer-default-export': 'off',
-    'import/no-cycle': 'off', // TODO:we need to work through this!!
+    'import/namespace': 'off',
     'import/extensions': 'off',
     // 'import/no-default-export': 'error',
     'import/no-extraneous-dependencies': [
@@ -191,6 +163,8 @@ module.exports = {
     '@typescript-eslint/no-namespace': 'off',
     '@typescript-eslint/ordered-imports': 'off',
     '@typescript-eslint/return-await': 'off',
+    '@typescript-eslint/require-await': 'warn',
+    '@typescript-eslint/no-floating-promises': 'error',
     '@typescript-eslint/no-shadow': [
       'error',
       { ignoreTypeValueShadow: true, ignoreFunctionTypeParameterNameValueShadow: true },
@@ -199,7 +173,10 @@ module.exports = {
     '@typescript-eslint/object-shorthand-properties-first': 'off',
     '@typescript-eslint/no-var-requires': 'off',
     '@typescript-eslint/explicit-module-boundary-types': 'off',
-    '@typescript-eslint/explicit-function-return-type': 'off',
+    '@typescript-eslint/explicit-function-return-type': [
+      'error',
+      { allowExpressions: true, allowHigherOrderFunctions: true },
+    ],
     '@typescript-eslint/no-inferrable-types': 'warn',
     '@typescript-eslint/lines-between-class-members': [
       'error',

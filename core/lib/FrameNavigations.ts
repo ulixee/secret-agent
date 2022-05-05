@@ -1,31 +1,22 @@
-import INavigation, {
-  LoadStatus,
-  NavigationReason,
-  NavigationState,
-} from '@secret-agent/interfaces/INavigation';
-import { LocationStatus } from '@secret-agent/interfaces/Location';
-import { createPromise } from '@secret-agent/commons/utils';
-import { TypedEventEmitter } from '@secret-agent/commons/eventUtils';
-import { IBoundLog } from '@secret-agent/interfaces/ILog';
-import Log from '@secret-agent/commons/Logger';
-import SessionState from './SessionState';
+import INavigation, { ContentPaint, NavigationStatus } from '@bureau/interfaces/INavigation';
+import { NavigationReason } from '@bureau/interfaces/NavigationReason';
+import { createPromise } from '@ulixee/commons/lib/utils';
+import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
+import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
+import { IDomPaintEvent, ILoadStatus, LoadStatus } from '@bureau/interfaces/Location';
+import { IFrameNavigationEvents, IFrameNavigations } from '@bureau/interfaces/IFrameNavigations';
+import Frame from './Frame';
 
-export interface IFrameNavigationEvents {
-  'navigation-requested': INavigation;
-  'status-change': {
-    id: number;
-    url: string;
-    stateChanges: { [state: string]: Date };
-    newStatus: NavigationState;
-  };
-}
-
-const { log } = Log(module);
-
-export default class FrameNavigations extends TypedEventEmitter<IFrameNavigationEvents> {
+export default class FrameNavigations
+  extends TypedEventEmitter<IFrameNavigationEvents>
+  implements IFrameNavigations
+{
   public get top(): INavigation {
     return this.history.length > 0 ? this.history[this.history.length - 1] : null;
   }
+
+  // last navigation not loaded in-page
+  public lastHttpNavigationRequest: INavigation;
 
   public get currentUrl(): string {
     const top = this.top;
@@ -33,28 +24,73 @@ export default class FrameNavigations extends TypedEventEmitter<IFrameNavigation
     return top.finalUrl ?? top.requestedUrl;
   }
 
-  // last navigation not loaded in-page
-  public lastHttpNavigation: INavigation;
-
   public history: INavigation[] = [];
+  public initiatedUserAction: { startCommandId: number; reason: NavigationReason };
 
   public logger: IBoundLog;
 
-  private historyByLoaderId: { [loaderId: string]: INavigation } = {};
-
+  private readonly historyByLoaderId: { [loaderId: string]: INavigation } = {};
+  private readonly historyById: Record<number, INavigation> = {};
   private nextNavigationReason: { url: string; reason: NavigationReason };
 
-  constructor(readonly frameId: number, readonly sessionState: SessionState) {
+  constructor(readonly frame: Frame, logger: IBoundLog) {
     super();
     this.setEventsToLog(['navigation-requested', 'status-change']);
-    this.logger = log.createChild(module, {
-      sessionId: sessionState.sessionId,
-      frameId,
-    });
+    this.logger = logger.createChild(module);
+  }
+
+  public get(id: number): INavigation {
+    return this.historyById[id];
   }
 
   public didGotoUrl(url: string): boolean {
     return this.history.some(x => x.requestedUrl === url && x.navigationReason === 'goto');
+  }
+
+  public hasLoadStatus(status: ILoadStatus): boolean {
+    if (!this.top) return false;
+
+    const statuses = this.top.statusChanges;
+
+    if (statuses.has(status)) {
+      return true;
+    }
+
+    if (status === LoadStatus.JavascriptReady) {
+      return statuses.has(LoadStatus.AllContentLoaded) || this.top.finalUrl === 'about:blank';
+    }
+
+    if (status === LoadStatus.DomContentLoaded) {
+      return statuses.has(LoadStatus.DomContentLoaded) || statuses.has(LoadStatus.AllContentLoaded);
+    }
+
+    if (status === LoadStatus.PaintingStable) {
+      return this.getPaintStableStatus().isStable;
+    }
+
+    return false;
+  }
+
+  public getPaintStableStatus(): { isStable: boolean; timeUntilReadyMs?: number } {
+    const top = this.top;
+    if (!top) return { isStable: false };
+
+    // need to wait for both load + painting stable, or wait 3 seconds after either one
+    const loadDate = top.statusChanges.get(LoadStatus.AllContentLoaded);
+    const contentPaintedDate = top.statusChanges.get(ContentPaint);
+
+    if (contentPaintedDate) return { isStable: true };
+    if (!loadDate && !contentPaintedDate) return { isStable: false };
+
+    // NOTE: LargestContentfulPaint, which currently drives PaintingStable will NOT trigger if the page
+    // doesn't have any "contentful" items that are eligible (image, headers, divs, paragraphs that fill the page)
+
+    // have contentPaintedDate date, but no load
+    const timeUntilReadyMs = Date.now() - (contentPaintedDate ?? loadDate);
+    return {
+      isStable: timeUntilReadyMs >= 3e3,
+      timeUntilReadyMs: Math.min(3e3, 3e3 - timeUntilReadyMs),
+    };
   }
 
   public onNavigationRequested(
@@ -64,56 +100,83 @@ export default class FrameNavigations extends TypedEventEmitter<IFrameNavigation
     loaderId: string,
     browserRequestId?: string,
   ): INavigation {
-    const nextTop = <INavigation>{
-      requestedUrl: url,
-      finalUrl: null,
-      frameId: this.frameId,
-      loaderId,
-      startCommandId: commandId,
-      navigationReason: reason,
-      initiatedTime: new Date(),
-      stateChanges: new Map(),
-      resourceId: createPromise(),
-      browserRequestId,
-    };
+    let nextTop: INavigation;
+    if (this.currentUrl === url && this.top.loaderId === 'NO_LOADER_ASSIGNED') {
+      nextTop = this.top;
+      nextTop.loaderId = loaderId;
+      nextTop.browserRequestId = browserRequestId;
+    } else {
+      nextTop = <INavigation>{
+        id: (this.frame.page.browserContext.idTracker.navigationId += 1),
+        documentNavigationId: this.lastHttpNavigationRequest?.id,
+        tabId: this.frame.page.tabId,
+        requestedUrl: url,
+        finalUrl: null,
+        frameId: this.frame.frameId,
+        loaderId,
+        startCommandId: commandId,
+        navigationReason: reason,
+        initiatedTime: Date.now(),
+        statusChanges: new Map(),
+        resourceIdResolvable: createPromise(),
+        browserRequestId,
+      };
+      nextTop.resourceIdResolvable.promise
+        .then(this.resolveResourceId.bind(this, nextTop))
+        .catch(() => null);
+      this.history.push(nextTop);
+      this.historyById[nextTop.id] = nextTop;
+    }
     if (loaderId) this.historyByLoaderId[loaderId] = nextTop;
 
     this.checkStoredNavigationReason(nextTop, url);
+    if (this.initiatedUserAction) {
+      nextTop.navigationReason = this.initiatedUserAction.reason;
+      nextTop.startCommandId = this.initiatedUserAction.startCommandId;
+      this.initiatedUserAction = null;
+    }
 
-    const currentTop = this.top;
     let shouldPublishLocationChange = false;
     // if in-page, set the state to match current top
     if (reason === 'inPage') {
-      if (currentTop) {
-        if (url === currentTop.finalUrl) return;
-
-        for (const state of currentTop.stateChanges.keys()) {
-          if (isLoadState(state)) {
-            nextTop.stateChanges.set(state, new Date());
+      if (this.top?.finalUrl === url) return;
+      const lastHttpResponse = this.lastHttpNavigationRequest;
+      if (lastHttpResponse) {
+        for (const state of lastHttpResponse.statusChanges.keys()) {
+          if (isPageLoadedStatus(state)) {
+            nextTop.statusChanges.set(state, Date.now());
           }
         }
-        nextTop.resourceId.resolve(currentTop.resourceId.promise);
+        nextTop.resourceIdResolvable.resolve(lastHttpResponse.resourceIdResolvable.promise);
       } else {
-        nextTop.stateChanges.set(LoadStatus.Load, nextTop.initiatedTime);
-        nextTop.stateChanges.set(LoadStatus.ContentPaint, nextTop.initiatedTime);
-        nextTop.resourceId.resolve(-1);
+        nextTop.statusChanges.set(LoadStatus.AllContentLoaded, nextTop.initiatedTime);
+        nextTop.statusChanges.set(ContentPaint, nextTop.initiatedTime);
+        nextTop.resourceIdResolvable.resolve(-1);
       }
       shouldPublishLocationChange = true;
       nextTop.finalUrl = url;
     } else {
-      this.lastHttpNavigation = nextTop;
+      let isStillSameHttpPage = false;
+      if (nextTop.requestedUrl?.includes('#') && this.lastHttpNavigationRequest) {
+        const baseUrl = (
+          this.lastHttpNavigationRequest.finalUrl ?? this.lastHttpNavigationRequest.requestedUrl
+        ).split('#')[0];
+        isStillSameHttpPage = nextTop.requestedUrl.startsWith(baseUrl);
+      }
+      if (!isStillSameHttpPage) {
+        this.lastHttpNavigationRequest = nextTop;
+      }
     }
-    this.history.push(nextTop);
 
     this.emit('navigation-requested', nextTop);
-    this.captureNavigationUpdate(nextTop);
+    this.emit('change', { navigation: nextTop });
     if (shouldPublishLocationChange) {
       this.emit('status-change', {
         id: nextTop.id,
-        newStatus: LoadStatus.ContentPaint,
+        newStatus: ContentPaint,
         url,
         // @ts-ignore
-        stateChanges: Object.fromEntries(nextTop.stateChanges),
+        statusChanges: Object.fromEntries(nextTop.statusChanges),
       });
     }
     return nextTop;
@@ -152,42 +215,86 @@ export default class FrameNavigations extends TypedEventEmitter<IFrameNavigation
     }
     // if we already have this status at top level, this is a new nav
     else if (
-      top.stateChanges.has(LocationStatus.HttpRequested) === true &&
+      top.statusChanges.has(LoadStatus.HttpRequested) === true &&
       // add new entries for redirects
       (!this.historyByLoaderId[loaderId] || redirectedFromUrl)
     ) {
       this.onNavigationRequested(reason, url, lastCommandId, loaderId, browserRequestId);
     }
 
-    this.changeNavigationState(LocationStatus.HttpRequested, loaderId);
+    this.changeNavigationStatus(LoadStatus.HttpRequested, loaderId);
   }
 
-  public onHttpResponded(browserRequestId: string, url: string, loaderId: string): void {
+  public onDomPaintEvent(
+    event: IDomPaintEvent,
+    url: string,
+    timestamp: number,
+    didRetry = false,
+  ): void {
+    // only record the content paint
+    if (event === 'LargestContentfulPaint') {
+      this.onLoadStatusChanged(ContentPaint as any, url, null, timestamp);
+    } else if (event === 'FirstContentfulPaint') {
+      const contentPaintHistory = this.findMostRecentHistory(x => x.finalUrl === url);
+      if (contentPaintHistory?.statusChanges?.has(LoadStatus.JavascriptReady)) {
+        this.logger.warn('JavascriptReady received for navigation already ready', {
+          timestamp,
+          url,
+          contentPaintHistory,
+        });
+      } else if (contentPaintHistory) {
+        this.setPageReady(contentPaintHistory, timestamp);
+      } else if (!didRetry) {
+        setTimeout(() => this.onDomPaintEvent(event, url, timestamp, true), 100);
+      }
+    }
+  }
+
+  public adjustInPageLocationChangeTime(navigation: INavigation, timestamp: number): void {
+    navigation.initiatedTime = timestamp;
+    // if we already have dom content loaded, update to the new timestamp
+    if (navigation.statusChanges.has(LoadStatus.DomContentLoaded)) {
+      navigation.statusChanges.set(LoadStatus.DomContentLoaded, timestamp);
+      navigation.statusChanges.set(LoadStatus.AllContentLoaded, timestamp);
+    }
+  }
+
+  public setPageReady(navigation: INavigation, timestamp: number): void {
+    this.recordStatusChange(navigation, LoadStatus.JavascriptReady, timestamp);
+  }
+
+  public onHttpResponded(
+    browserRequestId: string,
+    url: string,
+    loaderId: string,
+    responseTime: number,
+  ): void {
     if (url === 'about:blank') return;
 
     const navigation = this.findMatchingNavigation(loaderId);
+    if (!navigation) {
+    }
     navigation.finalUrl = url;
 
-    this.recordStatusChange(navigation, LocationStatus.HttpResponded);
+    this.recordStatusChange(navigation, LoadStatus.HttpResponded, responseTime);
   }
 
   public doesMatchPending(
     browserRequestId: string,
     requestedUrl: string,
     finalUrl: string,
+    loaderId?: string,
   ): boolean {
-    const top = this.lastHttpNavigation;
-    if (!top || top.resourceId.isResolved) return false;
+    const top = this.lastHttpNavigationRequest;
+    if (!top || top.resourceIdResolvable.isResolved) return false;
+    if (loaderId && top.loaderId !== loaderId) return false;
+    if (browserRequestId && top.browserRequestId && browserRequestId !== top.browserRequestId)
+      return false;
 
     // hash won't be in the http request
     const frameRequestedUrl = top.requestedUrl?.split('#')?.shift();
 
-    if (
-      (top.finalUrl && finalUrl === top.finalUrl) ||
-      requestedUrl === top.requestedUrl ||
-      requestedUrl === frameRequestedUrl ||
-      browserRequestId === top.browserRequestId
-    ) {
+    if ((top.finalUrl && finalUrl === top.finalUrl) || requestedUrl === frameRequestedUrl) {
       return true;
     }
     return false;
@@ -200,35 +307,35 @@ export default class FrameNavigations extends TypedEventEmitter<IFrameNavigation
       error,
       currentUrl: this.currentUrl,
     });
-    const top = this.lastHttpNavigation;
-    if (!top || top.resourceId.isResolved) return;
+    const top = this.lastHttpNavigationRequest;
+
+    if (!top || top.resourceIdResolvable.isResolved) return;
 
     // since we don't know if there are listeners yet, we need to just set the error on the return value
     // otherwise, get unhandledrejections
     if (error) top.navigationError = error;
-
-    top.resourceId.resolve(resourceId);
+    top.resourceIdResolvable.resolve(resourceId);
   }
 
-  public onLoadStateChanged(
-    incomingStatus: LoadStatus.DomContentLoaded | LoadStatus.Load | LoadStatus.ContentPaint,
+  public onLoadStatusChanged(
+    incomingStatus:
+      | LoadStatus.DomContentLoaded
+      | LoadStatus.AllContentLoaded
+      | LoadStatus.PaintingStable,
     url: string,
     loaderId: string,
-    statusChangeDate?: Date,
+    statusChangeDate?: number,
   ): void {
     if (url === 'about:blank') return;
-    // if this is a painting stable, it probably won't come from a loader event for the page
+    // if this is a painting stable, it won't come from a loader event for the page
     if (!loaderId) {
-      for (let i = this.history.length - 1; i >= 0; i -= 1) {
-        const nav = this.history[i];
-        const isUrlMatch = nav.finalUrl === url || nav.requestedUrl === url;
-        if (isUrlMatch && nav.stateChanges.has(LoadStatus.HttpResponded)) {
-          loaderId = nav.loaderId;
-          break;
-        }
-      }
+      loaderId = this.findMostRecentHistory(
+        nav =>
+          (nav.finalUrl === url || nav.requestedUrl === url) &&
+          nav.statusChanges.has(LoadStatus.HttpResponded),
+      )?.loaderId;
     }
-    this.changeNavigationState(incomingStatus, loaderId, statusChangeDate);
+    this.changeNavigationStatus(incomingStatus, loaderId, statusChangeDate);
   }
 
   public updateNavigationReason(url: string, reason: NavigationReason): void {
@@ -239,24 +346,20 @@ export default class FrameNavigations extends TypedEventEmitter<IFrameNavigation
       (top.navigationReason === null || top.navigationReason === 'newFrame')
     ) {
       top.navigationReason = reason;
-      this.captureNavigationUpdate(top);
+      this.emit('change', { navigation: top });
     } else {
       this.nextNavigationReason = { url, reason };
     }
   }
 
-  public assignLoaderId(navigation: INavigation, loaderId: string, url?: string): void {
-    if (!loaderId) return;
-
+  public assignLoaderId(navigation: INavigation, loaderId: string): void {
+    if (!loaderId) {
+      navigation.loaderId = 'NO_LOADER_ASSIGNED';
+      return;
+    }
     this.historyByLoaderId[loaderId] ??= navigation;
     navigation.loaderId = loaderId;
-    if (
-      url &&
-      (navigation.navigationReason === 'goBack' || navigation.navigationReason === 'goForward')
-    ) {
-      navigation.requestedUrl = url;
-    }
-    this.captureNavigationUpdate(navigation);
+    this.emit('change', { navigation });
   }
 
   public getLastLoadedNavigation(): INavigation {
@@ -268,14 +371,21 @@ export default class FrameNavigations extends TypedEventEmitter<IFrameNavigation
         hasInPageNav = true;
         continue;
       }
-      if (!navigation.finalUrl || !navigation.stateChanges.has(LoadStatus.HttpResponded)) continue;
+      if (!navigation.finalUrl || !navigation.statusChanges.has(LoadStatus.HttpResponded)) continue;
 
-      // if we have an in-page nav, return the first non "inPage" url. Otherwise, use if DomContentLoaded was triggered
-      if (hasInPageNav || navigation.stateChanges.has(LoadStatus.DomContentLoaded)) {
+      // if we have an in-page nav, return the first non "inPage" url. Otherwise, use if we loaded html
+      if (hasInPageNav || navigation.statusChanges.has(LoadStatus.DomContentLoaded)) {
         return navigation;
       }
     }
     return this.top;
+  }
+
+  public findMostRecentHistory(callback: (history: INavigation) => boolean): INavigation {
+    for (let i = this.history.length - 1; i >= 0; i -= 1) {
+      const navigation = this.history[i];
+      if (callback(navigation)) return navigation;
+    }
   }
 
   private checkStoredNavigationReason(navigation: INavigation, url: string): void {
@@ -298,78 +408,72 @@ export default class FrameNavigations extends TypedEventEmitter<IFrameNavigation
     if (top.requestedUrl === requestedUrl && !top.finalUrl && !top.loaderId) {
       top.loaderId = loaderId;
       top.finalUrl = finalUrl;
-      this.recordStatusChange(top, LocationStatus.HttpRedirected);
+      this.recordStatusChange(top, LoadStatus.HttpRedirected);
       return top;
     }
 
     // find the right loader id
-    // NOTE: loop through history since loaderId is reused across requests in a redirect
-    for (let i = this.history.length - 1; i >= 0; i -= 1) {
-      const navigation = this.history[i];
-      if (navigation && navigation.loaderId === loaderId) {
-        if (
-          !navigation.stateChanges.has(LocationStatus.HttpRedirected) &&
-          navigation.requestedUrl === requestedUrl
-        ) {
-          navigation.finalUrl = finalUrl;
-          this.recordStatusChange(navigation, LocationStatus.HttpRedirected);
-          return navigation;
-        }
-      }
+    const navigation = this.findMostRecentHistory(
+      x =>
+        x.loaderId === loaderId &&
+        !x.statusChanges.has(LoadStatus.HttpRedirected) &&
+        x.requestedUrl === requestedUrl,
+    );
+    if (navigation) {
+      navigation.finalUrl = finalUrl;
+      this.recordStatusChange(navigation, LoadStatus.HttpRedirected);
+      return navigation;
     }
   }
 
-  private changeNavigationState(
-    newStatus: NavigationState,
+  private changeNavigationStatus(
+    newStatus: NavigationStatus,
     loaderId?: string,
-    statusChangeDate?: Date,
+    statusChangeDate?: number,
   ): void {
-    this.logger.info('FrameNavigations.changeNavigationState', {
-      newStatus,
-      loaderId,
-      statusChangeDate,
-    });
     const navigation = this.findMatchingNavigation(loaderId);
     if (!navigation) return;
     if (!navigation.loaderId && loaderId) {
       navigation.loaderId = loaderId;
       this.historyByLoaderId[loaderId] ??= navigation;
     }
-    if (navigation.stateChanges.has(newStatus)) {
-      if (statusChangeDate && statusChangeDate < navigation.stateChanges.get(newStatus)) {
-        navigation.stateChanges.set(newStatus, statusChangeDate);
+    if (navigation.statusChanges.has(newStatus)) {
+      if (statusChangeDate && statusChangeDate < navigation.statusChanges.get(newStatus)) {
+        navigation.statusChanges.set(newStatus, statusChangeDate);
       }
       return;
     }
+
     this.recordStatusChange(navigation, newStatus, statusChangeDate);
+  }
+
+  private resolveResourceId(navigation: INavigation, resourceId: number): void {
+    navigation.resourceId = resourceId;
+    this.emit('change', { navigation });
   }
 
   private recordStatusChange(
     navigation: INavigation,
-    newStatus: NavigationState,
-    statusChangeDate?: Date,
+    newStatus: NavigationStatus,
+    statusChangeDate?: number,
   ): void {
-    navigation.stateChanges.set(newStatus, statusChangeDate ?? new Date());
+    navigation.statusChanges.set(newStatus, statusChangeDate ?? Date.now());
 
     this.emit('status-change', {
       id: navigation.id,
       url: navigation.finalUrl ?? navigation.requestedUrl,
       // @ts-ignore - Typescript refuses to recognize this function
-      stateChanges: Object.fromEntries(navigation.stateChanges),
+      statusChanges: Object.fromEntries(navigation.statusChanges),
       newStatus,
     });
-    this.captureNavigationUpdate(navigation);
-  }
-
-  private captureNavigationUpdate(navigation: INavigation): void {
-    this.sessionState.recordNavigation(navigation);
+    this.emit('change', { navigation });
   }
 }
 
-function isLoadState(status: NavigationState): boolean {
+function isPageLoadedStatus(status: NavigationStatus): boolean {
   return (
-    status === LoadStatus.ContentPaint ||
-    status === LoadStatus.Load ||
+    status === ContentPaint ||
+    status === LoadStatus.AllContentLoaded ||
     status === LoadStatus.DomContentLoaded
   );
 }

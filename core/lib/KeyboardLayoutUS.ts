@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { IKeyboardKey } from '@secret-agent/interfaces/IKeyboardLayoutUS';
+import { IKeyboardKey } from '@bureau/interfaces/IKeyboardLayoutUS';
 
 export interface IKeyDefinition {
   keyCode?: number;

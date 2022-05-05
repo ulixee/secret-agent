@@ -1,25 +1,28 @@
 {
   "name": "@secret-agent/testing",
-  "version": "1.6.4",
+  "version": "2.0.0-alpha.1",
   "description": "Helpers and stubs for testing",
   "main": "index.js",
   "private": true,
   "engines": {
-    "node": ">=13.2.0"
+    "node": ">=14"
   },
   "dependencies": {
     "@koa/multer": "^3.0.0",
     "@koa/router": "^8.0.8",
-    "@secret-agent/commons": "1.6.4",
-    "@secret-agent/core": "1.6.4",
-    "@secret-agent/mitm-socket": "1.6.4",
+    "@ulixee/commons": "1.5.11",
+    "secret-agent": "2.0.0-alpha.1",
+    "@secret-agent/mitm-socket": "2.0.0-alpha.1",
+    "@bureau/interfaces": "2.0.0-alpha.1",
     "http-proxy-agent": "^4.0.1",
     "https-proxy-agent": "^5.0.0",
     "koa": "^2.11.0",
     "multer": "^1.4.2"
   },
   "devDependencies": {
+    "@ulixee/chrome-98-0": "^4758.102.4",
     "@types/koa": "^2.11.3",
+    "@types/node": "^14.17.9",
     "@types/koa__multer": "^2.0.2",
     "@types/koa__router": "^8.0.2"
   }

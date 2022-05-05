@@ -14,10 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { IMouseButton } from '@secret-agent/interfaces/IInteractions';
-import { IMouseOptions } from '@secret-agent/interfaces/IPuppetInput';
-import IPoint from '@secret-agent/interfaces/IPoint';
-import { DevtoolsSession } from './DevtoolsSession';
+import { IMouseButton } from '@bureau/interfaces/IInteractions';
+import { IMouseOptions } from '@bureau/interfaces/IInput';
+import IPoint from '@bureau/interfaces/IPoint';
+import DevtoolsSession from './DevtoolsSession';
 import { Keyboard } from './Keyboard';
 
 /**

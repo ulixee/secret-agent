@@ -1,13 +1,10 @@
-import { Helpers } from '@secret-agent/testing';
+import { Helpers, TestLogger } from '@secret-agent/testing';
 import * as http2 from 'http2';
+import { IncomingHttpHeaders, IncomingHttpStatusHeader } from 'http2';
 import { URL } from 'url';
 import MitmSocket from '@secret-agent/mitm-socket';
-import IResourceHeaders from '@secret-agent/interfaces/IResourceHeaders';
+import IHttpHeaders from '@bureau/interfaces/IHttpHeaders';
 import MitmSocketSession from '@secret-agent/mitm-socket/lib/MitmSocketSession';
-import BrowserEmulator from '@secret-agent/default-browser-emulator';
-import CorePlugins from '@secret-agent/core/lib/CorePlugins';
-import { IBoundLog } from '@secret-agent/interfaces/ILog';
-import Log from '@secret-agent/commons/Logger';
 import MitmServer from '../lib/MitmProxy';
 import RequestSession from '../handlers/RequestSession';
 import HttpRequestHandler from '../handlers/HttpRequestHandler';
@@ -15,10 +12,7 @@ import HeadersHandler from '../handlers/HeadersHandler';
 import MitmRequestContext from '../lib/MitmRequestContext';
 import { parseRawHeaders } from '../lib/Utils';
 import CacheHandler from '../handlers/CacheHandler';
-
-const { log } = Log(module);
-const browserEmulatorId = BrowserEmulator.id;
-const selectBrowserMeta = BrowserEmulator.selectBrowserMeta();
+import env from '../env';
 
 const mocks = {
   httpRequestHandler: {
@@ -40,8 +34,8 @@ beforeAll(() => {
   });
 });
 
-process.env.MITM_ALLOW_INSECURE = 'true';
 beforeEach(() => {
+  env.allowInsecure = true;
   mocks.httpRequestHandler.onRequest.mockClear();
   mocks.MitmRequestContext.create.mockClear();
 });
@@ -49,6 +43,7 @@ afterAll(Helpers.afterAll);
 afterEach(Helpers.afterEach);
 
 test('should be able to handle an http2->http2 request', async () => {
+  // eslint-disable-next-line prefer-const
   let headers: any;
   const server = await Helpers.runHttp2Server((req, res1) => {
     expect(
@@ -158,7 +153,7 @@ test('should support push streams', async () => {
 
   const client = await createH2Connection('push-streams', server.baseUrl);
   const pushRequestHeaders: {
-    [path: string]: { requestHeaders: IResourceHeaders; responseHeaders?: IResourceHeaders };
+    [path: string]: { requestHeaders: IHttpHeaders; responseHeaders?: IHttpHeaders };
   } = {};
   client.on('stream', (stream, headers1, flags, rawHeaders) => {
     const path = headers1[':path'];
@@ -184,13 +179,13 @@ test('should handle cache headers for h2', async () => {
   const etags: string[] = [];
   CacheHandler.isEnabled = true;
   Helpers.onClose(() => (CacheHandler.isEnabled = false));
-  const server = await Helpers.runHttp2Server((req, res1) => {
+  const server = await Helpers.runHttp2Server((req, res) => {
     if (req.headers[':path'] === '/cached') {
       etags.push(req.headers['if-none-match'] as string);
-      res1.setHeader('etag', '"46e2aa1bef425becb0cb4651c23fff38:1573670083.753497"');
-      return res1.end(Buffer.from(['a', 'c']));
+      res.setHeader('etag', '"46e2aa1bef425becb0cb4651c23fff38:1573670083.753497"');
+      return res.end('cached');
     }
-    return res1.end('bad data');
+    return res.end('bad data');
   });
 
   const client = await createH2Connection('cached-etag', server.baseUrl);
@@ -201,7 +196,10 @@ test('should handle cache headers for h2', async () => {
 
   const res2 = await client.request({ ':path': '/cached' });
   expect(res2).toBeTruthy();
-  await new Promise(resolve => res2.once('response', resolve));
+  const result = await new Promise<IncomingHttpHeaders & IncomingHttpStatusHeader>(resolve =>
+    res2.once('response', resolve),
+  );
+  expect(result[':status']).toBe(200);
   expect(etags[1]).toBe('"46e2aa1bef425becb0cb4651c23fff38:1573670083.753497"');
 
   const res3 = await client.request({ ':path': '/cached', 'if-none-match': 'etag2' });
@@ -237,13 +235,14 @@ async function createH2Connection(sessionIdPrefix: string, url: string) {
   const sessionId = session.sessionId;
   const proxyCredentials = session.getProxyCredentials();
   const proxyHost = `http://${proxyCredentials}@localhost:${mitmServer.port}`;
-  const mitmSocketSession = new MitmSocketSession(sessionId, {
+
+  const mitmSocketSession = new MitmSocketSession(session.logger, {
     clientHelloId: 'chrome-72',
     rejectUnauthorized: false,
   });
   Helpers.needsClosing.push(mitmSocketSession);
 
-  const tlsConnection = new MitmSocket(sessionId, {
+  const tlsConnection = new MitmSocket(sessionId, session.logger, {
     host: 'localhost',
     port: hostUrl.port,
     servername: 'localhost',
@@ -262,10 +261,12 @@ async function createH2Connection(sessionIdPrefix: string, url: string) {
 
 let sessionCounter = 0;
 function createSession(mitmProxy: MitmServer, sessionId = '') {
-  const plugins = new CorePlugins({ browserEmulatorId, selectBrowserMeta }, log as IBoundLog);
+  sessionCounter += 1;
+  TestLogger.testNumber = sessionCounter;
   const session = new RequestSession(
-    `${sessionId}${(sessionCounter += 1)}`,
-    plugins,
+    `${sessionId}${sessionCounter}`,
+    {},
+    TestLogger.forTest(module),
   );
   mitmProxy.registerSession(session, false);
   Helpers.needsClosing.push(session);

@@ -1,7 +1,7 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
-const { httpGet } = require('@secret-agent/commons/downloadFile');
+const { httpGet } = require('@ulixee/commons/lib/downloadFile');
 const { createHash } = require('crypto');
 const { gunzipSync } = require('zlib');
 const packageJson = require('./package.json');
@@ -37,24 +37,24 @@ const forceBuild = Boolean(JSON.parse(process.env.SA_REBUILD_MITM_SOCKET || 'fal
   if (!checksum) {
     if (tryBuild(programName)) {
       saveVersion();
-      console.log('Successfully compiled Secret Agent connect library');
+      console.log('Successfully compiled SecretAgent connect library');
       process.exit(0);
     }
 
     const goVersionNeeded = getGoVersionNeeded();
     console.log(
-      `The architecture file you need for the Secret Agent connect library is not available (${filepath}).\n\n
+      `The architecture file you need for the SecretAgent connect library is not available (${filepath}).\n\n
 You can install golang ${goVersionNeeded} (https://golang.org/) and run "go build" from the mitm-socket/go directory\n\n`,
     );
     process.exit(1);
   }
 
-  console.log('Downloading Secret Agent connect library from %s (checksum=%s)', filepath, checksum);
+  console.log('Downloading SecretAgent connect library from %s (checksum=%s)', filepath, checksum);
   const zippedFile = await download(filepath);
 
   const downloadedChecksum = getFileChecksum(zippedFile);
   if (downloadedChecksum !== checksum) {
-    console.log('WARN!! Checksum mismatch for the Secret Agent connect library', {
+    console.log('WARN!! Checksum mismatch for the SecretAgent connect library', {
       checksum,
       downloadedChecksum,
     });
@@ -124,7 +124,7 @@ function download(filepath) {
       if (res.statusCode >= 400) {
         return reject(
           new Error(
-            `ERROR downloading needed Secret Agent library - ${res.statusCode}:${res.statusMessage}`,
+            `ERROR downloading needed SecretAgent library - ${res.statusCode}:${res.statusMessage}`,
           ),
         );
       }
@@ -141,7 +141,7 @@ function download(filepath) {
       }
     });
     req.on('error', err => {
-      console.log('ERROR downloading needed Secret Agent library %s', filepath, err);
+      console.log('ERROR downloading needed SecretAgent library %s', filepath, err);
       reject(err);
     });
   });
@@ -162,7 +162,7 @@ async function getSourceChecksum(filename) {
   const expectedChecksum = match ? match.split(/\s+/).shift() : undefined;
 
   if (!expectedChecksum) {
-    throw new Error('Invalid checksum found for Secret Agent MitmSocket library');
+    throw new Error('Invalid checksum found for SecretAgent MitmSocket library');
   }
 
   return expectedChecksum;
@@ -176,7 +176,7 @@ function compile() {
     return true;
   } catch (err) {
     console.log(
-      'Error compiling Secret Agent MitmSocket library.\n\nWill download instead.',
+      'Error compiling SecretAgent MitmSocket library.\n\nWill download instead.',
       err.message,
     );
     return false;

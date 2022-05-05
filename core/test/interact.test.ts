@@ -1,27 +1,37 @@
-import { Helpers } from '@secret-agent/testing';
-import { InteractionCommand } from '@secret-agent/interfaces/IInteractions';
-import HumanEmulator from '@secret-agent/default-human-emulator';
-import { getLogo, ITestKoaServer } from '@secret-agent/testing/helpers';
-import Core, { Session } from '../index';
-import ConnectionToClient from '../server/ConnectionToClient';
+import { Helpers, TestLogger } from '@secret-agent/testing';
+import { InteractionCommand } from '@bureau/interfaces/IInteractions';
+import { ITestKoaServer } from '@secret-agent/testing/helpers';
+import { LoadStatus, LocationStatus } from '@bureau/interfaces/Location';
+import { Agent, Pool } from '../index';
+import IViewport from '@bureau/interfaces/IViewport';
+import { defaultBrowserEngine, PageHooks } from '@secret-agent/testing/browserUtils';
+import { IAgentCreateOptions } from '../lib/Agent';
 
 let koaServer: ITestKoaServer;
-let connection: ConnectionToClient;
+let pool: Pool;
 beforeAll(async () => {
-  connection = Core.addConnection();
-  await connection.connect();
-  Helpers.onClose(() => connection.disconnect(), true);
+  pool = new Pool({ defaultBrowserEngine });
+  Helpers.onClose(() => pool.close(), true);
+  await pool.start();
 
-  HumanEmulator.maxDelayBetweenInteractions = 0;
-  HumanEmulator.maxScrollDelayMillis = 0;
   koaServer = await Helpers.runKoaServer();
 });
+beforeEach(async () => {
+  TestLogger.testNumber += 1;
+});
+
 afterAll(Helpers.afterAll, 30e3);
 afterEach(Helpers.afterEach);
 
-const humanEmulatorId = HumanEmulator.id;
+async function createAgent(options?: { viewport: IViewport }): Promise<Agent> {
+  const agentOptions = new PageHooks(options) as Partial<IAgentCreateOptions>;
+  agentOptions.logger = TestLogger.forTest(module);
+  const agent = await pool.createAgent(agentOptions);
+  Helpers.needsClosing.push(agent);
+  return agent;
+}
 
-describe('%s interaction tests', () => {
+describe('basic interaction tests', () => {
   it('executes basic click command', async () => {
     koaServer.get('/mouse', ctx => {
       ctx.body = `
@@ -35,17 +45,16 @@ describe('%s interaction tests', () => {
       </body>
     `;
     });
-    const meta = await connection.createSession({ humanEmulatorId });
-    const session = Session.get(meta.sessionId);
-    Helpers.needsClosing.push(session);
-    const tab = Session.getTab(meta);
-    await tab.goto(`${koaServer.baseUrl}/mouse`);
 
-    const spy = jest.spyOn(session.plugins, 'playInteractions');
-    await tab.interact([
+    const agent = await createAgent();
+    const page = await agent.newPage();
+    await page.goto(`${koaServer.baseUrl}/mouse`);
+
+    const spy = jest.spyOn<any, any>(page.mainFrame.interactor, 'playAllInteractions');
+    await page.interact([
       {
         command: InteractionCommand.click,
-        mousePosition: ['window', 'document', ['querySelector', 'button']],
+        mousePosition: ['document', ['querySelector', 'button']],
       },
     ]);
 
@@ -55,9 +64,51 @@ describe('%s interaction tests', () => {
     expect(interactGroups[0]).toHaveLength(2);
     expect(interactGroups[0][0].command).toBe('scroll');
 
-    const buttonClass = await tab.execJsPath([
+    const buttonClass = await page.execJsPath([
       'document',
-      ['querySelector', 'button.clicked'],
+      ['querySelector', 'button'],
+      'classList',
+    ]);
+    expect(buttonClass.value).toStrictEqual({ 0: 'clicked' });
+  });
+
+  it('can click an XY coordinate off screen', async () => {
+    koaServer.get('/point', ctx => {
+      ctx.body = `<body>
+        <div>
+          <button style="margin-top:1500px">Test</button>
+        </div>
+        
+        <script>
+          document.querySelector('button').addEventListener('click', event => {
+            document.querySelector('button').classList.add('clicked');
+          });
+        </script>
+      </body>`;
+    });
+
+    const agent = await createAgent();
+    const page = await agent.newPage();
+    await page.goto(`${koaServer.baseUrl}/point`);
+    await page.waitForLoad(LoadStatus.AllContentLoaded);
+
+    const buttonRect = await page.mainFrame.jsPath.getClientRect([
+      'document',
+      ['querySelector', 'button'],
+    ]);
+
+    await expect(
+      page.interact([
+        {
+          command: InteractionCommand.click,
+          mousePosition: [buttonRect.value.x, buttonRect.value.y],
+        },
+      ]),
+    ).resolves.toBeUndefined();
+
+    const buttonClass = await page.execJsPath([
+      'document',
+      ['querySelector', 'button'],
       'classList',
     ]);
     expect(buttonClass.value).toStrictEqual({ 0: 'clicked' });
@@ -72,146 +123,72 @@ describe('%s interaction tests', () => {
       </body>
     `;
     });
-    const meta = await connection.createSession({ humanEmulatorId });
-    const session = Session.get(meta.sessionId);
-    Helpers.needsClosing.push(session);
-    const tab = Session.getTab(meta);
 
-    await tab.goto(`${koaServer.baseUrl}/input`);
-    await tab.execJsPath(['document', ['querySelector', 'input'], ['focus']]);
-    await tab.interact([
+    const agent = await createAgent();
+    const page = await agent.newPage();
+
+    await page.goto(`${koaServer.baseUrl}/input`);
+    await page.waitForLoad(LocationStatus.PaintingStable);
+    await page.execJsPath(['document', ['querySelector', 'input'], ['focus']]);
+    await page.interact([
       {
         command: InteractionCommand.type,
         keyboardCommands: [{ string: 'Hello world!' }],
       },
     ]);
-    const inputValue = await tab.execJsPath(['document', ['querySelector', 'input'], 'value']);
+    const inputValue = await page.execJsPath(['document', ['querySelector', 'input'], 'value']);
     expect(inputValue.value).toBe('Hello world!');
   });
 
-  it('should be able to click elements off screen', async () => {
-    koaServer.get('/longpage', ctx => {
-      ctx.body = `
-      <body>
-        <div style="height:500px">
-          <button id="button-1" onclick="click1(event)">Test</button>
-        </div>
-        <div style="margin-top:1100px; flex: content; justify-content: center">
-          <button id="button-2" onclick="click2()" style="width: 30px; height: 20px;">Test 2</button>
-        </div>
-        <div style="margin-top:2161px; float:right;clear:both: width:20px; height: 20px;">
-          <button id="button-3" onclick="click3()">Test 3</button>
-        </div>
-        <script>
-          let lastClicked = '';
-          function click1(ev) {
-            lastClicked = 'click1' + (ev.isTrusted ? '' : '!!untrusted');
-          }
-          function click2() {
-            lastClicked = 'click2';
-          }
-          function click3() {
-            lastClicked = 'click3';
-          }
-        </script>
-      </body>
-    `;
-    });
+  it('should throw an error if a node cannot be found', async () => {
+    const agent = await createAgent();
+    const page = await agent.newPage();
 
-    const meta = await connection.createSession({
-      humanEmulatorId,
-      viewport: {
-        width: 1920,
-        height: 1080,
-        screenWidth: 1920,
-        screenHeight: 1080,
-        positionX: 0,
-        positionY: 0,
-      },
-    });
-    const session = Session.get(meta.sessionId);
-    Helpers.needsClosing.push(session);
-    const tab = Session.getTab(meta);
-    await tab.goto(`${koaServer.baseUrl}/longpage`);
-
-    const click = async (selector: string) => {
-      await tab.interact([
+    await page.goto(`${koaServer.baseUrl}/`);
+    await expect(
+      page.interact([
         {
           command: InteractionCommand.click,
-          mousePosition: ['window', 'document', ['querySelector', selector]],
+          mousePosition: ['document', ['querySelector', 'not-there']],
         },
-      ]);
-      return await tab.getJsValue('lastClicked');
-    };
+      ]),
+    ).rejects.toThrow('Element does not exist');
+  });
 
-    let lastClicked = await click('#button-1');
-    expect(lastClicked).toBe('click1');
-
-    lastClicked = await click('#button-2');
-    expect(lastClicked).toBe('click2');
-
-    lastClicked = await click('#button-3');
-    expect(lastClicked).toBe('click3');
-
-    lastClicked = await click('#button-1');
-    expect(lastClicked).toBe('click1');
-  }, 60e3);
-
-  it('should be able to click elements that move on load', async () => {
-    koaServer.get('/img.png', async ctx => {
-      ctx.set('Content-Type', 'image/png');
-      await new Promise(resolve => setTimeout(resolve, 50));
-      ctx.body = getLogo();
-    });
-
-    // test putting next to an image that will only space after it loads
-    koaServer.get('/move-on-load', ctx => {
+  it('simulates clicking an option', async () => {
+    const agent = await createAgent();
+    const page = await agent.newPage();
+    koaServer.get('/click-option', ctx => {
       ctx.body = `
       <body>
-          <div style="height: 1800px"></div>
-          <div>
-            <img src="/img.png" />
-            <img src="/img.png?test=1" />
-            <img src="/img.png?test=3" />
-            <button onclick="clickit()" id="button-1">Click me</button>
+        <div style="margin-top:1500px">
+          <select onchange="changed()" >
+            <option id="option1">1</option>
+            <option id="option2">2</option>
+          </select>
         </div>
         <script>
-
-          let lastClicked = '';
-          function clickit() {
-            lastClicked = 'clickedit';
+          let didChangeOption = false;
+          function changed() {
+            didChangeOption = true;
           }
         </script>
       </body>
     `;
     });
 
-    const meta = await connection.createSession({ humanEmulatorId });
-    const session = Session.get(meta.sessionId);
-    Helpers.needsClosing.push(session);
+    await page.goto(`${koaServer.baseUrl}/click-option`);
+    await page.waitForLoad(LoadStatus.DomContentLoaded);
+    await expect(
+      page.interact([
+        {
+          command: InteractionCommand.click,
+          mousePosition: ['document', ['querySelector', '#option1']],
+        },
+      ]),
+    ).resolves.toBeUndefined();
 
-    const tab = Session.getTab(meta);
-    // @ts-ignore
-    const interactor = tab.mainFrameEnvironment.interactor;
-    // @ts-ignore
-    const originalFn = interactor.lookupBoundingRect.bind(interactor);
-    const lookupSpy = jest.spyOn(interactor, 'lookupBoundingRect');
-    lookupSpy.mockImplementationOnce(async mousePosition => {
-      const data = await originalFn(mousePosition);
-      data.y -= 500;
-      return data;
-    });
-
-    await tab.goto(`${koaServer.baseUrl}/move-on-load`);
-    await tab.interact([
-      {
-        command: InteractionCommand.click,
-        mousePosition: ['window', 'document', ['querySelector', '#button-1']],
-      },
-    ]);
-    expect(lookupSpy.mock.calls.length).toBeGreaterThanOrEqual(2);
-    const lastClicked = await tab.getJsValue('lastClicked');
-    expect(lastClicked).toBe('clickedit');
+    await expect(page.evaluate<boolean>('didChangeOption')).resolves.toEqual(true);
   });
 
   it('should cancel pending interactions after a page clears', async () => {
@@ -223,26 +200,37 @@ describe('%s interaction tests', () => {
         <script>
             document.addEventListener('mousemove', () => {
                window.location = '${koaServer.baseUrl}/';
-            })
+            }, { once: true })
         </script>
       </body>
     `;
     });
-    const meta = await connection.createSession({ humanEmulatorId });
-    const session = Session.get(meta.sessionId);
-    Helpers.needsClosing.push(session);
-    const tab = Session.getTab(meta);
-    await tab.goto(`${koaServer.baseUrl}/redirect-on-move`);
-    await tab.waitForLoad('DomContentLoaded');
-    await tab.interact([
+
+    const agent = await createAgent();
+    const page = await agent.newPage();
+    await page.goto(`${koaServer.baseUrl}/redirect-on-move`);
+    await page.waitForLoad('DomContentLoaded');
+    await page.interact([
+      {
+        command: 'move',
+        mousePosition: [1, 10],
+      },
+      {
+        command: 'move',
+        mousePosition: [3, 10],
+      },
+      {
+        command: 'move',
+        mousePosition: [4, 10],
+      },
       {
         command: InteractionCommand.click,
         mousePosition: ['window', 'document', ['querySelector', '#button-1']],
       },
     ]);
 
-    await tab.waitForLocation('change');
-    const url = await tab.url;
+    await page.mainFrame.waitForLocation('change');
+    const url = page.mainFrame.url;
     expect(url).toBe(`${koaServer.baseUrl}/`);
   });
 });

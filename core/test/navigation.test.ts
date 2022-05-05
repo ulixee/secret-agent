@@ -1,30 +1,29 @@
 import * as Fs from 'fs';
-import { Helpers } from '@secret-agent/testing';
-import { LocationStatus, LocationTrigger } from '@secret-agent/interfaces/Location';
-import { InteractionCommand } from '@secret-agent/interfaces/IInteractions';
+import { BrowserUtils, Helpers, TestLogger } from '@secret-agent/testing';
+import { LoadStatus, LocationStatus, LocationTrigger } from '@bureau/interfaces/Location';
+import { InteractionCommand } from '@bureau/interfaces/IInteractions';
 import { getLogo, ITestKoaServer } from '@secret-agent/testing/helpers';
-import ISessionCreateOptions from '@secret-agent/interfaces/ISessionCreateOptions';
-import HumanEmulator from '@secret-agent/plugin-utils/lib/HumanEmulator';
-import Core, { Tab } from '../index';
-import ConnectionToClient from '../server/ConnectionToClient';
-import Session from '../lib/Session';
+import { ContentPaint } from '@bureau/interfaces/INavigation';
 import FrameNavigationsObserver from '../lib/FrameNavigationsObserver';
-import CoreServer from '../server';
+import { Agent, Page, Pool } from '../index';
 
 let koaServer: ITestKoaServer;
-let connectionToClient: ConnectionToClient;
+let pool: Pool;
+
+async function createAgent(): Promise<{ agent: Agent; page: Page }> {
+  const agent = await pool.createAgent({ logger: TestLogger.forTest(module) });
+  const page = await agent.newPage();
+  Helpers.needsClosing.push(agent);
+  return { agent: agent, page };
+}
+
+beforeEach(() => {
+  TestLogger.testNumber += 1;
+});
 beforeAll(async () => {
-  const coreServer = new CoreServer();
-  Helpers.needsClosing.push(coreServer);
-  await coreServer.listen({ port: 0 });
-  Core.use(
-    class BasicHumanEmulator extends HumanEmulator {
-      static id = 'basic';
-    },
-  );
-  connectionToClient = Core.addConnection();
-  await connectionToClient.connect();
-  Helpers.onClose(() => connectionToClient.disconnect(), true);
+  pool = new Pool({ defaultBrowserEngine: BrowserUtils.defaultBrowserEngine });
+  await pool.start();
+  Helpers.onClose(() => pool.close(), true);
   koaServer = await Helpers.runKoaServer();
 });
 
@@ -34,9 +33,9 @@ afterEach(Helpers.afterEach);
 describe('basic Navigation tests', () => {
   it('handles unformatted urls', async () => {
     const unformattedUrl = koaServer.baseUrl;
-    const { tab } = await createSession();
-    await tab.goto(unformattedUrl);
-    const formattedUrl = await tab.getLocationHref();
+    const { page } = await createAgent();
+    await page.goto(unformattedUrl);
+    const formattedUrl = page.mainFrame.url;
 
     expect(formattedUrl).toBe(`${unformattedUrl}/`);
   });
@@ -45,16 +44,17 @@ describe('basic Navigation tests', () => {
     koaServer.get('/hash', ctx => {
       ctx.body = 'done';
     });
-    const { tab } = await createSession();
-    await expect(tab.goto(`${koaServer.baseUrl}/hash#hash`)).resolves.toBeTruthy();
+    const { page } = await createAgent();
+    await expect(page.goto(`${koaServer.baseUrl}/hash#hash`)).resolves.toBeTruthy();
   });
 
   it('works without explicit waitForLocation', async () => {
-    const { tab } = await createSession();
-    await tab.goto(koaServer.baseUrl);
+    const { page } = await createAgent();
+    await page.goto(koaServer.baseUrl);
+    await page.waitForLoad(LocationStatus.PaintingStable);
 
-    const elem = await tab.execJsPath(['document', ['querySelector', 'a'], 'nodeName']);
-    const hrefAttribute = await tab.execJsPath(['document', ['querySelector', 'a'], 'href']);
+    const elem = await page.execJsPath(['document', ['querySelector', 'a'], 'nodeName']);
+    const hrefAttribute = await page.execJsPath(['document', ['querySelector', 'a'], 'href']);
     expect(elem.value).toBe('A');
     expect(hrefAttribute.value).toBe('https://www.iana.org/domains/example');
   });
@@ -68,8 +68,8 @@ describe('basic Navigation tests', () => {
       });
       ctx.body = 'done';
     });
-    const { tab } = await createSession();
-    await expect(tab.goto(startingUrl, 100)).rejects.toThrowError('Timeout');
+    const { page } = await createAgent();
+    await expect(page.goto(startingUrl, { timeoutMs: 100 })).rejects.toThrowError('Timeout');
     timeoutResolve();
   });
 
@@ -88,19 +88,19 @@ describe('basic Navigation tests', () => {
       ctx.set('Last-Modified', `Sat, 03 Jul 2010 14:59:53 GMT`);
       ctx.body = await getLogo();
     });
-    const { tab } = await createSession();
+    const { page } = await createAgent();
 
     for (let i = 0; i < 10; i += 1) {
-      await tab.goto(startingUrl);
-      await tab.waitForLoad('PaintingStable');
-      const hrefAttribute = await tab.execJsPath(['document', ['querySelector', 'a'], 'href']);
+      await page.goto(startingUrl);
+      await page.waitForLoad('PaintingStable');
+      const hrefAttribute = await page.execJsPath(['document', ['querySelector', 'a'], 'href']);
       expect(hrefAttribute.value).toBe(`${koaServer.baseUrl}/etagPage`);
     }
 
     // need to give the last image a second to show that it loaded from cache
     await new Promise(resolve => setTimeout(resolve, 100));
 
-    const resources = tab.sessionState.getResources(tab.id);
+    const resources = page.browserContext.resources.getForTab(page.tabId);
     expect(resources).toHaveLength(20);
   });
 
@@ -123,19 +123,19 @@ describe('basic Navigation tests', () => {
   </script>
   </body></html>`;
     });
-    const { tab } = await createSession();
+    const { page } = await createAgent();
 
     for (let i = 0; i < 15; i += 1) {
-      await tab.goto(startingUrl);
-      await tab.waitForLoad('PaintingStable');
-      const hrefAttribute = await tab.execJsPath(['document', ['querySelector', 'a'], 'href']);
+      await page.goto(startingUrl);
+      await page.waitForLoad('PaintingStable');
+      const hrefAttribute = await page.execJsPath(['document', ['querySelector', 'a'], 'href']);
       expect(hrefAttribute.value).toBe(`${koaServer.baseUrl}/etagPage`);
     }
   });
 
   it('handles page reloading itself', async () => {
     const startingUrl = `${koaServer.baseUrl}/reload`;
-    const { tab } = await createSession();
+    const { page } = await createAgent();
 
     let hasReloaded = false;
     koaServer.get('/reload', ctx => {
@@ -147,17 +147,18 @@ describe('basic Navigation tests', () => {
       }
     });
 
-    await tab.goto(startingUrl);
-    await tab.waitForLocation(LocationTrigger.reload);
+    await page.goto(startingUrl);
+    await page.mainFrame.waitForLocation(LocationTrigger.reload);
+    await page.waitForLoad(LocationStatus.PaintingStable);
 
-    const text = await tab.execJsPath(['document', 'body', 'textContent']);
+    const text = await page.execJsPath(['document', 'body', 'textContent']);
 
     expect(text.value).toBe('Reloaded');
   });
 
   it('can reload a page', async () => {
     const startingUrl = `${koaServer.baseUrl}/pagex`;
-    const { tab } = await createSession();
+    const { page } = await createAgent();
 
     let counter = 0;
     koaServer.get('/pagex', ctx => {
@@ -169,90 +170,96 @@ describe('basic Navigation tests', () => {
       counter += 1;
     });
 
-    const gotoResource = await tab.goto(startingUrl);
-    await tab.waitForLoad(LocationStatus.PaintingStable);
+    const gotoResource = await page.goto(startingUrl);
+    await page.waitForLoad(LocationStatus.PaintingStable);
 
-    const text = await tab.execJsPath(['document', 'body', 'textContent']);
+    const text = await page.execJsPath(['document', 'body', 'textContent']);
     expect(text.value).toBe('First Load');
 
-    const reloadResource = await tab.reload();
-    const text2 = await tab.execJsPath(['document', 'body', 'textContent']);
+    const reloadResource = await page.reload();
+    const navigation = await page.waitForLoad(LocationStatus.PaintingStable);
+    expect(navigation.navigationReason).toBe('reload');
+    const text2 = await page.execJsPath(['document', 'body', 'textContent']);
     expect(text2.value).toBe('Second Load');
     expect(reloadResource.id).not.toBe(gotoResource.id);
     expect(reloadResource.url).toBe(gotoResource.url);
 
-    await tab.waitForLoad(LocationStatus.PaintingStable);
+    await page.waitForLoad(LocationStatus.PaintingStable);
   });
 
   it('can go back and forward', async () => {
-    const { tab } = await createSession();
+    const { page } = await createAgent();
 
     koaServer.get('/backAndForth', ctx => {
       ctx.body = `<html><body><h1>Page 2</h1></body></html>`;
     });
 
-    await tab.goto(`${koaServer.baseUrl}/`);
+    await page.goto(`${koaServer.baseUrl}/`);
 
-    expect(await tab.getLocationHref()).toBe(`${koaServer.baseUrl}/`);
+    expect(page.mainFrame.url).toBe(`${koaServer.baseUrl}/`);
 
-    await tab.goto(`${koaServer.baseUrl}/backAndForth`);
-    expect(await tab.getLocationHref()).toBe(`${koaServer.baseUrl}/backAndForth`);
+    await page.goto(`${koaServer.baseUrl}/backAndForth`);
+    await page.waitForLoad('PaintingStable');
+    expect(page.mainFrame.url).toBe(`${koaServer.baseUrl}/backAndForth`);
 
-    const pages = tab.navigations;
+    const pages = page.mainFrame.navigations;
     expect(pages.history).toHaveLength(2);
     expect(pages.currentUrl).toBe(`${koaServer.baseUrl}/backAndForth`);
 
-    await tab.goBack();
+    await page.goBack();
+    expect(pages.top.navigationReason).toBe('goBack');
+    expect(pages.top.statusChanges.has('ContentPaint')).toBe(true);
     expect(pages.history).toHaveLength(3);
     expect(pages.currentUrl).toBe(`${koaServer.baseUrl}/`);
 
-    await tab.goForward();
+    await page.goForward();
+    expect(pages.top.navigationReason).toBe('goForward');
+    expect(pages.top.statusChanges.has('ContentPaint')).toBe(true);
     expect(pages.history).toHaveLength(4);
-    expect(pages.top.stateChanges.has('Load') || pages.top.stateChanges.has('ContentPaint')).toBe(
-      true,
-    );
+    expect(
+      pages.top.statusChanges.has(LoadStatus.AllContentLoaded) ||
+        pages.top.statusChanges.has(ContentPaint),
+    ).toBe(true);
     expect(pages.currentUrl).toBe(`${koaServer.baseUrl}/backAndForth`);
   });
 
   it('handles page that navigates to another url', async () => {
     const startingUrl = `${koaServer.baseUrl}/navigate`;
     const navigateToUrl = `${koaServer.baseUrl}/`;
-    const { tab } = await createSession();
+    const { page } = await createAgent();
 
     koaServer.get('/navigate', ctx => {
       ctx.body = `<body><script>window.location = '${navigateToUrl}'</script></body>`;
     });
 
-    await tab.goto(startingUrl);
-    await tab.waitForLocation(LocationTrigger.change);
+    await page.goto(startingUrl);
+    const result = await page.mainFrame.waitForLocation(LocationTrigger.change);
 
-    const currentUrl = await tab.getLocationHref();
-
-    expect(currentUrl).toBe(navigateToUrl);
+    expect(result.finalUrl).toBe(navigateToUrl);
   });
 
   it('handles submitting a form', async () => {
     const startingUrl = `${koaServer.baseUrl}/form`;
     const navigateToUrl = `${koaServer.baseUrl}/`;
-    const { tab } = await createSession();
+    const { page } = await createAgent();
 
     koaServer.get('/form', ctx => {
       ctx.body = `<body><form action="${navigateToUrl}" method="post"><input type="submit" id="button"></form></body>`;
     });
 
-    await tab.goto(startingUrl);
+    await page.goto(startingUrl);
 
-    await tab.waitForLoad(LocationStatus.PaintingStable);
-    await tab.interact([
+    await page.waitForLoad(LocationStatus.PaintingStable);
+    await page.interact([
       {
         command: InteractionCommand.click,
         mousePosition: ['window', 'document', ['querySelector', '#button']],
       },
     ]);
 
-    await tab.waitForLocation(LocationTrigger.change);
+    const result = await page.mainFrame.waitForLocation(LocationTrigger.change);
 
-    const currentUrl = await tab.getLocationHref();
+    const currentUrl = result.finalUrl;
 
     expect(currentUrl).toBe(navigateToUrl);
   }, 60e3);
@@ -260,25 +267,25 @@ describe('basic Navigation tests', () => {
   it('handles navigation via link clicks', async () => {
     const startingUrl = `${koaServer.baseUrl}/click`;
     const navigateToUrl = `${koaServer.baseUrl}/`;
-    const { tab } = await createSession();
+    const { page } = await createAgent();
 
     koaServer.get('/click', ctx => {
       ctx.body = `<body><a href='${navigateToUrl}'>Clicker</a></body>`;
     });
 
-    await tab.goto(startingUrl);
+    await page.goto(startingUrl);
 
-    await tab.waitForLoad(LocationStatus.PaintingStable);
-    await tab.interact([
+    await page.waitForLoad(LocationStatus.PaintingStable);
+    await page.interact([
       {
         command: InteractionCommand.click,
         mousePosition: ['window', 'document', ['querySelector', 'a']],
       },
     ]);
 
-    await tab.waitForLocation(LocationTrigger.change);
+    const result = await page.mainFrame.waitForLocation(LocationTrigger.change);
 
-    const currentUrl = await tab.getLocationHref();
+    const currentUrl = result.finalUrl;
 
     expect(currentUrl).toBe(navigateToUrl);
   });
@@ -286,7 +293,7 @@ describe('basic Navigation tests', () => {
   it('handles an in-page navigation change', async () => {
     const startingUrl = `${koaServer.baseUrl}/inpage`;
     const navigateToUrl = `${koaServer.baseUrl}/inpage#location2`;
-    const { tab } = await createSession();
+    const { page } = await createAgent();
 
     koaServer.get('/inpage', ctx => {
       ctx.body = `<body>
@@ -299,30 +306,66 @@ describe('basic Navigation tests', () => {
 </body>`;
     });
 
-    await tab.goto(startingUrl);
+    await page.goto(startingUrl);
 
-    await tab.waitForLoad(LocationStatus.PaintingStable);
-    await tab.interact([
+    await page.waitForLoad(LocationStatus.PaintingStable);
+    await page.interact([
       {
         command: InteractionCommand.click,
         mousePosition: ['window', 'document', ['querySelector', 'a']],
       },
     ]);
 
-    await tab.waitForLocation(LocationTrigger.change);
+    const result = await page.mainFrame.waitForLocation(LocationTrigger.change);
 
-    const currentUrl = await tab.getLocationHref();
+    const currentUrl = result.finalUrl;
 
     expect(currentUrl).toBe(navigateToUrl);
 
-    const pages = tab.navigations;
+    const pages = page.mainFrame.navigations;
     expect(pages.history).toHaveLength(2);
+  });
+
+  it('handles an in-page navigation back', async () => {
+    const startingUrl = `${koaServer.baseUrl}/inpage-back`;
+    const navigateToUrl = `${koaServer.baseUrl}/inpage-back#location2`;
+    const { page } = await createAgent();
+
+    koaServer.get('/inpage-back', ctx => {
+      ctx.body = `<body>
+<a href='#location2'>Clicker</a>
+
+<div id="location2">
+    <h2>Destination</h2>
+</div>
+
+</body>`;
+    });
+
+    await page.goto(startingUrl);
+
+    await page.waitForLoad(LocationStatus.PaintingStable);
+    await page.interact([
+      {
+        command: InteractionCommand.click,
+        mousePosition: ['window', 'document', ['querySelector', 'a']],
+      },
+    ]);
+
+    await expect(page.mainFrame.waitForLocation(LocationTrigger.change)).resolves.toBeTruthy();
+    await expect(page.waitForLoad('DomContentLoaded')).resolves.toBeTruthy();
+    expect(page.mainFrame.url).toBe(navigateToUrl);
+    await expect(page.goBack()).resolves.toBeTruthy();
+    expect(page.mainFrame.url).toBe(startingUrl);
+    expect(page.mainFrame.navigations.top.navigationReason).toBe('goBack');
+    expect(page.mainFrame.navigations.history).toHaveLength(3);
+    expect(page.mainFrame.navigations.top.statusChanges.has('DomContentLoaded')).toBe(true);
   });
 
   it('handles an in-page navigation change that happens before page load', async () => {
     const startingUrl = `${koaServer.baseUrl}/instant-hash`;
     const navigateToUrl = `${koaServer.baseUrl}/instant-hash#id=12343`;
-    const { tab } = await createSession();
+    const { page } = await createAgent();
 
     koaServer.get('/instant-hash', ctx => {
       ctx.body = `<body>
@@ -337,29 +380,28 @@ setTimeout(function() {
 </body>`;
     });
 
-    await tab.goto(startingUrl);
+    await page.goto(startingUrl);
 
-    await tab.waitForLoad(LocationStatus.PaintingStable);
-    await tab.waitForMillis(50);
+    await page.waitForLoad(LocationStatus.PaintingStable);
+    await new Promise(resolve => setTimeout(resolve, 50));
 
-    const pages = tab.navigations;
+    const pages = page.mainFrame.navigations;
     expect(pages.history).toHaveLength(3);
-    expect(pages.history[0].stateChanges.has('DomContentLoaded')).toBe(true);
-    expect(pages.history[1].stateChanges.has('DomContentLoaded')).toBe(true);
-
+    expect(pages.history[0].statusChanges.has('DomContentLoaded')).toBe(true);
+    expect(pages.history[1].statusChanges.has('DomContentLoaded')).toBe(true);
     expect(pages.history.map(x => x.finalUrl ?? x.requestedUrl)).toStrictEqual([
       startingUrl,
       navigateToUrl,
       startingUrl,
     ]);
 
-    const currentUrl = await tab.getLocationHref();
+    const currentUrl = page.mainFrame.url;
     expect(currentUrl).toBe(pages.top.finalUrl);
   });
 
   it('handles in-page history change that happens before page load', async () => {
     const navigateToUrl = `${koaServer.baseUrl}/inpagenav/1`;
-    const { tab } = await createSession();
+    const { page } = await createAgent();
 
     koaServer.get('/inpagenav', ctx => {
       ctx.body = `<body><script>
@@ -368,80 +410,79 @@ history.pushState({}, '', '/inpagenav/1');
 </body>`;
     });
 
-    await tab.goto(`${koaServer.baseUrl}/inpagenav`);
-    await tab.waitForLoad(LocationStatus.PaintingStable);
+    await page.goto(`${koaServer.baseUrl}/inpagenav`);
+    await page.waitForLoad(LocationStatus.PaintingStable);
 
-    const currentUrl = await tab.getLocationHref();
+    const currentUrl = page.mainFrame.url;
 
     expect(currentUrl).toBe(navigateToUrl);
-    const pages = tab.navigations;
+    const pages = page.mainFrame.navigations;
     expect(pages.history).toHaveLength(2);
-    expect(pages.history[0].stateChanges.has('DomContentLoaded')).toBe(true);
-    expect(pages.history[1].stateChanges.has('DomContentLoaded')).toBe(true);
+    expect(pages.history[0].statusChanges.has('DomContentLoaded')).toBe(true);
+    expect(pages.history[1].statusChanges.has('DomContentLoaded')).toBe(true);
   });
 
   it.todo('handles going to about:blank');
 
-  it('can wait for another tab', async () => {
+  it('can wait for another page', async () => {
     let userAgentString1: string;
     let userAgentString2: string;
-    koaServer.get('/tabTest', ctx => {
+    koaServer.get('/newPageTest', ctx => {
       userAgentString1 = ctx.get('user-agent');
       ctx.body = `<body>
-<a target="_blank" href="/tabTestDest">Nothing really here</a>
+<a target="_blank" href="/newPageTestDest">Nothing really here</a>
 </body>`;
     });
-    koaServer.get('/tabTestDest', ctx => {
+    koaServer.get('/newPageTestDest', ctx => {
       userAgentString2 = ctx.get('user-agent');
-      ctx.body = `<body><h1 id="newTabHeader">You are here</h1></body>`;
+      ctx.body = `<body><h1 id="newPageHeader">You are here</h1></body>`;
     });
-    const { tab } = await createSession();
-    await tab.goto(`${koaServer.baseUrl}/tabTest`);
-    await tab.interact([
+    const { page } = await createAgent();
+    await page.goto(`${koaServer.baseUrl}/newPageTest`);
+    await page.waitForLoad('PaintingStable');
+    await page.interact([
       {
         command: InteractionCommand.click,
         mousePosition: ['window', 'document', ['querySelector', 'a']],
       },
     ]);
 
-    const session = tab.session;
-
-    const newTab = await tab.waitForNewTab();
-    expect(session.tabsById.size).toBe(2);
-    await newTab.waitForLoad('PaintingStable');
-    const header = await newTab.execJsPath([
+    const newPage = await waitForPopup(page);
+    expect(page.browserContext.pagesById.size).toBe(2);
+    await newPage.waitForLoad('PaintingStable');
+    const header = await newPage.execJsPath([
       'document',
-      ['querySelector', '#newTabHeader'],
+      ['querySelector', '#newPageHeader'],
       'textContent',
     ]);
     expect(header.value).toBe('You are here');
     expect(userAgentString1).toBe(userAgentString2);
-    await newTab.close();
+    await newPage.close();
   });
 
-  it('should not trigger location change for first navigation of new tabs', async () => {
-    const { tab } = await createSession();
+  it('should not trigger location change for first navigation of new pages', async () => {
+    const { page } = await createAgent();
 
-    koaServer.get('/newTab', ctx => {
+    koaServer.get('/newPage', ctx => {
       ctx.body = `<body><h1>Loaded</h1></body>`;
     });
-    koaServer.get('/newTabPrompt', ctx => {
-      ctx.body = `<body><a href='${koaServer.baseUrl}/newTab' target="_blank">Popup</a></body>`;
+    koaServer.get('/newPagePrompt', ctx => {
+      ctx.body = `<body><a href='${koaServer.baseUrl}/newPage' target="_blank">Popup</a></body>`;
     });
 
-    await tab.goto(`${koaServer.baseUrl}/newTabPrompt`);
-    await tab.interact([
+    await page.goto(`${koaServer.baseUrl}/newPagePrompt`);
+    await page.interact([
       {
         command: InteractionCommand.click,
         mousePosition: ['window', 'document', ['querySelector', 'a']],
       },
     ]);
 
-    const spy = jest.spyOn<any, any>(FrameNavigationsObserver.prototype, 'resolvePendingStatus');
+    const spy = jest.spyOn<any, any>(FrameNavigationsObserver.prototype, 'resolvePendingTrigger');
 
     // clear data before this run
-    const popupTab = await tab.waitForNewTab();
-    await popupTab.waitForLoad(LocationStatus.PaintingStable);
+    const popupPage = await waitForPopup(page);
+    await popupPage.mainFrame.waitForLoad({ loadStatus: LocationStatus.PaintingStable });
 
     // can sometimes call for paint event
     if (spy.mock.calls.length === 1) {
@@ -452,8 +493,8 @@ history.pushState({}, '', '/inpagenav/1');
     }
   });
 
-  it('handles a new tab that redirects', async () => {
-    const { tab } = await createSession();
+  it('handles a new page that redirects', async () => {
+    const { page } = await createAgent();
 
     koaServer.get('/popup-redirect', async ctx => {
       await new Promise(resolve => setTimeout(resolve, 25));
@@ -485,9 +526,9 @@ perfObserver.observe({ type: 'largest-contentful-paint', buffered: true });
       ctx.body = `<body><a href='${koaServer.baseUrl}/popup' target="_blank">Popup</a></body>`;
     });
 
-    await tab.goto(`${koaServer.baseUrl}/popup-start`);
-    await tab.waitForLoad(LocationStatus.PaintingStable);
-    await tab.interact([
+    await page.goto(`${koaServer.baseUrl}/popup-start`);
+    await page.waitForLoad(LocationStatus.PaintingStable);
+    await page.interact([
       {
         command: InteractionCommand.click,
         mousePosition: ['window', 'document', ['querySelector', 'a']],
@@ -495,19 +536,17 @@ perfObserver.observe({ type: 'largest-contentful-paint', buffered: true });
     ]);
 
     // clear data before this run
-    const popupTab = await tab.waitForNewTab();
-    expect(popupTab.url).toBe(`${koaServer.baseUrl}/popup-redirect3`);
-    const lastCommandId = popupTab.lastCommandId;
-    await popupTab.waitForLoad(LocationStatus.PaintingStable);
-    if (popupTab.url !== `${koaServer.baseUrl}/popup-done`) {
-      await popupTab.waitForLocation('change', { sinceCommandId: lastCommandId });
-      await popupTab.waitForLoad(LocationStatus.DomContentLoaded);
+    const popupPage = await waitForPopup(page);
+    await popupPage.waitForLoad(LocationStatus.PaintingStable);
+    const commandId = popupPage.browserContext.commandMarker.lastId;
+    // if we're on serious delay, need to wait for change
+    if (popupPage.mainFrame.url !== `${koaServer.baseUrl}/popup-done`) {
+      await popupPage.mainFrame.waitForLocation('change', { sinceCommandId: commandId });
+      await popupPage.waitForLoad(LocationStatus.DomContentLoaded);
     }
-    expect(popupTab.url).toBe(`${koaServer.baseUrl}/popup-done`);
+    expect(popupPage.mainFrame.url).toBe(`${koaServer.baseUrl}/popup-done`);
 
-    tab.sessionState.db.flush();
-
-    const history = popupTab.navigations.history;
+    const history = popupPage.mainFrame.navigations.history;
     expect(history).toHaveLength(5);
     expect(history.map(x => x.requestedUrl)).toStrictEqual([
       `${koaServer.baseUrl}/popup`,
@@ -524,9 +563,8 @@ perfObserver.observe({ type: 'largest-contentful-paint', buffered: true });
       `${koaServer.baseUrl}/popup-done`,
     ]);
 
-    expect(history[1].stateChanges.has(LocationStatus.HttpRedirected)).toBe(true);
-    expect(history[2].stateChanges.has(LocationStatus.HttpRedirected)).toBe(true);
-    expect(history[3].stateChanges.has('ContentPaint')).toBe(true);
+    expect(history[1].statusChanges.has(LocationStatus.HttpRedirected)).toBe(true);
+    expect(history[2].statusChanges.has(LocationStatus.HttpRedirected)).toBe(true);
   });
 
   it('should return the last redirected url as the "resource" when a goto redirects', async () => {
@@ -538,8 +576,8 @@ perfObserver.observe({ type: 'largest-contentful-paint', buffered: true });
     koaServer.get('/after-redirect', ctx => {
       ctx.body = '<html lang="en"><body><h1>Hi</h1></body></html>';
     });
-    const { tab } = await createSession();
-    const resource = await tab.goto(startingUrl);
+    const { page } = await createAgent();
+    const resource = await page.goto(startingUrl);
     expect(resource.request.url).toBe(`${koaServer.baseUrl}/after-redirect`);
     expect(resource.isRedirect).toBe(false);
   });
@@ -555,15 +593,15 @@ describe('PaintingStable tests', () => {
     koaServer.get('/post-stable-redirect', ctx => {
       ctx.body = '<html lang="en"><body><h1>So stable</h1></body></html>';
     });
-    const { tab } = await createSession();
-    const resource = await tab.goto(startingUrl);
-    await expect(tab.waitForLoad(LocationStatus.PaintingStable)).resolves.toBe(undefined);
+    const { page } = await createAgent();
+    const resource = await page.goto(startingUrl);
+    await expect(page.waitForLoad(LocationStatus.PaintingStable)).resolves.toBeTruthy();
     expect(resource.request.url).toBe(`${koaServer.baseUrl}/post-stable-redirect`);
     expect(resource.isRedirect).toBe(false);
   });
 
   it('should trigger a painting stable on a page that never triggers load', async () => {
-    const { tab } = await createSession();
+    const { page } = await createAgent();
 
     let completeLongScript: () => void;
     koaServer.get('/long-script.js', async ctx => {
@@ -586,17 +624,21 @@ describe('PaintingStable tests', () => {
 </html>`;
     });
 
-    await tab.goto(`${koaServer.baseUrl}/stable-paint1`);
-    await tab.waitForLoad(LocationStatus.PaintingStable);
+    await page.goto(`${koaServer.baseUrl}/stable-paint1`);
+    await page.waitForLoad(LocationStatus.PaintingStable);
+    expect(page.mainFrame.navigations.hasLoadStatus(LoadStatus.PaintingStable)).toBe(true);
+    expect(page.mainFrame.navigations.hasLoadStatus(LoadStatus.AllContentLoaded)).not.toBe(true);
     if (completeLongScript) completeLongScript();
-    expect(tab.navigations.top.stateChanges.has('Load')).toBe(false);
-    expect(tab.navigations.top.stateChanges.has('ContentPaint')).toBe(true);
+    expect(page.mainFrame.navigations.top.statusChanges.has(LoadStatus.AllContentLoaded)).toBe(
+      false,
+    );
+    expect(page.mainFrame.navigations.top.statusChanges.has('ContentPaint')).toBe(true);
   });
 
   it('should trigger painting stable once a single page app is loaded', async () => {
-    const { tab } = await createSession();
+    const { page } = await createAgent();
 
-    koaServer.get('/grid/:filename', async ctx => {
+    koaServer.get('/spa/:filename', async ctx => {
       const filename = ctx.params.filename;
       if (filename === 'data.json') {
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -618,24 +660,24 @@ describe('PaintingStable tests', () => {
       }
       if (filename === 'index.html') {
         ctx.set('content-type', 'text/html');
-        ctx.body = Fs.createReadStream(`${__dirname}/html/grid/index.html`);
+        ctx.body = Fs.createReadStream(`${__dirname}/assets/spa/index.html`);
       }
       if (filename === 'style.css') {
         ctx.set('content-type', 'text/css');
-        ctx.body = Fs.createReadStream(`${__dirname}/html/grid/style.css`);
+        ctx.body = Fs.createReadStream(`${__dirname}/assets/spa/style.css`);
       }
     });
 
-    await tab.goto(`${koaServer.baseUrl}/grid/index.html`);
-    const trs = await tab.execJsPath<number>([
+    await page.goto(`${koaServer.baseUrl}/spa/index.html`);
+    const trs = await page.execJsPath<number>([
       'document',
       ['querySelectorAll', '.record'],
       'length',
     ]);
 
     expect(trs.value).toBe(0);
-    await tab.waitForLoad(LocationStatus.PaintingStable);
-    const trs2 = await tab.execJsPath<number>([
+    await page.waitForLoad(LocationStatus.PaintingStable);
+    const trs2 = await page.execJsPath<number>([
       'document',
       ['querySelectorAll', '.record'],
       'length',
@@ -644,11 +686,8 @@ describe('PaintingStable tests', () => {
   });
 });
 
-async function createSession(
-  options?: ISessionCreateOptions,
-): Promise<{ session: Session; tab: Tab }> {
-  const meta = await connectionToClient.createSession(options);
-  const tab = Session.getTab(meta);
-  Helpers.needsClosing.push(tab.session);
-  return { session: tab.session, tab };
+async function waitForPopup(page: Page): Promise<Page> {
+  return new Promise<Page>(resolve => {
+    page.popupInitializeFn = async popup => resolve(popup);
+  });
 }

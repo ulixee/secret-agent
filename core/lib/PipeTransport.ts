@@ -13,17 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import EventSubscriber from '@secret-agent/commons/EventSubscriber';
-import Log from '@secret-agent/commons/Logger';
+import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
+import Log from '@ulixee/commons/lib/Logger';
 import { ChildProcess } from 'child_process';
-import IConnectionTransport from '@secret-agent/interfaces/IConnectionTransport';
+import IConnectionTransport from '../interfaces/IConnectionTransport';
 
 const { log } = Log(module);
 
 export class PipeTransport implements IConnectionTransport {
   pipeWrite: NodeJS.WritableStream;
   pendingMessage: string;
-  eventSubscriber = new EventSubscriber();
+  events = new EventSubscriber();
   isClosed = false;
 
   public onMessageFn: (message: string) => void;
@@ -37,12 +37,12 @@ export class PipeTransport implements IConnectionTransport {
       log.error('PipeTransport.WriteError', { error, sessionId: null });
     });
     this.pendingMessage = '';
-    this.eventSubscriber.on(pipeRead, 'data', this.onData.bind(this));
-    this.eventSubscriber.on(pipeRead, 'close', this.onReadClosed.bind(this));
-    this.eventSubscriber.on(pipeRead, 'error', error =>
+    this.events.on(pipeRead, 'data', this.onData.bind(this));
+    this.events.on(pipeRead, 'close', this.onReadClosed.bind(this));
+    this.events.on(pipeRead, 'error', error =>
       log.error('PipeTransport.ReadError', { error, sessionId: null }),
     );
-    this.eventSubscriber.on(pipeWrite, 'error', error =>
+    this.events.on(pipeWrite, 'error', error =>
       log.error('PipeTransport.WriteError', { error, sessionId: null }),
     );
   }
@@ -58,7 +58,7 @@ export class PipeTransport implements IConnectionTransport {
   close(): void {
     if (this.isClosed) return;
     this.isClosed = true;
-    this.eventSubscriber.close();
+    this.events.close();
   }
 
   private emit(message): void {

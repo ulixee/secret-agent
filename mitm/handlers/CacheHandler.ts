@@ -2,9 +2,10 @@ import HttpResponseCache from '../lib/HttpResponseCache';
 import IMitmRequestContext from '../interfaces/IMitmRequestContext';
 import ResourceState from '../interfaces/ResourceState';
 import HeadersHandler from './HeadersHandler';
+import env from '../env';
 
 export default class CacheHandler {
-  public static isEnabled = Boolean(JSON.parse(process.env.SA_ENABLE_MITM_CACHE ?? 'false'));
+  public static isEnabled = env.enableMitmCache;
   public didProposeCachedResource = false;
   public shouldServeCachedData = false;
   private readonly data: Buffer[] = [];
@@ -74,7 +75,7 @@ export default class CacheHandler {
     if (
       ctx.method === 'GET' &&
       !this.didProposeCachedResource &&
-      !ctx.didBlockResource &&
+      !ctx.didInterceptResource &&
       this.data.length
     ) {
       const resHeaders = ctx.responseHeaders;

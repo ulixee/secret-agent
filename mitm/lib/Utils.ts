@@ -1,6 +1,6 @@
-import IResourceHeaders from '@secret-agent/interfaces/IResourceHeaders';
+import IHttpHeaders from '@bureau/interfaces/IHttpHeaders';
 
-export function parseRawHeaders(rawHeaders: string[]): IResourceHeaders {
+export function parseRawHeaders(rawHeaders: string[]): IHttpHeaders {
   const headers = {};
   for (let i = 0; i < rawHeaders.length; i += 2) {
     const key = rawHeaders[i];

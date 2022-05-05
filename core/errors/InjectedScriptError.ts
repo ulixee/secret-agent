@@ -1,4 +1,4 @@
-import { IPathStep } from 'awaited-dom/base/AwaitedPath';
+import { IPathStep } from '@bureau/interfaces/IJsPath';
 
 export default class InjectedScriptError extends Error {
   private readonly pathState: { step: IPathStep; index: number };

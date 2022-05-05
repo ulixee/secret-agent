@@ -1,26 +1,41 @@
-import {
-  ILifecycleEvents,
-  IPuppetFrame,
-  IPuppetFrameEvents,
-} from '@secret-agent/interfaces/IPuppetFrame';
+import { IFrame, IFrameEvents, ILifecycleEvents } from '@bureau/interfaces/IFrame';
 import { URL } from 'url';
 import Protocol from 'devtools-protocol';
-import { CanceledPromiseError } from '@secret-agent/commons/interfaces/IPendingWaitEvent';
-import { TypedEventEmitter } from '@secret-agent/commons/eventUtils';
-import { NavigationReason } from '@secret-agent/interfaces/INavigation';
-import { IBoundLog } from '@secret-agent/interfaces/ILog';
-import Resolvable from '@secret-agent/commons/Resolvable';
-import ProtocolError from './ProtocolError';
-import { DevtoolsSession } from './DevtoolsSession';
+import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
+import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
+import { NavigationReason } from '@bureau/interfaces/NavigationReason';
+import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
+import Resolvable from '@ulixee/commons/lib/Resolvable';
+import ProtocolError from '../errors/ProtocolError';
+import DevtoolsSession from './DevtoolsSession';
 import ConsoleMessage from './ConsoleMessage';
-import { DEFAULT_PAGE, ISOLATED_WORLD } from './FramesManager';
+import FramesManager, { DEFAULT_PAGE, ISOLATED_WORLD } from './FramesManager';
 import { NavigationLoader } from './NavigationLoader';
+import IPoint from '@bureau/interfaces/IPoint';
+import { JsPath } from './JsPath';
+import MouseListener from './MouseListener';
+import Page from './Page';
+import Interactor from './Interactor';
+import IWindowOffset from '@bureau/interfaces/IWindowOffset';
+import { IInteractionGroups } from '@bureau/interfaces/IInteractions';
+import IRegisteredEventListener from '@ulixee/commons/interfaces/IRegisteredEventListener';
+import { IInteractHooks } from '@bureau/interfaces/IHooks';
+import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
+import FrameNavigations from './FrameNavigations';
+import FrameNavigationsObserver from './FrameNavigationsObserver';
+import { ILoadStatus, ILocationTrigger, LoadStatus } from '@bureau/interfaces/Location';
+import Timer from '@ulixee/commons/lib/Timer';
+import IWaitForOptions from '../interfaces/IWaitForOptions';
+import INavigation from '@bureau/interfaces/INavigation';
 import PageFrame = Protocol.Page.Frame;
 
 const ContextNotFoundCode = -32000;
 const InPageNavigationLoaderPrefix = 'inpage';
 
-export default class Frame extends TypedEventEmitter<IPuppetFrameEvents> implements IPuppetFrame {
+export default class Frame extends TypedEventEmitter<IFrameEvents> implements IFrame {
+  // TODO: switch this to "id" and migrate "id" to "devtoolsId"
+  public readonly frameId: number;
+
   public get id(): string {
     return this.internalFrame.id;
   }
@@ -43,8 +58,9 @@ export default class Frame extends TypedEventEmitter<IPuppetFrameEvents> impleme
     if (!this.activeLoader?.isNavigationComplete || this.isDefaultUrl) return '';
     let origin = this.internalFrame.securityOrigin;
     if (!origin || origin === '://') {
+      if (this.url.startsWith('about:')) return '';
       this.internalFrame.securityOrigin = new URL(this.url).origin;
-      origin = this.internalFrame.securityOrigin;
+      origin = this.internalFrame.securityOrigin ?? '';
     }
     return origin;
   }
@@ -61,11 +77,26 @@ export default class Frame extends TypedEventEmitter<IPuppetFrameEvents> impleme
     return this.navigationLoadersById[this.activeLoaderId];
   }
 
+  public get page(): Page {
+    return this.#framesManager.page;
+  }
+
+  public interactor: Interactor;
+  public jsPath: JsPath;
   public activeLoaderId: string;
   public navigationLoadersById: { [loaderId: string]: NavigationLoader } = {};
+  public readonly logger: IBoundLog;
+  public get hooks(): IInteractHooks[] {
+    return [...this.page.browserContext.hooks, ...this.frameHooks] as IInteractHooks[];
+  }
 
-  protected readonly logger: IBoundLog;
-  private isolatedWorldElementObjectId?: string;
+  public navigations: FrameNavigations;
+  public navigationsObserver: FrameNavigationsObserver;
+
+  #framesManager: FramesManager;
+
+  private waitTimeouts: { timeout: NodeJS.Timeout; reject: (reason?: any) => void }[] = [];
+  private frameElementDevtoolsNodeId?: Promise<string>;
   private readonly parentFrame: Frame | null;
   private readonly devtoolsSession: DevtoolsSession;
 
@@ -77,11 +108,16 @@ export default class Frame extends TypedEventEmitter<IPuppetFrameEvents> impleme
   private readonly activeContextIds: Set<number>;
   private internalFrame: PageFrame;
   private closedWithError: Error;
+  private isClosing = false;
   private defaultContextCreated: Resolvable<void>;
   private readonly checkIfAttached: () => boolean;
   private inPageCounter = 0;
+  private frameHooks: IInteractHooks[] = [];
+  private events = new EventSubscriber();
+  private devtoolsNodeIdByNodePointerId: Record<number, string> = {};
 
   constructor(
+    framesManager: FramesManager,
     internalFrame: PageFrame,
     activeContextIds: Set<number>,
     devtoolsSession: DevtoolsSession,
@@ -90,30 +126,87 @@ export default class Frame extends TypedEventEmitter<IPuppetFrameEvents> impleme
     parentFrame: Frame | null,
   ) {
     super();
+    this.frameId = framesManager.page.browserContext.idTracker.frameId += 1;
+    this.#framesManager = framesManager;
     this.activeContextIds = activeContextIds;
     this.devtoolsSession = devtoolsSession;
-    this.logger = logger.createChild(module);
+    this.logger = logger.createChild(module, { frameId: this.frameId });
+    this.navigations = new FrameNavigations(this, this.logger);
+    this.navigationsObserver = new FrameNavigationsObserver(this.navigations);
+    this.jsPath = new JsPath(this, this.logger);
     this.parentFrame = parentFrame;
+    this.interactor = new Interactor(this);
     this.checkIfAttached = checkIfAttached;
-    this.setEventsToLog(['frame-requested-navigation', 'frame-navigated', 'frame-lifecycle']);
+    this.setEventsToLog(['frame-navigated']);
     this.storeEventsWithoutListeners = true;
     this.onAttached(internalFrame);
   }
 
-  public close(error: Error) {
-    this.cancelPendingEvents('Frame closed');
-    error ??= new CanceledPromiseError('Frame closed');
+  public hook(hooks: IInteractHooks): void {
+    this.frameHooks.push(hooks);
+  }
+
+  public close(error?: Error): void {
+    this.isClosing = true;
+    const cancelMessage = 'Frame closed';
+    this.cancelPendingEvents(cancelMessage);
+    error ??= new CanceledPromiseError(cancelMessage);
+
+    Timer.expireAll(this.waitTimeouts, error);
+    this.navigationsObserver.cancelWaiting(cancelMessage);
+
     this.activeLoader.setNavigationResult(error);
     this.defaultContextCreated?.reject(error);
     this.closedWithError = error;
+    this.events.close();
+  }
+
+  public async runPendingNewDocumentScripts(): Promise<void> {
+    if (this.activeLoaderId !== this.defaultLoaderId) return;
+    if (this.parentId) return;
+
+    const newDocumentScripts = this.#framesManager.pendingNewDocumentScripts;
+    if (newDocumentScripts.length) {
+      const scripts = [...newDocumentScripts];
+      this.#framesManager.pendingNewDocumentScripts.length = 0;
+      const [isolatedContextId, defaultContextId] = await Promise.all([
+        this.waitForActiveContextId(true),
+        this.waitForActiveContextId(false),
+      ]);
+      await Promise.all(
+        scripts.map(x => {
+          const contextId = x.isolated ? isolatedContextId : defaultContextId;
+          return this.devtoolsSession
+            .send('Runtime.evaluate', {
+              expression: x.script,
+              contextId,
+            })
+            .catch(err => {
+              this.logger.warn('NewDocumentScriptError', { err });
+            });
+        }),
+      );
+    }
   }
 
   public async evaluate<T>(
     expression: string,
     isolateFromWebPageEnvironment?: boolean,
-    options?: { shouldAwaitExpression?: boolean; retriesWaitingForLoad?: number },
+    options?: {
+      shouldAwaitExpression?: boolean;
+      retriesWaitingForLoad?: number;
+      returnByValue?: boolean;
+      includeCommandLineAPI?: boolean;
+    },
   ): Promise<T> {
+    // can't run javascript if active dialog!
+    if (this.page.activeDialog) {
+      throw new Error('Cannot run frame.evaluate while an active dialog is present!!');
+    }
     if (this.closedWithError) throw this.closedWithError;
+    if (!this.parentId) {
+      await this.runPendingNewDocumentScripts();
+    }
     const startUrl = this.url;
     const startOrigin = this.securityOrigin;
     const contextId = await this.waitForActiveContextId(isolateFromWebPageEnvironment);
@@ -123,7 +216,8 @@ export default class Frame extends TypedEventEmitter<IPuppetFrameEvents> impleme
         {
           expression,
           contextId,
-          returnByValue: true,
+          returnByValue: options?.returnByValue ?? true,
+          includeCommandLineAPI: options?.includeCommandLineAPI ?? false,
           awaitPromise: options?.shouldAwaitExpression ?? true,
         },
         this,
@@ -162,6 +256,114 @@ export default class Frame extends TypedEventEmitter<IPuppetFrameEvents> impleme
     }
   }
 
+  async waitForLoad(
+    options?: IWaitForOptions & { loadStatus?: ILoadStatus },
+  ): Promise<INavigation> {
+    return await this.navigationsObserver.waitForLoad(
+      options?.loadStatus ?? LoadStatus.JavascriptReady,
+      options,
+    );
+  }
+
+  async waitForLocation(
+    trigger: ILocationTrigger,
+    options?: IWaitForOptions,
+  ): Promise<INavigation> {
+    const timer = new Timer(options?.timeoutMs ?? 60e3, this.waitTimeouts);
+    const navigation = await timer.waitForPromise(
+      this.navigationsObserver.waitForLocation(trigger, options),
+      `Timeout waiting for location ${trigger}`,
+    );
+
+    await new Promise(setImmediate);
+
+    await timer.waitForPromise(
+      this.navigationsObserver.waitForNavigationResourceId(navigation),
+      `Timeout waiting for location ${trigger}`,
+    );
+
+    return navigation;
+  }
+
+  public async interact(...interactionGroups: IInteractionGroups): Promise<void> {
+    const timeoutMs = 120e3;
+    const interactionResolvable = new Resolvable<void>(timeoutMs);
+    await this.waitForLoad({ timeoutMs });
+    this.waitTimeouts.push({
+      timeout: interactionResolvable.timeout,
+      reject: interactionResolvable.reject,
+    });
+
+    const cancelForNavigation = new CanceledPromiseError('Frame navigated');
+    const cancelOnNavigate = (): void => {
+      interactionResolvable.reject(cancelForNavigation);
+    };
+    let frameCancelEvent: IRegisteredEventListener;
+    try {
+      this.interactor.play(interactionGroups, interactionResolvable);
+      frameCancelEvent = this.events.once(this, 'frame-navigated', cancelOnNavigate);
+      await interactionResolvable.promise;
+    } catch (error) {
+      if (error === cancelForNavigation) return;
+      if (error instanceof CanceledPromiseError && this.isClosing) return;
+      throw error;
+    } finally {
+      this.events.off(frameCancelEvent);
+    }
+  }
+
+  public async waitForScrollStop(timeoutMs?: number): Promise<[scrollX: number, scrollY: number]> {
+    return await MouseListener.waitForScrollStop(this, timeoutMs);
+  }
+
+  public async getWindowOffset(): Promise<IWindowOffset> {
+    return await MouseListener.getWindowOffset(this);
+  }
+
+  public async getNodePointerId(devtoolsObjectId: string): Promise<number> {
+    return await this.evaluateOnNode<number>(devtoolsObjectId, 'NodeTracker.watchNode(this)');
+  }
+
+  public async getFrameElementNodePointerId(): Promise<number> {
+    const frameElementNodeId = await this.getFrameElementDevtoolsNodeId();
+    if (!frameElementNodeId) return null;
+    return this.getNodePointerId(frameElementNodeId);
+  }
+
+  // get absolute x/y coordinates of frame container element relative to page
+
+  public async getContainerOffset(): Promise<IPoint> {
+    if (!this.parentId) return { x: 0, y: 0 };
+    const parentOffset = await this.parentFrame.getContainerOffset();
+    const frameElementNodeId = await this.getFrameElementDevtoolsNodeId();
+    const thisOffset = await this.evaluateOnNode<IPoint>(
+      frameElementNodeId,
+      `(() => {
+      const rect = this.getBoundingClientRect();
+      return { x:rect.x, y:rect.y };
+ })()`,
+    );
+    return {
+      x: thisOffset.x + parentOffset.x,
+      y: thisOffset.y + parentOffset.y,
+    };
+  }
+
+  public outerHTML(): Promise<string> {
+    return this.evaluate(
+      `(() => {
+  let retVal = '';
+  if (document.doctype)
+    retVal = new XMLSerializer().serializeToString(document.doctype);
+  if (document.documentElement)
+    retVal += document.documentElement.outerHTML;
+  return retVal;
+})()`,
+      this.page.installJsPathIntoIsolatedContext,
+      { shouldAwaitExpression: false, retriesWaitingForLoad: 1 },
+    );
+  }
+
   public async waitForLifecycleEvent(
     event: keyof ILifecycleEvents = 'load',
     loaderId?: string,
@@ -169,7 +371,8 @@ export default class Frame extends TypedEventEmitter<IPuppetFrameEvents> impleme
   ): Promise<void> {
     event ??= 'load';
     timeoutMs ??= 30e3;
-    await this.waitForLoader(loaderId, timeoutMs);
+    await this.waitForNavigationLoader(loaderId, timeoutMs);
+
     const loader = this.navigationLoadersById[loaderId ?? this.activeLoaderId];
     if (loader.lifecycle[event]) return;
     await this.waitOn(
@@ -182,23 +385,32 @@ export default class Frame extends TypedEventEmitter<IPuppetFrameEvents> impleme
     );
   }
 
-  public async setFileInputFiles(objectId: string, files: string[]): Promise<void> {
-    await this.devtoolsSession.send('DOM.setFileInputFiles', {
-      objectId,
-      files,
-    });
+  public async setFileInputFiles(nodePointerId: number, files: string[]): Promise<void> {
+    const objectId = this.devtoolsNodeIdByNodePointerId[nodePointerId];
+    await this.devtoolsSession.send(
+      'DOM.setFileInputFiles',
+      {
+        objectId,
+        files,
+      },
+      this,
+    );
   }
 
-  public async evaluateOnNode<T>(nodeId: string, expression: string): Promise<T> {
+  public async evaluateOnNode<T>(devtoolsObjectId: string, expression: string): Promise<T> {
     if (this.closedWithError) throw this.closedWithError;
     try {
-      const result = await this.devtoolsSession.send('Runtime.callFunctionOn', {
-        functionDeclaration: `function executeRemoteFn() {
+      const result = await this.devtoolsSession.send(
+        'Runtime.callFunctionOn',
+        {
+          functionDeclaration: `function executeRemoteFn() {
         return ${expression};
       }`,
-        returnByValue: true,
-        objectId: nodeId,
-      });
+          returnByValue: true,
+          objectId: devtoolsObjectId,
+        },
+        this,
+      );
       if (result.exceptionDetails) {
         throw ConsoleMessage.exceptionToError(result.exceptionDetails);
       }
@@ -212,14 +424,17 @@ export default class Frame extends TypedEventEmitter<IPuppetFrameEvents> impleme
     }
   }
 
-  public async getFrameElementNodeId(): Promise<string> {
+  public async getFrameElementDevtoolsNodeId(): Promise<string> {
     try {
-      if (!this.parentFrame || this.isolatedWorldElementObjectId)
-        return this.isolatedWorldElementObjectId;
-      const owner = await this.devtoolsSession.send('DOM.getFrameOwner', { frameId: this.id });
-      this.isolatedWorldElementObjectId = await this.parentFrame.resolveNodeId(owner.backendNodeId);
+      if (!this.parentFrame || this.frameElementDevtoolsNodeId)
+        return this.frameElementDevtoolsNodeId;
+
+      this.frameElementDevtoolsNodeId = this.devtoolsSession
+        .send('DOM.getFrameOwner', { frameId: this.id }, this)
+        .then(owner => this.parentFrame.resolveDevtoolsNodeId(owner.backendNodeId, true));
+
       // don't dispose... will cleanup frame
-      return this.isolatedWorldElementObjectId;
+      return await this.frameElementDevtoolsNodeId;
     } catch (error) {
       // ignore errors looking this up
       this.logger.info('Failed to lookup isolated node', {
@@ -229,12 +444,26 @@ export default class Frame extends TypedEventEmitter<IPuppetFrameEvents> impleme
     }
   }
 
-  public async resolveNodeId(backendNodeId: number): Promise<string> {
-    const result = await this.devtoolsSession.send('DOM.resolveNode', {
-      backendNodeId,
-      executionContextId: this.getActiveContextId(true),
-    });
+  public async resolveDevtoolsNodeId(
+    backendNodeId: number,
+    resolveInIsolatedContext = true,
+  ): Promise<string> {
+    const result = await this.devtoolsSession.send(
+      'DOM.resolveNode',
+      {
+        backendNodeId,
+        executionContextId: this.getActiveContextId(resolveInIsolatedContext),
+      },
+      this,
+    );
     return result.object.objectId;
+  }
+
+  public async trackBackendNodeAsNodePointer(backendNodeId: number): Promise<number> {
+    const devtoolsNodeId = await this.resolveDevtoolsNodeId(backendNodeId);
+    const nodePointerId = await this.getNodePointerId(devtoolsNodeId);
+    this.devtoolsNodeIdByNodePointerId[nodePointerId] = devtoolsNodeId;
+    return nodePointerId;
   }
 
   /////// NAVIGATION ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -248,6 +477,8 @@ export default class Frame extends TypedEventEmitter<IPuppetFrameEvents> impleme
     this.navigationReason = reason;
     this.disposition = disposition;
 
+    // disposition options: currentTab, newTab, newWindow, download
+    this.navigations.updateNavigationReason(url, reason);
     this.emit('frame-requested-navigation', { frame: this, url, reason });
   }
 
@@ -302,6 +533,14 @@ export default class Frame extends TypedEventEmitter<IPuppetFrameEvents> impleme
     if (isDomLoaded) {
       this.activeLoader.markLoaded();
     }
+
+    // set load state back to all loaded
+    this.navigations.onNavigationRequested(
+      'inPage',
+      this.url,
+      this.page.browserContext.commandMarker.lastId,
+      loaderId,
+    );
     this.emit('frame-navigated', { frame: this, navigatedInDocument: true, loaderId });
   }
 
@@ -309,12 +548,18 @@ export default class Frame extends TypedEventEmitter<IPuppetFrameEvents> impleme
 
   public onStoppedLoading(): void {
     if (!this.startedLoaderId) return;
-
     const loader = this.navigationLoadersById[this.startedLoaderId];
     loader?.onStoppedLoading();
   }
 
-  public async waitForLoader(loaderId?: string, timeoutMs?: number): Promise<Error | null> {
+  public async waitForDefaultLoader(): Promise<void> {
+    const hasLoaderError = await this.navigationLoadersById[this.defaultLoaderId]
+      ?.navigationResolver;
+    if (hasLoaderError instanceof Error) throw hasLoaderError;
+    await this.page.isReady;
+  }
+
+  public async waitForNavigationLoader(loaderId?: string, timeoutMs?: number): Promise<void> {
     if (!loaderId) {
       loaderId = this.activeLoaderId;
       if (loaderId === this.defaultLoaderId) {
@@ -325,14 +570,14 @@ export default class Frame extends TypedEventEmitter<IPuppetFrameEvents> impleme
     }
 
     const hasLoaderError = await this.navigationLoadersById[loaderId]?.navigationResolver;
-    if (hasLoaderError instanceof Error) return hasLoaderError;
+    if (hasLoaderError instanceof Error) throw hasLoaderError;
 
     if (!this.getActiveContextId(false)) {
       await this.waitForDefaultContext();
     }
   }
 
-  public onLifecycleEvent(name: string, pageLoaderId?: string): void {
+  public onLifecycleEvent(name: string, timestamp?: number, pageLoaderId?: string): void {
     const loaderId = pageLoaderId ?? this.activeLoaderId;
     if (name === 'init' && pageLoaderId) {
       // if the active loader never initiates before this new one, we should notify
@@ -342,7 +587,8 @@ export default class Frame extends TypedEventEmitter<IPuppetFrameEvents> impleme
         !this.activeLoader.lifecycle.init &&
         !this.activeLoader.isNavigationComplete
       ) {
-        this.activeLoader.setNavigationResult(new CanceledPromiseError('Navigation canceled'));
+        // match chrome error if navigation is intercepted
+        this.activeLoader.setNavigationResult(new CanceledPromiseError('net::ERR_ABORTED'));
       }
       this.startedLoaderId = pageLoaderId;
     }
@@ -358,20 +604,15 @@ export default class Frame extends TypedEventEmitter<IPuppetFrameEvents> impleme
         if (loaderId === historicalLoaderId) {
           checkLoaderForInPage = true;
         }
-
         if (checkLoaderForInPage && historicalLoaderId.startsWith(InPageNavigationLoaderPrefix)) {
           loader.onLifecycleEvent(name);
-          this.emit('frame-lifecycle', { frame: this, name, loader });
+          this.triggerLifecycleEvent(name, loader, timestamp);
         }
       }
     }
 
     if (loaderId !== this.defaultLoaderId) {
-      this.emit('frame-lifecycle', {
-        frame: this,
-        name,
-        loader: this.navigationLoadersById[loaderId],
-      });
+      this.triggerLifecycleEvent(name, this.navigationLoadersById[loaderId], timestamp);
     }
   }
 
@@ -433,7 +674,10 @@ export default class Frame extends TypedEventEmitter<IPuppetFrameEvents> impleme
     return this.getActiveContextId(isolatedFromWebPageEnvironment) !== undefined;
   }
 
-  public toJSON() {
+  public toJSON(): Pick<
+    IFrame,
+    'id' | 'parentId' | 'activeLoader' | 'name' | 'url' | 'navigationReason' | 'disposition'
+  > {
     return {
       id: this.id,
       parentId: this.parentId,
@@ -448,11 +692,9 @@ export default class Frame extends TypedEventEmitter<IPuppetFrameEvents> impleme
   private setLoader(loaderId: string, url?: string): void {
     if (!loaderId) return;
     if (loaderId === this.activeLoaderId) return;
-
     if (this.navigationLoadersById[loaderId]) return;
 
     this.activeLoaderId = loaderId;
-
     this.logger.info('Queuing new navigation loader', {
       loaderId,
       frameId: this.id,
@@ -469,6 +711,9 @@ export default class Frame extends TypedEventEmitter<IPuppetFrameEvents> impleme
   private async createIsolatedWorld(): Promise<number> {
     try {
       if (!this.isAttached) return;
+      await new Promise(setImmediate);
+      if (this.isolatedContextId) return this.isolatedContextId;
+
       const isolatedWorld = await this.devtoolsSession.send(
         'Page.createIsolatedWorld',
         {
@@ -483,7 +728,7 @@ export default class Frame extends TypedEventEmitter<IPuppetFrameEvents> impleme
       if (!this.activeContextIds.has(executionContextId)) {
         this.activeContextIds.add(executionContextId);
         this.addContextId(executionContextId, false);
-        this.getFrameElementNodeId().catch(() => null);
+        this.getFrameElementDevtoolsNodeId().catch(() => null);
       }
 
       return executionContextId;
@@ -521,5 +766,18 @@ export default class Frame extends TypedEventEmitter<IPuppetFrameEvents> impleme
     } else {
       this.url = undefined;
     }
+  }
+
+  private triggerLifecycleEvent(name: string, loader: NavigationLoader, timestamp: number): void {
+    const lowerEventName = name.toLowerCase();
+    let status: LoadStatus.AllContentLoaded | LoadStatus.DomContentLoaded;
+
+    if (lowerEventName === 'load') status = LoadStatus.AllContentLoaded;
+    else if (lowerEventName === 'domcontentloaded') status = LoadStatus.DomContentLoaded;
+
+    if (status) {
+      this.navigations.onLoadStatusChanged(status, loader.url ?? this.url, loader.id, timestamp);
+    }
+    this.emit('frame-lifecycle', { frame: this, name, loader, timestamp });
   }
 }

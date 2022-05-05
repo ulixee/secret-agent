@@ -1,32 +1,21 @@
-import Log from '@secret-agent/commons/Logger';
-import IPuppetContext from '@secret-agent/interfaces/IPuppetContext';
-import CorePlugins from '@secret-agent/core/lib/CorePlugins';
-import { IBoundLog } from '@secret-agent/interfaces/ILog';
-import Core from '@secret-agent/core';
 import { TestServer } from './server';
-import { createTestPage, ITestPage } from './TestPage';
-import Puppet from '../index';
-import CustomBrowserEmulator from './_CustomBrowserEmulator';
-
-const { log } = Log(module);
-const browserEmulatorId = CustomBrowserEmulator.id;
+import { Browser, BrowserContext, Page } from '../index';
+import { BrowserUtils, TestLogger } from '@secret-agent/testing';
 
 describe('Worker test', () => {
   let server: TestServer;
   let httpsServer: TestServer;
-  let page: ITestPage;
-  let puppet: Puppet;
-  let context: IPuppetContext;
+  let page: Page;
+  let browser: Browser;
+  let context: BrowserContext;
 
   beforeAll(async () => {
-    Core.use(CustomBrowserEmulator);
-    const { browserEngine } = CustomBrowserEmulator.selectBrowserMeta();
     server = await TestServer.create(0);
     httpsServer = await TestServer.createHTTPS(0);
-    puppet = new Puppet(browserEngine);
-    await puppet.start();
-    const plugins = new CorePlugins({ browserEmulatorId }, log as IBoundLog);
-    context = await puppet.newContext(plugins, log);
+    browser = BrowserUtils.createDefaultBrowser();
+    await browser.launch();
+    const logger = TestLogger.forTest(module);
+    context = await browser.newContext({ logger });
   });
 
   afterEach(async () => {
@@ -34,7 +23,8 @@ describe('Worker test', () => {
   });
 
   beforeEach(async () => {
-    page = createTestPage(await context.newPage());
+    TestLogger.testNumber += 1;
+    page = await context.newPage();
     server.reset();
     httpsServer.reset();
   });
@@ -43,7 +33,7 @@ describe('Worker test', () => {
     await server.stop();
     await httpsServer.stop();
     await context.close();
-    await puppet.close();
+    await browser.close();
   });
 
   it('Page.workers', async () => {

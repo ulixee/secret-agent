@@ -1,31 +1,23 @@
-import { IKeyboardKey } from '@secret-agent/interfaces/IKeyboardLayoutUS';
-import Log from '@secret-agent/commons/Logger';
-import IPuppetContext from '@secret-agent/interfaces/IPuppetContext';
-import CorePlugins from '@secret-agent/core/lib/CorePlugins';
-import { IBoundLog } from '@secret-agent/interfaces/ILog';
-import Core from '@secret-agent/core';
+import { IKeyboardKey } from '@bureau/interfaces/IKeyboardLayoutUS';
+import { Browser, BrowserContext, Page } from '../index';
 import { TestServer } from './server';
-import { createTestPage, ITestPage } from './TestPage';
-import Puppet from '../index';
-import CustomBrowserEmulator from './_CustomBrowserEmulator';
+import { attachFrame, setContent } from './_pageTestUtils';
+import { BrowserUtils, TestLogger } from '@secret-agent/testing';
 
-const { log } = Log(module);
-const browserEmulatorId = CustomBrowserEmulator.id;
 const MAC = process.platform === 'darwin';
 
 describe('Keyboard', () => {
   let server: TestServer;
-  let page: ITestPage;
-  let puppet: Puppet;
-  let context: IPuppetContext;
+  let page: Page;
+  let browser: Browser;
+  let context: BrowserContext;
 
   beforeAll(async () => {
-    Core.use(CustomBrowserEmulator);
     server = await TestServer.create(0);
-    puppet = new Puppet(CustomBrowserEmulator.selectBrowserMeta().browserEngine);
-    await puppet.start();
-    const plugins = new CorePlugins({ browserEmulatorId }, log as IBoundLog);
-    context = await puppet.newContext(plugins, log);
+    browser = new Browser(BrowserUtils.browserEngineOptions);
+    await browser.launch();
+    const logger = TestLogger.forTest(module);
+    context = await browser.newContext({ logger });
   });
 
   afterEach(async () => {
@@ -33,14 +25,15 @@ describe('Keyboard', () => {
   });
 
   beforeEach(async () => {
-    page = createTestPage(await context.newPage());
+    TestLogger.testNumber += 1;
+    page = await context.newPage();
     server.reset();
   });
 
   afterAll(async () => {
     await server.stop();
     await context.close();
-    await puppet.close();
+    await browser.close();
   });
 
   it('should type into a textarea', async () => {
@@ -226,7 +219,7 @@ describe('Keyboard', () => {
   });
 
   it('should press Enter', async () => {
-    await page.setContent('<textarea></textarea>');
+    await setContent(page, '<textarea></textarea>');
     await captureLastKeydown(page);
     await testEnterKey('Enter', 'Enter', 'Enter');
     await testEnterKey('NumpadEnter', 'Enter', 'NumpadEnter');
@@ -271,7 +264,7 @@ describe('Keyboard', () => {
 
   it('should type emoji into an iframe', async () => {
     await page.goto(server.emptyPage);
-    await page.attachFrame('emoji-test', `${server.baseUrl}/input/textarea.html`);
+    await attachFrame(page, 'emoji-test', `${server.baseUrl}/input/textarea.html`);
     const textArea =
       'document.querySelector("#emoji-test").contentWindow.document.body.querySelector("textarea")';
     await page.evaluate(`(() => {
@@ -283,9 +276,7 @@ describe('Keyboard', () => {
     expect(await page.evaluate(`${textArea}.value`)).toBe('👹 Tokyo street Japan 🇯🇵');
   });
 
-  // playwright test that we didn't copy the logic for - would need to add "mac editing shortcuts"
-  // eslint-disable-next-line jest/no-disabled-tests
-  it.skip('should handle selectAll', async () => {
+  it('should handle selectAll', async () => {
     await page.goto(`${server.baseUrl}/input/textarea.html`);
     await page.click('textarea');
     await page.type('some text');
@@ -323,16 +314,10 @@ describe('Keyboard', () => {
     await page.keyboard.press('Meta');
     const lastEvent = await captureLastKeydown(page);
     const { key, code, metaKey } = lastEvent;
-    // if (options.FIREFOX && !MAC) expect(key).toBe('OS');
-    // else
     expect(key).toBe('Meta');
 
-    // if (options.FIREFOX) expect(code).toBe('OSLeft');
-    // else
     expect(code).toBe('MetaLeft');
 
-    // if (options.FIREFOX && !MAC) expect(metaKey).toBe(false);
-    // else
     expect(metaKey).toBe(true);
   });
 
@@ -346,7 +331,7 @@ describe('Keyboard', () => {
   });
 });
 
-async function captureLastKeydown(page: ITestPage): Promise<any> {
+async function captureLastKeydown(page: Page): Promise<any> {
   return await page.evaluate(`(() => {
     if (window.lastEvent) return window.lastEvent;
     const lastEvent = {

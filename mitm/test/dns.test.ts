@@ -1,16 +1,9 @@
 import { LookupAddress, promises as nodeDns } from 'dns';
-import { Helpers } from '@secret-agent/testing';
-import BrowserEmulator from '@secret-agent/default-browser-emulator';
-import CorePlugins from '@secret-agent/core/lib/CorePlugins';
-import { IBoundLog } from '@secret-agent/interfaces/ILog';
-import Log from '@secret-agent/commons/Logger';
-import CorePlugin from '@secret-agent/plugin-utils/lib/CorePlugin';
-import Core from '@secret-agent/core';
+import { Helpers, TestLogger } from '@secret-agent/testing';
 import DnsOverTlsSocket from '../lib/DnsOverTlsSocket';
 import { Dns } from '../lib/Dns';
 import RequestSession from '../handlers/RequestSession';
-
-const { log } = Log(module);
+import { INetworkHooks } from '@bureau/interfaces/IHooks';
 
 const CloudFlare = {
   host: '1.1.1.1',
@@ -27,26 +20,22 @@ const Quad9 = {
   servername: 'dns.quad9.net',
 };
 
+class CustomPlugin implements INetworkHooks {
+  static id = 'test';
+
+  onTlsConfiguration(settings) {
+    settings.tlsClientHelloId = 'chrome-83';
+  }
+
+  onDnsConfiguration(settings) {
+    settings.dnsOverTlsConnection = Quad9;
+  }
+}
+
 let dns: Dns;
 let requestSession: RequestSession;
 beforeAll(() => {
-  Core.use(
-    class CustomPlugin extends CorePlugin {
-      static id = 'test';
-
-      onTlsConfiguration(settings) {
-        settings.tlsClientHelloId = 'chrome-83';
-      }
-
-      onDnsConfiguration(settings) {
-        settings.dnsOverTlsConnection = Quad9;
-      }
-    },
-  );
-  const selectBrowserMeta = BrowserEmulator.selectBrowserMeta();
-  const plugins = new CorePlugins({ selectBrowserMeta }, log as IBoundLog);
-
-  requestSession = new RequestSession('dns.test', plugins, null);
+  requestSession = new RequestSession('dns.test', new CustomPlugin(), TestLogger.forTest(module));
   Helpers.onClose(() => requestSession.close(), true);
   dns = new Dns(requestSession);
 });
@@ -57,6 +46,9 @@ afterAll(() => {
 });
 
 describe('DnsOverTlsSocket', () => {
+  beforeEach(() => {
+    TestLogger.testNumber += 1;
+  });
   let cloudflareDnsSocket: DnsOverTlsSocket;
   beforeAll(() => {
     cloudflareDnsSocket = new DnsOverTlsSocket(
@@ -111,72 +103,76 @@ describe('DnsOverTlsSocket', () => {
   });
 });
 
-test('should cache and round robin results', async () => {
-  const domain = 'stateofscraping.org';
-  const spy = jest.spyOn<any, any>(dns, 'lookupDnsEntry');
-  const ip = await dns.lookupIp(domain);
-  expect(ip).toBeTruthy();
-  expect(Dns.dnsEntries.get(domain).isResolved).toBeTruthy();
-
-  const cached = await Dns.dnsEntries.get(domain).promise;
-  expect(cached.aRecords).toHaveLength(2);
-
-  const ip2 = await dns.lookupIp(domain);
-  expect(ip2).toBeTruthy();
-  // should round robin
-  expect(ip).not.toBe(ip2);
-  expect(spy).toHaveBeenCalledTimes(1);
-});
-
-test('should lookup in the local machine if not found in DoT', async () => {
-  const lookupSpy = jest.spyOn(nodeDns, 'lookup').mockImplementationOnce(async () => {
-    return [
-      <LookupAddress>{
-        address: '127.0.0.1',
-        family: 4,
-      },
-    ] as any;
+describe('basic', () => {
+  beforeEach(() => {
+    TestLogger.testNumber += 1;
   });
-  const domain = 'double-agent.collect';
-  const systemLookupSpy = jest.spyOn<any, any>(dns, 'systemLookup');
+  test('should cache and round robin results', async () => {
+    const domain = 'stateofscraping.org';
+    const spy = jest.spyOn<any, any>(dns, 'lookupDnsEntry');
+    const ip = await dns.lookupIp(domain);
+    expect(ip).toBeTruthy();
+    expect(Dns.dnsEntries.get(domain).isResolved).toBeTruthy();
 
-  const ip = await dns.lookupIp(domain);
-  expect(ip).toBeTruthy();
-  expect(Dns.dnsEntries.get(domain).isResolved).toBeTruthy();
+    const cached = await Dns.dnsEntries.get(domain).promise;
+    expect(cached.aRecords).toHaveLength(2);
 
-  const cached = await Dns.dnsEntries.get(domain).promise;
-  expect(cached.aRecords).toHaveLength(1);
-  expect(lookupSpy).toHaveBeenCalledTimes(1);
-  expect(systemLookupSpy).toHaveBeenCalledTimes(1);
-});
+    const ip2 = await dns.lookupIp(domain);
+    expect(ip2).toBeTruthy();
+    // should round robin
+    expect(ip).not.toBe(ip2);
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
 
-test('should properly expose errors if nothing is found', async () => {
-  const lookupSpy = jest.spyOn(nodeDns, 'lookup').mockClear();
-  const dotLookup = jest
-    .spyOn<any, any>(dns, 'lookupDnsEntry')
-    .mockClear()
-    .mockImplementationOnce(() => {
-      throw new Error('Not found');
+  test('should lookup in the local machine if not found in DoT', async () => {
+    const lookupSpy = jest.spyOn(nodeDns, 'lookup').mockImplementationOnce(async () => {
+      return [
+        <LookupAddress>{
+          address: '127.0.0.1',
+          family: 4,
+        },
+      ] as any;
     });
-  const systemLookupSpy = jest.spyOn<any, any>(dns, 'systemLookup').mockClear();
+    const domain = 'double-agent.collect';
+    const systemLookupSpy = jest.spyOn<any, any>(dns, 'systemLookup');
 
-  let unhandledErrorCalled = false;
-  const handler = () => {
-    unhandledErrorCalled = true;
-  };
-  process.once('unhandledRejection', handler);
+    const ip = await dns.lookupIp(domain);
+    expect(ip).toBeTruthy();
+    expect(Dns.dnsEntries.get(domain).isResolved).toBeTruthy();
 
-  try {
-    await dns.lookupIp('not-real-123423423443433434343-fake-domain.com');
-  } catch (error) {
-    // eslint-disable-next-line jest/no-try-expect
-    expect(error.message).toMatch('Not found');
-  }
+    const cached = await Dns.dnsEntries.get(domain).promise;
+    expect(cached.aRecords).toHaveLength(1);
+    expect(lookupSpy).toHaveBeenCalledTimes(1);
+    expect(systemLookupSpy).toHaveBeenCalledTimes(1);
+  });
 
-  await new Promise(resolve => setTimeout(resolve, 100));
-  expect(unhandledErrorCalled).toBe(false);
-  expect(dotLookup).toHaveBeenCalledTimes(1);
-  expect(lookupSpy).toHaveBeenCalledTimes(1);
-  expect(systemLookupSpy).toHaveBeenCalledTimes(1);
-  process.off('unhandledRejection', handler);
+  test('should properly expose errors if nothing is found', async () => {
+    const lookupSpy = jest.spyOn(nodeDns, 'lookup').mockClear();
+    const dotLookup = jest
+      .spyOn<any, any>(dns, 'lookupDnsEntry')
+      .mockClear()
+      .mockImplementationOnce(() => {
+        throw new Error('Not found');
+      });
+    const systemLookupSpy = jest.spyOn<any, any>(dns, 'systemLookup').mockClear();
+
+    let unhandledErrorCalled = false;
+    const handler = () => {
+      unhandledErrorCalled = true;
+    };
+    process.once('unhandledRejection', handler);
+
+    try {
+      await dns.lookupIp('not-real-123423423443433434343-fake-domain.com');
+    } catch (error) {
+      expect(error.message).toMatch('Not found');
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 100));
+    expect(unhandledErrorCalled).toBe(false);
+    expect(dotLookup).toHaveBeenCalledTimes(1);
+    expect(lookupSpy).toHaveBeenCalledTimes(1);
+    expect(systemLookupSpy).toHaveBeenCalledTimes(1);
+    process.off('unhandledRejection', handler);
+  });
 });

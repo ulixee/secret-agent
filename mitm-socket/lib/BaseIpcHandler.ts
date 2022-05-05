@@ -1,23 +1,28 @@
 import { ChildProcess, spawn } from 'child_process';
 import * as os from 'os';
-import Log from '@secret-agent/commons/Logger';
+import Log from '@ulixee/commons/lib/Logger';
 import * as net from 'net';
 import { unlink } from 'fs';
-import Resolvable from '@secret-agent/commons/Resolvable';
-import { IBoundLog } from '@secret-agent/interfaces/ILog';
-import { CanceledPromiseError } from '@secret-agent/commons/interfaces/IPendingWaitEvent';
-import { bindFunctions } from '@secret-agent/commons/utils';
-import { createId, createIpcSocketPath } from '@secret-agent/commons/IpcUtils';
+import Resolvable from '@ulixee/commons/lib/Resolvable';
+import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
+import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
+import { bindFunctions } from '@ulixee/commons/lib/utils';
+import { createIpcSocketPath } from '@ulixee/commons/lib/IpcUtils';
+import { nanoid } from 'nanoid';
 import * as Fs from 'fs';
 import * as Path from 'path';
 
 const ext = os.platform() === 'win32' ? '.exe' : '';
-const libPath = Path.join(__dirname, '/../dist/', `connect${ext}`);
+const libPath = Path.join(__dirname, '/../dist/', `connect${ext}`).replace(
+  'app.asar',
+  'app.asar.unpacked',
+);
 
 const distExists = Fs.existsSync(libPath);
 
 const { log } = Log(module);
 
+let hasInitializedStore = false;
 export default abstract class BaseIpcHandler {
   public isClosing: boolean;
   public get waitForConnected(): Promise<void> {
@@ -50,6 +55,10 @@ export default abstract class BaseIpcHandler {
       throw new Error(`Required files missing! The MitmSocket library was not found at ${libPath}`);
     }
 
+    if (!hasInitializedStore && options.storageDir && !Fs.existsSync(options.storageDir)) {
+      hasInitializedStore = true;
+      Fs.mkdirSync(options.storageDir, { recursive: true });
+    }
     const mode = this.options.mode;
     this.handlerName = `${mode[0].toUpperCase() + mode.slice(1)}IpcHandler`;
 
@@ -63,24 +72,26 @@ export default abstract class BaseIpcHandler {
   }
 
   public close(): void {
+    if (this.isClosing) return;
     const parentLogId = this.logger.info(`${this.handlerName}.Closing`);
-    if (this.isClosing || !this.child) return;
     this.isClosing = true;
 
-    try {
-      // fix for node 13 throwing errors on closed sockets
-      this.child.stdin.on('error', () => {
-        // catch
-      });
-      // NOTE: windows writes to stdin
-      // MUST SEND SIGNALS BEFORE DISABLING PIPE!!
-      this.child.send('disconnect');
-    } catch (err) {
-      // don't log epipes
-    }
+    if (this.child) {
+      try {
+        // fix for node 13 throwing errors on closed sockets
+        this.child.stdin.on('error', () => {
+          // catch
+        });
+        // NOTE: windows writes to stdin
+        // MUST SEND SIGNALS BEFORE DISABLING PIPE!!
+        this.child.send('disconnect');
+      } catch (err) {
+        // don't log epipes
+      }
 
-    this.child.kill('SIGINT');
-    this.child.unref();
+      this.child.kill('SIGINT');
+      this.child.unref();
+    }
 
     try {
       this.onExit();
@@ -170,7 +181,7 @@ export default abstract class BaseIpcHandler {
 
   private onChildProcessStderr(message: string): void {
     if (this.isClosing) return;
-    this.logger.info(`${this.handlerName}.stderr: ${message}`);
+    this.logger.error(`${this.handlerName}.stderr: ${message}`);
   }
 
   private spawnChild(): void {
@@ -196,8 +207,8 @@ export default abstract class BaseIpcHandler {
     options.mode = mode;
 
     if (options.ipcSocketPath === undefined) {
-      const id = createId();
-      options.ipcSocketPath = createIpcSocketPath(`sa-ipc-${mode}-${id}`);
+      const id = nanoid();
+      options.ipcSocketPath = createIpcSocketPath(`ipc-${mode}-${id}`);
     }
     return options as IGoIpcOpts;
   }
@@ -212,4 +223,5 @@ export interface IGoIpcOpts {
   tcpWindowSize?: number;
   rejectUnauthorized?: boolean;
   debug?: boolean;
+  debugData?: boolean; // include bytes read from client/remote (NOTE: lots of output)
 }

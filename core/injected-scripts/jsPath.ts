@@ -1,56 +1,14 @@
-// eslint-disable-next-line max-classes-per-file
-import IExecJsPathResult from '@secret-agent/interfaces/IExecJsPathResult';
-import type INodePointer from 'awaited-dom/base/INodePointer';
-import IElementRect from '@secret-agent/interfaces/IElementRect';
-import IPoint from '@secret-agent/interfaces/IPoint';
-import { IJsPathError } from '@secret-agent/interfaces/IJsPathError';
-import { INodeVisibility } from '@secret-agent/interfaces/INodeVisibility';
-import { IJsPath, IPathStep } from 'awaited-dom/base/AwaitedPath';
+import IExecJsPathResult from '@bureau/interfaces/IExecJsPathResult';
+import type INodePointer from '@bureau/interfaces/INodePointer';
+import IElementRect from '@bureau/interfaces/IElementRect';
+import IPoint from '@bureau/interfaces/IPoint';
+import { IJsPathError } from '@bureau/interfaces/IJsPathError';
+import { INodeVisibility } from '@bureau/interfaces/INodeVisibility';
+import { IJsPath, IPathStep } from '@bureau/interfaces/IJsPath';
 
 const pointerFnName = '__getNodePointer__';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 class JsPath {
-  public static async waitForScrollOffset(coordinates: [number, number], timeoutMillis: number) {
-    let left = Math.max(coordinates[0], 0);
-    const scrollWidth = document.body.scrollWidth || document.documentElement.scrollWidth;
-    const maxScrollX = Math.max(scrollWidth - window.innerWidth, 0);
-    if (left >= maxScrollX) {
-      left = maxScrollX;
-    }
-
-    let top = Math.max(coordinates[1], 0);
-    const scrollHeight = document.body.scrollHeight || document.documentElement.scrollHeight;
-    const maxScrollY = Math.max(scrollHeight - window.innerHeight, 0);
-    if (top >= maxScrollY) {
-      top = maxScrollY;
-    }
-
-    const endTime = new Date().getTime() + (timeoutMillis ?? 50);
-    let count = 0;
-    do {
-      if (Math.abs(window.scrollX - left) <= 1 && Math.abs(window.scrollY - top) <= 1) {
-        return true;
-      }
-      if (count === 2) {
-        window.scroll({ behavior: 'auto', left, top });
-      }
-      await new Promise(requestAnimationFrame);
-      count += 1;
-    } while (new Date().getTime() < endTime);
-
-    return false;
-  }
-
-  public static getWindowOffset() {
-    return {
-      innerHeight: window.innerHeight || document.documentElement.clientHeight,
-      innerWidth: window.innerWidth || document.documentElement.clientWidth,
-      scrollY: window.scrollY || document.documentElement.scrollTop,
-      scrollX: window.scrollX || document.documentElement.scrollLeft,
-    };
-  }
-
   public static simulateOptionClick(jsPath: IJsPath): IExecJsPathResult<boolean> {
     const objectAtPath = new ObjectAtPath(jsPath);
     try {
@@ -98,6 +56,16 @@ class JsPath {
         result.nodePointer = objectAtPath.extractNodePointer();
       }
 
+      if (!result.nodePointer && objectAtPath.nodePath?.length) {
+        const nodePath = [...objectAtPath.nodePath].reverse();
+        for (const node of nodePath) {
+          if (node instanceof HTMLElement) {
+            ObjectAtPath.createNodePointer(node);
+            break;
+          }
+        }
+      }
+
       if (
         !objectAtPath.hasCustomMethodLookup &&
         (result.nodePointer?.iterableIsState || result.value instanceof Node)
@@ -109,98 +77,9 @@ class JsPath {
         result.isValueSerialized = true;
         result.value = TypeSerializer.replace(result.value);
       }
+
+      if (result.nodePointer?.type === 'undefined') result.nodePointer = null;
       return result;
-    } catch (error) {
-      return objectAtPath.toReturnError(error);
-    }
-  }
-
-  public static async execJsPaths(
-    jsPaths: { jsPath: IJsPath; sourceIndex: number }[],
-    containerOffset: IPoint,
-  ): Promise<{ jsPath: IJsPath; result: IExecJsPathResult<any> }[]> {
-    const resultMapByPathIndex: { [index: number]: IExecJsPathResult<any>[] } = {};
-    const results: { jsPath: IJsPath; result: IExecJsPathResult<any> }[] = [];
-
-    async function runFn(queryIndex: number, jsPath: IJsPath): Promise<void> {
-      // copy into new array so original stays clean
-      const result = await JsPath.exec([...jsPath], containerOffset);
-      results.push({ jsPath, result });
-
-      (resultMapByPathIndex[queryIndex] ??= []).push(result);
-    }
-
-    for (let i = 0; i < jsPaths.length; i += 1) {
-      const { jsPath, sourceIndex } = jsPaths[i];
-      if (sourceIndex !== undefined) {
-        const parentResults = resultMapByPathIndex[sourceIndex];
-        // if we couldn't get parent results, don't try to recurse
-        if (!parentResults) continue;
-        for (const parentResult of parentResults) {
-          if (parentResult.pathError || !parentResult.nodePointer) continue;
-          if (jsPath[0] === '.') {
-            const nestedJsPath = [parentResult.nodePointer.id, ...jsPath.slice(1)];
-            await runFn(i, nestedJsPath);
-          }
-          if (jsPath[0] === '*.') {
-            if (parentResult.nodePointer.iterableIsState) {
-              for (const iterable of parentResult.nodePointer.iterableItems as INodePointer[]) {
-                const nestedJsPath = [iterable.id, ...jsPath.slice(1)];
-                await runFn(i, nestedJsPath);
-              }
-            }
-          }
-        }
-      } else {
-        await runFn(i, jsPath);
-      }
-    }
-    return results;
-  }
-
-  public static async waitForElement(
-    jsPath: IJsPath,
-    containerOffset: IPoint,
-    waitForVisible: boolean,
-    timeoutMillis: number,
-  ): Promise<IExecJsPathResult<INodeVisibility>> {
-    const objectAtPath = new ObjectAtPath(jsPath, containerOffset);
-    try {
-      const end = new Date();
-      end.setTime(end.getTime() + (timeoutMillis || 0));
-
-      while (new Date() < end) {
-        try {
-          if (!objectAtPath.objectAtPath) objectAtPath.lookup();
-
-          let isElementValid = !!objectAtPath.objectAtPath;
-          let visibility: INodeVisibility = {
-            nodeExists: isElementValid,
-          };
-          if (isElementValid && waitForVisible) {
-            visibility = objectAtPath.getComputedVisibility();
-            isElementValid = visibility.isVisible;
-          }
-
-          if (isElementValid) {
-            return {
-              nodePointer: objectAtPath.extractNodePointer(),
-              value: visibility,
-            };
-          }
-        } catch (err) {
-          if (String(err).includes('not a valid selector')) throw err;
-          // can also happen if lookup path doesn't exist yet... in which case we want to keep trying
-        }
-        // eslint-disable-next-line promise/param-names
-        await new Promise(resolve1 => setTimeout(resolve1, 20));
-        await new Promise(requestAnimationFrame);
-      }
-
-      return {
-        nodePointer: objectAtPath.extractNodePointer(),
-        value: objectAtPath.getComputedVisibility(),
-      };
     } catch (error) {
       return objectAtPath.toReturnError(error);
     }
@@ -209,8 +88,11 @@ class JsPath {
 
 // / Object At Path Class //////
 
+let lastContainerOffset: { x: number; y: number };
+
 class ObjectAtPath {
   public objectAtPath: Node | any;
+  public nodePath: (Node | any)[];
   public hasNodePointerLoad: boolean;
   public hasCustomMethodLookup = false;
 
@@ -228,20 +110,7 @@ class ObjectAtPath {
   }
 
   public get boundingClientRect() {
-    const element = this.closestElement;
-    if (!element) {
-      return { x: 0, y: 0, width: 0, height: 0, tag: 'node' };
-    }
-
-    const rect = element.getBoundingClientRect();
-
-    return {
-      y: rect.y + this.containerOffset.y,
-      x: rect.x + this.containerOffset.x,
-      height: rect.height,
-      width: rect.width,
-      tag: element.tagName?.toLowerCase(),
-    } as IElementRect;
+    return this.getElementRect(this.closestElement);
   }
 
   public get obstructedByElement() {
@@ -288,12 +157,13 @@ class ObjectAtPath {
     return this.objectAtPath?.nodeType === this.objectAtPath?.TEXT_NODE;
   }
 
-  constructor(readonly jsPath: IJsPath, readonly containerOffset: IPoint = { x: 0, y: 0 }) {
+  constructor(readonly jsPath: IJsPath, readonly containerOffset: IPoint = lastContainerOffset) {
     if (!jsPath?.length) return;
     this.containerOffset = containerOffset;
+    lastContainerOffset = containerOffset;
 
     // @ts-ignore - start listening for events since we've just looked up something on this frame
-    if ('listenForInteractionEvents' in window) window.listenForInteractionEvents();
+    if ('listenToInteractionEvents' in window) window.listenToInteractionEvents();
 
     if (
       Array.isArray(jsPath[jsPath.length - 1]) &&
@@ -311,10 +181,12 @@ class ObjectAtPath {
     const visibility: INodeVisibility = {
       // put here first for display
       isVisible: true,
+      isClickable: false,
       nodeExists: !!this.objectAtPath,
     };
     if (!visibility.nodeExists) {
       visibility.isVisible = false;
+      visibility.isClickable = false;
       return visibility;
     }
 
@@ -324,6 +196,7 @@ class ObjectAtPath {
 
     if (!visibility.hasContainingElement) {
       visibility.isVisible = false;
+      visibility.isClickable = false;
       return visibility;
     }
 
@@ -335,6 +208,7 @@ class ObjectAtPath {
     visibility.isUnobstructedByOtherElements = !this.isObstructedByAnotherElement;
     if (visibility.isUnobstructedByOtherElements === false) {
       visibility.obstructedByElementId = this.obstructedByElementId;
+      visibility.obstructedByElementRect = this.getElementRect(this.obstructedByElement);
     }
 
     const rect = this.boundingClientRect;
@@ -345,7 +219,18 @@ class ObjectAtPath {
     visibility.isOnscreenHorizontal =
       rect.x + rect.width > 0 && rect.x < window.innerWidth + this.containerOffset.x;
 
-    visibility.isVisible = Object.values(visibility).every(x => x !== false);
+    visibility.isVisible =
+      visibility.hasCssVisibility &&
+      visibility.hasCssDisplay &&
+      visibility.hasCssOpacity &&
+      visibility.isConnected &&
+      visibility.hasDimensions;
+
+    visibility.isClickable =
+      visibility.isVisible &&
+      visibility.isOnscreenVertical &&
+      visibility.isOnscreenHorizontal &&
+      visibility.isUnobstructedByOtherElements;
     return visibility;
   }
 
@@ -353,6 +238,7 @@ class ObjectAtPath {
     try {
       // track object as we navigate so we can extract properties along the way
       this.objectAtPath = window;
+      this.nodePath = [window];
       this.lookupStepIndex = 0;
       if (this.jsPath[0] === 'window') {
         this.jsPath.shift();
@@ -373,7 +259,9 @@ class ObjectAtPath {
           // handlers for getComputedStyle/Visibility/getNodeId/getBoundingRect
           if (methodName.startsWith('__') && methodName.endsWith('__')) {
             this.hasCustomMethodLookup = true;
-            this.objectAtPath = this[`${methodName.replace(/__/g, '')}`](...finalArgs);
+            this.objectAtPath = this[`${methodName.substring(2, methodName.length - 2)}`](
+              ...finalArgs,
+            );
           } else {
             const methodProperty = propertyName(methodName);
             this.objectAtPath = this.objectAtPath[methodProperty](...finalArgs);
@@ -386,6 +274,7 @@ class ObjectAtPath {
         } else {
           throw new Error('unknown JsPathStep');
         }
+        this.nodePath.push(this.objectAtPath);
         this.lookupStepIndex += 1;
       }
     } catch (err) {
@@ -395,6 +284,10 @@ class ObjectAtPath {
     }
 
     return this;
+  }
+
+  public isFocused(): boolean {
+    return this.closestElement === document.activeElement;
   }
 
   public toReturnError(error: Error): IExecJsPathResult {
@@ -411,8 +304,37 @@ class ObjectAtPath {
     };
   }
 
+  public getElementRect(element: Element): IElementRect {
+    if (!element) {
+      return { x: 0, y: 0, width: 0, height: 0, tag: 'node', scrollX: 0, scrollY: 0 };
+    }
+
+    const tag = element.tagName?.toLowerCase();
+
+    // if this is an option, get the rect of the select since option has no position
+    if (element instanceof HTMLOptionElement) {
+      let parent: HTMLElement = element;
+      while (parent && !(parent instanceof HTMLSelectElement)) {
+        parent = parent.parentElement;
+      }
+      element = parent;
+    }
+
+    const rect = element.getBoundingClientRect();
+    return {
+      y: rect.y + this.containerOffset.y,
+      x: rect.x + this.containerOffset.x,
+      height: rect.height,
+      width: rect.width,
+      scrollX: window.scrollX ?? document.documentElement?.scrollLeft,
+      scrollY: window.scrollY ?? document.documentElement?.scrollTop,
+      tag,
+    } as IElementRect;
+  }
+
   public extractNodePointer(): INodePointer {
-    return (this.nodePointer ??= ObjectAtPath.createNodePointer(this.objectAtPath));
+    this.nodePointer ??= ObjectAtPath.createNodePointer(this.objectAtPath);
+    return this.nodePointer;
   }
 
   private getClientRect(includeVisibilityStatus = false): IElementRect {
@@ -432,8 +354,8 @@ class ObjectAtPath {
     return window.getComputedStyle(this.objectAtPath, pseudoElement);
   }
 
-  public static createNodePointer(objectAtPath: any): INodePointer {
-    if (!objectAtPath) return null;
+  public static createNodePointer(objectAtPath: any, isNested = false): INodePointer {
+    if (!objectAtPath) return { id: null, type: 'undefined' };
 
     const nodeId = NodeTracker.watchNode(objectAtPath);
     const state = {
@@ -442,13 +364,27 @@ class ObjectAtPath {
       preview: generateNodePreview(objectAtPath),
     } as INodePointer;
 
+    const ids = objectAtPath instanceof HTMLElement ? [nodeId] : [];
+
     if (isIterableOrArray(objectAtPath)) {
       state.iterableItems = Array.from(objectAtPath);
 
       if (state.iterableItems.length && isCustomType(state.iterableItems[0])) {
         state.iterableIsState = true;
-        state.iterableItems = state.iterableItems.map(x => this.createNodePointer(x));
+        const items = state.iterableItems;
+        state.iterableItems = [];
+        for (const item of items) {
+          const nodePointer = this.createNodePointer(item, true);
+          state.iterableItems.push(nodePointer);
+          if (item instanceof HTMLElement) {
+            ids.push(nodePointer.id);
+          }
+        }
       }
+    }
+
+    if (!isNested && 'replayInteractions' in window) {
+      window.replayInteractions({ frameIdPath: '', nodeIds: ids });
     }
 
     return state;

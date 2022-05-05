@@ -14,35 +14,41 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { TypedEventEmitter } from '@secret-agent/commons/eventUtils';
-import IConnectionTransport from '@secret-agent/interfaces/IConnectionTransport';
-import Log from '@secret-agent/commons/Logger';
-import { DevtoolsSession } from './DevtoolsSession';
+import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
+import IConnectionTransport from '../interfaces/IConnectionTransport';
+import Log from '@ulixee/commons/lib/Logger';
+import DevtoolsSession from './DevtoolsSession';
 
 const { log } = Log(module);
 
 export class Connection extends TypedEventEmitter<{ disconnected: void }> {
   public readonly rootSession: DevtoolsSession;
-  public isClosed = false;
+  public get isClosed(): boolean {
+    return this.#isClosed || this.transport.isClosed;
+  }
 
+  public get nextId(): number {
+    this.lastId += 1;
+    return this.lastId;
+  }
+
+  #isClosed = false;
   private lastId = 0;
+
   private sessionsById = new Map<string, DevtoolsSession>();
 
   constructor(readonly transport: IConnectionTransport) {
     super();
 
     transport.onMessageFn = this.onMessage.bind(this);
-    transport.onCloseFns.push(this.onClosed);
+    transport.onCloseFns.push(this.onClosed.bind(this));
 
     this.rootSession = new DevtoolsSession(this, 'browser', '');
     this.sessionsById.set('', this.rootSession);
   }
 
-  public sendMessage(message: object): number {
-    this.lastId += 1;
-    const id = this.lastId;
-    this.transport.send(JSON.stringify({ ...message, id }));
-    return id;
+  public sendMessage(message: object & { id: number }): boolean {
+    return this.transport.send(JSON.stringify(message));
   }
 
   public getSession(sessionId: string): DevtoolsSession | undefined {
@@ -81,8 +87,8 @@ export class Connection extends TypedEventEmitter<{ disconnected: void }> {
   }
 
   private onClosed(): void {
-    if (this.isClosed) return;
-    this.isClosed = true;
+    if (this.#isClosed) return;
+    this.#isClosed = true;
     for (const [id, session] of this.sessionsById) {
       session.onClosed();
       this.sessionsById.delete(id);

@@ -13,3 +13,11 @@ interface IStaticNodeTracker {
 }
 
 declare let TypeSerializer: ITypeSerializer;
+declare let ObjectAtPath: any;
+
+interface Window {
+  extractDomChanges?();
+  replayInteractions(resultNodeIds?: { frameIdPath: string; nodeIds: number[] });
+  trackElement?(node: Node);
+  PaintEvents: PaintEvents;
+}

@@ -1,16 +1,13 @@
 import { randomBytes } from 'crypto';
 import * as dnsPacket from 'dns-packet';
-import IResolvablePromise from '@secret-agent/interfaces/IResolvablePromise';
-import { createPromise } from '@secret-agent/commons/utils';
+import IResolvablePromise from '@ulixee/commons/interfaces/IResolvablePromise';
+import { createPromise } from '@ulixee/commons/lib/utils';
 import MitmSocket from '@secret-agent/mitm-socket/index';
-import { CanceledPromiseError } from '@secret-agent/commons/interfaces/IPendingWaitEvent';
-import IDnsSettings from '@secret-agent/interfaces/IDnsSettings';
-import { IBoundLog } from '@secret-agent/interfaces/ILog';
-import Log from '@secret-agent/commons/Logger';
-import EventSubscriber from '@secret-agent/commons/EventSubscriber';
+import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
+import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
+import IDnsSettings from '@bureau/interfaces/IDnsSettings';
+import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
 import RequestSession from '../handlers/RequestSession';
-
-const { log } = Log(module);
 
 export default class DnsOverTlsSocket {
   public get host(): string {
@@ -37,11 +34,11 @@ export default class DnsOverTlsSocket {
 
   private requestSession: RequestSession | undefined;
   private logger: IBoundLog;
-  private eventSubscriber = new EventSubscriber();
+  private events = new EventSubscriber();
 
   constructor(dnsSettings: IDnsSettings, requestSession: RequestSession, onClose?: () => void) {
     this.requestSession = requestSession;
-    this.logger = log.createChild({ sessionId: requestSession.sessionId });
+    this.logger = requestSession.logger.createChild(module);
     this.dnsSettings = dnsSettings;
     this.onClose = onClose;
   }
@@ -58,7 +55,7 @@ export default class DnsOverTlsSocket {
     if (this.isClosing) return;
     this.isClosing = true;
     this.mitmSocket?.close();
-    this.eventSubscriber.close();
+    this.events.close();
     this.requestSession = null;
     this.mitmSocket = null;
     if (this.onClose) this.onClose();
@@ -66,7 +63,7 @@ export default class DnsOverTlsSocket {
 
   protected async connect(): Promise<void> {
     const { host, port, servername } = this.dnsSettings.dnsOverTlsConnection || {};
-    this.mitmSocket = new MitmSocket(this.requestSession?.sessionId, {
+    this.mitmSocket = new MitmSocket(this.requestSession.sessionId, this.requestSession.logger, {
       host,
       servername,
       port: String(port ?? 853),
@@ -77,14 +74,14 @@ export default class DnsOverTlsSocket {
 
     await this.mitmSocket.connect(this.requestSession.requestAgent.socketSession, 10e3);
 
-    this.eventSubscriber.on(this.mitmSocket.socket, 'data', this.onData.bind(this));
+    this.events.on(this.mitmSocket.socket, 'data', this.onData.bind(this));
 
-    const onClose = this.eventSubscriber.on(this.mitmSocket.socket, 'close', () => {
+    const onCloseRegistration = this.events.on(this.mitmSocket, 'close', () => {
       this.isClosing = true;
       if (this.onClose) this.onClose();
     });
-    this.eventSubscriber.on(this.mitmSocket, 'eof', async () => {
-      this.eventSubscriber.off(onClose);
+    this.events.on(this.mitmSocket, 'eof', async () => {
+      this.events.off(onCloseRegistration);
       if (this.isClosing) return;
       this.mitmSocket.close();
       try {

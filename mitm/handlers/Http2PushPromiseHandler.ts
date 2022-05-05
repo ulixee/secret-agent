@@ -1,11 +1,11 @@
 import * as http2 from 'http2';
 import { ClientHttp2Stream, ServerHttp2Stream } from 'http2';
-import Log, { hasBeenLoggedSymbol } from '@secret-agent/commons/Logger';
-import { CanceledPromiseError } from '@secret-agent/commons/interfaces/IPendingWaitEvent';
-import { IBoundLog } from '@secret-agent/interfaces/ILog';
+import Log, { hasBeenLoggedSymbol } from '@ulixee/commons/lib/Logger';
+import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
+import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
 import IMitmRequestContext from '../interfaces/IMitmRequestContext';
 import MitmRequestContext from '../lib/MitmRequestContext';
-import BlockHandler from './BlockHandler';
+import InterceptorHandler from './InterceptorHandler';
 import HeadersHandler from './HeadersHandler';
 import ResourceState from '../interfaces/ResourceState';
 import RequestSession from './RequestSession';
@@ -29,16 +29,16 @@ export default class Http2PushPromiseHandler {
   ) {
     const session = parentContext.requestSession;
     const sessionId = session.sessionId;
-    this.logger = log.createChild(module, {
-      sessionId,
-    });
+    this.logger = session.logger.createChild(module);
+    log.info('Http2Client.pushReceived', { sessionId, requestHeaders, flags });
     this.logger.info('Http2Client.pushReceived', { requestHeaders, flags });
     this.context = MitmRequestContext.createFromHttp2Push(parentContext, rawHeaders);
-    this.context.eventSubscriber.on(serverPushStream, 'error', error => {
+    this.context.events.on(serverPushStream, 'error', error => {
       this.logger.warn('Http2.ProxyToServer.PushStreamError', {
         error,
       });
     });
+
     this.context.serverToProxyResponse = serverPushStream;
     this.session.trackResourceRedirects(this.context);
     this.context.setState(ResourceState.ServerToProxyPush);
@@ -51,28 +51,26 @@ export default class Http2PushPromiseHandler {
     const session = this.session;
     const serverPushStream = this.context.serverToProxyResponse as http2.ClientHttp2Stream;
 
-    if (BlockHandler.shouldBlockRequest(pushContext)) {
+    if (await InterceptorHandler.shouldIntercept(pushContext)) {
       await pushContext.browserHasRequested;
       session.emit('response', MitmRequestContext.toEmittedResource(pushContext));
-      pushContext.setState(ResourceState.Blocked);
+      pushContext.setState(ResourceState.Intercepted);
       return serverPushStream.close(http2.constants.NGHTTP2_CANCEL);
     }
 
     HeadersHandler.cleanPushHeaders(pushContext);
+
     this.onResponseHeadersPromise = new Promise<void>(resolve => {
-      this.context.eventSubscriber.once(
-        serverPushStream,
-        'push',
-        (responseHeaders, responseFlags, responseRawHeaders) => {
-          MitmRequestContext.readHttp2Response(
-            pushContext,
-            serverPushStream,
-            responseHeaders[':status'],
-            responseRawHeaders,
-          );
-          resolve();
-        },
-      );
+      const events = this.context.events;
+      events.once(serverPushStream, 'push', (responseHeaders, responseFlags, rawHeaders) => {
+        MitmRequestContext.readHttp2Response(
+          pushContext,
+          serverPushStream,
+          responseHeaders[':status'],
+          rawHeaders,
+        );
+        resolve();
+      });
     });
 
     if (serverPushStream.destroyed) {
@@ -102,6 +100,7 @@ export default class Http2PushPromiseHandler {
     const serverToProxyPushStream = this.context.serverToProxyResponse as ClientHttp2Stream;
     const cache = this.context.cacheHandler;
     const session = this.context.requestSession;
+    const events = this.context.events;
 
     if (createPushStreamError) {
       this.logger.warn('Http2.ClientToProxy.PushStreamError', {
@@ -109,18 +108,19 @@ export default class Http2PushPromiseHandler {
       });
       return;
     }
-    this.context.eventSubscriber.on(proxyToClientPushStream, 'error', pushError => {
+
+    events.on(proxyToClientPushStream, 'error', pushError => {
       this.logger.warn('Http2.ClientToProxy.PushStreamError', {
         error: pushError,
       });
     });
 
-    this.context.eventSubscriber.on(serverToProxyPushStream, 'headers', additional => {
+    events.on(serverToProxyPushStream, 'headers', additional => {
       if (!proxyToClientPushStream.destroyed) proxyToClientPushStream.additionalHeaders(additional);
     });
 
     let trailers: http2.IncomingHttpHeaders;
-    this.context.eventSubscriber.once(serverToProxyPushStream, 'trailers', trailerHeaders => {
+    events.once(serverToProxyPushStream, 'trailers', trailerHeaders => {
       trailers = trailerHeaders;
     });
 
@@ -142,8 +142,7 @@ export default class Http2PushPromiseHandler {
         }
       } else {
         proxyToClientPushStream.respond(this.context.responseHeaders, { waitForTrailers: true });
-
-        this.context.eventSubscriber.on(proxyToClientPushStream, 'wantTrailers', (): void => {
+        events.on(proxyToClientPushStream, 'wantTrailers', (): void => {
           this.context.responseTrailers = trailers;
           if (trailers) proxyToClientPushStream.sendTrailers(this.context.responseTrailers ?? {});
           else proxyToClientPushStream.close();
@@ -175,7 +174,7 @@ export default class Http2PushPromiseHandler {
   }
 
   private cleanupEventListeners(): void {
-    this.context.eventSubscriber.close('error');
+    this.context.events.close('error');
   }
 
   private onHttp2PushError(kind: string, error: Error): void {

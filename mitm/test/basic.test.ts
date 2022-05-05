@@ -1,27 +1,20 @@
 import * as http from 'http';
 import { IncomingHttpHeaders } from 'http';
-import { Helpers } from '@secret-agent/testing';
+import { Helpers, TestLogger } from '@secret-agent/testing';
 import * as HttpProxyAgent from 'http-proxy-agent';
-import { URL } from 'url';
-import { AddressInfo } from 'net';
-import * as WebSocket from 'ws';
 import * as Url from 'url';
-import { createPromise } from '@secret-agent/commons/utils';
-import IHttpResourceLoadDetails from '@secret-agent/interfaces/IHttpResourceLoadDetails';
-import BrowserEmulator from '@secret-agent/default-browser-emulator';
-import CorePlugins from '@secret-agent/core/lib/CorePlugins';
-import { IBoundLog } from '@secret-agent/interfaces/ILog';
-import Log from '@secret-agent/commons/Logger';
+import { AddressInfo, Socket } from 'net';
+import * as WebSocket from 'ws';
+import { createPromise } from '@ulixee/commons/lib/utils';
+import IHttpResourceLoadDetails from '@bureau/interfaces/IHttpResourceLoadDetails';
 import HttpRequestHandler from '../handlers/HttpRequestHandler';
 import RequestSession, { IRequestSessionRequestEvent } from '../handlers/RequestSession';
 import MitmServer from '../lib/MitmProxy';
 import HeadersHandler from '../handlers/HeadersHandler';
 import HttpUpgradeHandler from '../handlers/HttpUpgradeHandler';
 import { parseRawHeaders } from '../lib/Utils';
-
-const { log } = Log(module);
-const browserEmulatorId = BrowserEmulator.id;
-const selectBrowserMeta = BrowserEmulator.selectBrowserMeta();
+import IBrowserRequestMatcher from '../interfaces/IBrowserRequestMatcher';
+import env from '../env';
 
 const mocks = {
   httpRequestHandler: {
@@ -40,13 +33,12 @@ beforeAll(() => {
   });
 });
 
+let sessionCounter = 1;
 beforeEach(() => {
   mocks.httpRequestHandler.onRequest.mockClear();
 });
 afterAll(Helpers.afterAll);
 afterEach(Helpers.afterEach);
-
-let sessionCounter = 1;
 
 describe('basic MitM tests', () => {
   it('should send request through proxy', async () => {
@@ -109,11 +101,11 @@ describe('basic MitM tests', () => {
     const session = createSession(mitmServer);
     expect(mocks.httpRequestHandler.onRequest).toBeCalledTimes(0);
 
-    process.env.MITM_ALLOW_INSECURE = 'true';
+    env.allowInsecure = true;
     const res = await Helpers.httpGet(server.baseUrl, proxyHost, session.getProxyCredentials());
     expect(res.includes('Secure as anything!')).toBeTruthy();
     expect(mocks.httpRequestHandler.onRequest).toBeCalledTimes(1);
-    process.env.MITM_ALLOW_INSECURE = 'false';
+    env.allowInsecure = false;
   });
 
   it('should send an https request through upstream proxy', async () => {
@@ -227,8 +219,8 @@ describe('basic MitM tests', () => {
     expect(session.requestedUrls).toHaveLength(1);
 
     const resource = await resourcePromise;
-    expect(resource.request.postData).toBeTruthy();
-    expect(resource.request.postData.toString()).toBe(
+    expect(resource.postData).toBeTruthy();
+    expect(resource.postData.toString()).toBe(
       JSON.stringify({ gotData: true, isCompressed: 'no' }),
     );
 
@@ -270,7 +262,7 @@ describe('basic MitM tests', () => {
 
     const resource = await resourcePromise;
     expect(session.requestedUrls).toHaveLength(1);
-    expect(resource.request.postData.toString()).toBe(
+    expect(resource.postData.toString()).toBe(
       JSON.stringify({ largeBuffer: largeBuffer.toString('hex') }),
     );
 
@@ -297,7 +289,7 @@ describe('basic MitM tests', () => {
         expect(request.headers).not.toHaveProperty(key);
       }
 
-      wsServer.handleUpgrade(request, socket, head, async (ws: WebSocket) => {
+      wsServer.handleUpgrade(request, socket as Socket, head, async (ws: WebSocket) => {
         ws.on('message', msg => {
           expect(msg).toMatch(/Hi\d+/);
           serverMessages.push(msg);
@@ -347,21 +339,15 @@ describe('basic MitM tests', () => {
     Helpers.needsClosing.push(mitmServer);
     const proxyHost = `http://localhost:${mitmServer.port}`;
 
-    const session = createSession(mitmServer);
-    session.plugins.beforeHttpRequest = jest.fn();
-    session.browserRequestMatcher.onBrowserRequestedResource(
-      {
-        browserRequestId: '25.123',
-        url: new URL(`${httpServer.url}page1`),
-        method: 'GET',
-        resourceType: 'Document',
-        hasUserGesture: true,
-        isUserNavigation: true,
-        requestHeaders: {},
-        documentUrl: `${httpServer.url}page1`,
-      } as IHttpResourceLoadDetails,
-      1,
-    );
+    const session = createSession(mitmServer, null, {
+      determineResourceType(resource: IHttpResourceLoadDetails) {
+        resource.resourceType = 'Document';
+      },
+      resolveBrowserRequest() {},
+      cancelPending() {},
+    });
+    const beforeHttpHook = jest.fn();
+    session.hook({ beforeHttpRequest: beforeHttpHook });
     const onresponse = jest.fn();
     const onError = jest.fn();
     session.on('response', onresponse);
@@ -371,7 +357,7 @@ describe('basic MitM tests', () => {
 
     await Helpers.httpGet(`${httpServer.url}page1`, proxyHost, proxyCredentials);
 
-    expect(session.plugins.beforeHttpRequest).toHaveBeenCalledTimes(1);
+    expect(beforeHttpHook).toHaveBeenCalledTimes(1);
     expect(onresponse).toHaveBeenCalledTimes(1);
 
     const [responseEvent] = onresponse.mock.calls[0];
@@ -381,7 +367,7 @@ describe('basic MitM tests', () => {
     expect(response).toBeTruthy();
     expect(request.url).toBe(`${httpServer.url}page1`);
     expect(resourceType).toBe('Document');
-    expect(response.remoteAddress).toContain(httpServer.port);
+    expect(response.remoteAddress).toContain(`${httpServer.port}`);
     expect(wasCached).toBe(false);
     expect(onError).not.toHaveBeenCalled();
     mocks.HeadersHandler.determineResourceType.mockImplementation(async () => ({} as any));
@@ -391,9 +377,20 @@ describe('basic MitM tests', () => {
   });
 });
 
-function createSession(mitmProxy: MitmServer, upstreamProxyUrl: string = null) {
-  const plugins = new CorePlugins({ browserEmulatorId, selectBrowserMeta }, log as IBoundLog);
-  const session = new RequestSession(`${(sessionCounter += 1)}`, plugins, upstreamProxyUrl);
+function createSession(
+  mitmProxy: MitmServer,
+  upstreamProxyUrl: string = null,
+  browserMatcher?: IBrowserRequestMatcher,
+) {
+  sessionCounter += 1;
+  TestLogger.testNumber = sessionCounter;
+  const session = new RequestSession(
+    `${sessionCounter}`,
+    {},
+    TestLogger.forTest(module),
+    upstreamProxyUrl,
+  );
+  session.browserRequestMatcher = browserMatcher;
   mitmProxy.registerSession(session, false);
   Helpers.needsClosing.push(session);
 

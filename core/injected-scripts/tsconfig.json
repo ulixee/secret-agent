@@ -1,16 +1,11 @@
 {
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "experimentalDecorators": true,
     "composite": true,
-    "target": "ES2019",
-    "module": "CommonJS",
-    "lib": ["ES2019", "DOM", "DOM.Iterable"],
-    "noImplicitAny": false,
     "sourceMap": false,
-    "declaration": true,
-    "allowJs": true,
-    "outDir": "../../build/core/injected-scripts"
+    "inlineSourceMap": false,
+    "removeComments": true
   },
   "include": ["*.ts", ".eslintrc.js"],
-  "exclude": ["**/tsconfig*.json", "**/node_modules", "**/dist", "**/replay", "**/website"]
+  "exclude": ["**/tsconfig*.json", "**/node_modules", "**/build"]
 }
