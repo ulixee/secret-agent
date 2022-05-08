@@ -1,11 +1,11 @@
-import { Helpers, TestLogger } from '@secret-agent/testing';
+import { Helpers, TestLogger } from '@unblocked-web/sa-testing';
 import * as Proxy from 'proxy';
 import * as http from 'http';
 import {
   getTlsConnection,
   httpGetWithSocket,
   readableToBuffer,
-} from '@secret-agent/testing/helpers';
+} from '@unblocked-web/sa-testing/helpers';
 import * as WebSocket from 'ws';
 import * as socks5 from 'simple-socks';
 import { createPromise } from '@ulixee/commons/lib/utils';

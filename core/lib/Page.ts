@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 import Protocol from 'devtools-protocol';
-import { IPage, IPageEvents } from '@unblocked/emulator-spec/IPage';
+import { IPage, IPageEvents } from '@unblocked-web/emulator-spec/browser/IPage';
 import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
 import { assert, createPromise } from '@ulixee/commons/lib/utils';
 import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
@@ -31,22 +31,22 @@ import BrowserContext from './BrowserContext';
 import { Worker } from './Worker';
 import ConsoleMessage from './ConsoleMessage';
 import Frame from './Frame';
-import IScreenshotOptions from '@unblocked/emulator-spec/IScreenshotOptions';
+import IScreenshotOptions from '@unblocked-web/emulator-spec/browser/IScreenshotOptions';
 import {
   IElementInteractVerification,
   IInteractionGroup,
   InteractionCommand,
-} from '@unblocked/emulator-spec/IInteractions';
-import IResourceMeta from '@unblocked/emulator-spec/IResourceMeta';
+} from '@unblocked-web/emulator-spec/interact/IInteractions';
+import IResourceMeta from '@unblocked-web/emulator-spec/net/IResourceMeta';
 import * as Url from 'url';
 import Timer from '@ulixee/commons/lib/Timer';
-import { ILoadStatus, LoadStatus } from '@unblocked/emulator-spec/Location';
-import { IJsPath } from '@unblocked/emulator-spec/IJsPath';
+import { ILoadStatus, LoadStatus } from '@unblocked-web/emulator-spec/browser/Location';
+import { IJsPath } from '@unblocked-web/js-path';
 import IWaitForOptions from '../interfaces/IWaitForOptions';
-import INavigation from '@unblocked/emulator-spec/INavigation';
-import IExecJsPathResult from '@unblocked/emulator-spec/IExecJsPathResult';
+import INavigation from '@unblocked-web/emulator-spec/browser/INavigation';
+import IExecJsPathResult from '@unblocked-web/emulator-spec/browser/IExecJsPathResult';
 import DomStorageTracker, { IDomStorageEvents } from './DomStorageTracker';
-import IDialog from '@unblocked/emulator-spec/IDialog';
+import IDialog from '@unblocked-web/emulator-spec/browser/IDialog';
 import ConsoleAPICalledEvent = Protocol.Runtime.ConsoleAPICalledEvent;
 import ExceptionThrownEvent = Protocol.Runtime.ExceptionThrownEvent;
 import WindowOpenEvent = Protocol.Page.WindowOpenEvent;
@@ -149,7 +149,6 @@ export default class Page extends TypedEventEmitter<IPageLevelEvents> implements
       targetId,
     });
     this.logger.info('Page.created');
-    this.storeEventsWithoutListeners = true;
     this.keyboard = new Keyboard(devtoolsSession);
     this.mouse = new Mouse(devtoolsSession, this.keyboard);
     this.networkManager = new NetworkManager(
@@ -166,6 +165,7 @@ export default class Page extends TypedEventEmitter<IPageLevelEvents> implements
     );
     this.framesManager = new FramesManager(this, devtoolsSession);
 
+    this.storeEventsWithoutListeners = true;
     this.setEventsToLog([
       'frame-created',
       'websocket-frame',
@@ -186,9 +186,8 @@ export default class Page extends TypedEventEmitter<IPageLevelEvents> implements
       'resource-failed',
     ]);
 
-    this.devtoolsSession.once('disconnected', this.emit.bind(this, 'close'));
-
     const session = this.devtoolsSession;
+    this.events.once(session, 'disconnected', this.emit.bind(this, 'close'));
     this.events.on(session, 'Inspector.targetCrashed', this.onTargetCrashed.bind(this));
     this.events.on(session, 'Runtime.exceptionThrown', this.onRuntimeException.bind(this));
     this.events.on(session, 'Runtime.consoleAPICalled', this.onRuntimeConsole.bind(this));
@@ -351,10 +350,10 @@ export default class Page extends TypedEventEmitter<IPageLevelEvents> implements
     };
     this.browserContext.commandMarker.incrementMark?.('goBack');
     await this.navigateToHistory(-1);
-    await this.mainFrame.navigationsObserver.waitForLoad(
-      options?.waitForLoadStatus ?? LoadStatus.PaintingStable,
-      options,
-    );
+    await this.mainFrame.waitForLoad({
+      loadStatus: options?.waitForLoadStatus ?? LoadStatus.PaintingStable,
+      timeoutMs: options?.timeoutMs,
+    });
     return this.mainFrame.url;
   }
 
@@ -368,10 +367,10 @@ export default class Page extends TypedEventEmitter<IPageLevelEvents> implements
     };
     this.browserContext.commandMarker.incrementMark?.('goForward');
     await this.navigateToHistory(1);
-    await this.mainFrame.navigationsObserver.waitForLoad(
-      options?.waitForLoadStatus ?? LoadStatus.PaintingStable,
-      options,
-    );
+    await this.mainFrame.waitForLoad({
+      loadStatus: options?.waitForLoadStatus ?? LoadStatus.PaintingStable,
+      timeoutMs: options?.timeoutMs,
+    });
     return this.mainFrame.url;
   }
 

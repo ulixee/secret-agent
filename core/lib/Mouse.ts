@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { IMouseButton } from '@unblocked/emulator-spec/IInteractions';
-import { IMouseOptions } from '@unblocked/emulator-spec/IInput';
-import IPoint from '@unblocked/emulator-spec/IPoint';
+import { IMouseButton } from '@unblocked-web/emulator-spec/interact/IInteractions';
+import { IMouseOptions } from '@unblocked-web/emulator-spec/interact/IInput';
+import IPoint from '@unblocked-web/emulator-spec/browser/IPoint';
 import DevtoolsSession from './DevtoolsSession';
 import { Keyboard } from './Keyboard';
 

@@ -1,10 +1,10 @@
 import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
 import Protocol from 'devtools-protocol';
 import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
-import { IWorker, IWorkerEvents } from '@unblocked/emulator-spec/IWorker';
+import { IWorker, IWorkerEvents } from '@unblocked-web/emulator-spec/browser/IWorker';
 import { createPromise } from '@ulixee/commons/lib/utils';
 import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
-import { IBrowserContextHooks } from '@unblocked/emulator-spec/IHooks';
+import { IBrowserContextHooks } from '@unblocked-web/emulator-spec/hooks/IHooks';
 import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
 import BrowserContext from './BrowserContext';
 import DevtoolsSession from './DevtoolsSession';

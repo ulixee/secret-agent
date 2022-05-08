@@ -1,6 +1,6 @@
-import IMouseResult from '@unblocked/emulator-spec/IMouseResult';
-import { INodeVisibility } from '@unblocked/emulator-spec/INodeVisibility';
-import IWindowOffset from '@unblocked/emulator-spec/IWindowOffset';
+import IMouseResult from '@unblocked-web/emulator-spec/interact/IMouseResult';
+import { INodeVisibility } from '@unblocked-web/js-path';
+import IWindowOffset from '@unblocked-web/emulator-spec/browser/IWindowOffset';
 
 class MouseEvents {
   private static pendingEvent?: Promise<IMouseResult>;

@@ -1,4 +1,4 @@
-import IHttpResourceLoadDetails from '@unblocked/emulator-spec/IHttpResourceLoadDetails';
+import IHttpResourceLoadDetails from '@unblocked-web/emulator-spec/net/IHttpResourceLoadDetails';
 
 export default interface IBrowserRequestMatcher {
   cancelPending(): void;

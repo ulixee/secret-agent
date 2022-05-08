@@ -1,9 +1,9 @@
-import type IResourceMeta from '@unblocked/emulator-spec/IResourceMeta';
+import type IResourceMeta from '@unblocked-web/emulator-spec/net/IResourceMeta';
 import IResourceProcessingDetails from './IResourceProcessingDetails';
-import { IBrowserResourceRequest } from '@unblocked/emulator-spec/IBrowserNetworkEvents';
-import { ICookie } from '@unblocked/emulator-spec/ICookie';
+import { IBrowserResourceRequest } from '@unblocked-web/emulator-spec/browser/IBrowserNetworkEvents';
+import { ICookie } from '@unblocked-web/emulator-spec/net/ICookie';
 import Resolvable from '@ulixee/commons/lib/Resolvable';
-import IResourceType from '@unblocked/emulator-spec/IResourceType';
+import IResourceType from '@unblocked-web/emulator-spec/net/IResourceType';
 
 export interface IResourceEvents {
   change: {

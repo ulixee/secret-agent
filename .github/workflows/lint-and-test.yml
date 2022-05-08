@@ -8,12 +8,14 @@ on:
 
 jobs:
   lint:
+
     name: Lint
 
     runs-on: ubuntu-latest
 
+
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: 'true'
 
@@ -22,11 +24,19 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: 'yarn'
 
+      - name: (TEMP) Clone Emulator Spec
+        run:  git clone https://github.com/unblocked-web/emulator-spec.git
+        working-directory: ..
+
+      - name: (TEMP) Install Emulator Spec
+        run: yarn && yarn build
+        working-directory: ../emulator-spec
+
       - name: Install Dependencies
         run: yarn install --immutable --network-timeout 1000000
 
       - name: Run "build" step
-        run: NODE_OPTIONS=--max-old-space-size=4096 yarn tsc && yarn copy:build
+        run: NODE_OPTIONS=--max-old-space-size=4096 yarn tsc
 
       - name: Run  Lint
         run: NODE_OPTIONS=--max-old-space-size=4096 yarn lint
@@ -68,6 +78,18 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: 'yarn'
 
+      - name: (TEMP) Clone Emulator Spec
+        run:  git clone https://github.com/unblocked-web/emulator-spec.git
+        working-directory: ..
+
+      - name: (TEMP) Install Emulator Spec
+        run: yarn && yarn build
+        working-directory: ../emulator-spec
+
+      - name: (TEMP) Install Emulator Spec
+        run: yarn link
+        working-directory: ../emulator-spec/build
+
       - uses: actions/setup-go@v2
         with:
           go-version: 1.17
@@ -85,7 +107,7 @@ jobs:
         run: cp -r mitm-socket/go build/mitm-socket/go
 
       - name: Build modules
-        run: yarn --network-timeout 1000000
+        run: pwd && yarn --network-timeout 1000000
         working-directory: ./build
         env:
           SA_REBUILD_MITM_SOCKET: 1

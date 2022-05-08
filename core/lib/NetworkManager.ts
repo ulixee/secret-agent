@@ -1,12 +1,12 @@
 import { Protocol } from 'devtools-protocol';
-import { getResourceTypeForChromeValue } from '@unblocked/emulator-spec/IResourceType';
+import { getResourceTypeForChromeValue } from '@unblocked-web/emulator-spec/net/IResourceType';
 import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
 import { bindFunctions } from '@ulixee/commons/lib/utils';
 import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
 import {
   IBrowserNetworkEvents,
   IBrowserResourceRequest,
-} from '@unblocked/emulator-spec/IBrowserNetworkEvents';
+} from '@unblocked-web/emulator-spec/browser/IBrowserNetworkEvents';
 import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
 import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
 import { URL } from 'url';

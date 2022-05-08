@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { IKeyboardKey } from '@unblocked/emulator-spec/IKeyboardLayoutUS';
+import { IKeyboardKey } from '@unblocked-web/emulator-spec/interact/IKeyboardLayoutUS';
 import { assert } from '@ulixee/commons/lib/utils';
-import { IKeyboard } from '@unblocked/emulator-spec/IInput';
+import { IKeyboard } from '@unblocked-web/emulator-spec/interact/IInput';
 import { IKeyDefinition, keyDefinitions } from './KeyboardLayoutUS';
 import DevtoolsSession from './DevtoolsSession';
 

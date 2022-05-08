@@ -1,10 +1,10 @@
-import IHttpHeaders from '@unblocked/emulator-spec/IHttpHeaders';
+import IHttpHeaders from '@unblocked-web/emulator-spec/net/IHttpHeaders';
 import * as http from 'http';
 import * as http2 from 'http2';
-import OriginType from '@unblocked/emulator-spec/OriginType';
-import IResourceType from '@unblocked/emulator-spec/IResourceType';
+import OriginType from '@unblocked-web/emulator-spec/net/OriginType';
+import IResourceType from '@unblocked-web/emulator-spec/net/IResourceType';
 import { URL } from 'url';
-import IHttpResourceLoadDetails from '@unblocked/emulator-spec/IHttpResourceLoadDetails';
+import IHttpResourceLoadDetails from '@unblocked-web/emulator-spec/net/IHttpResourceLoadDetails';
 import { parseRawHeaders } from '../lib/Utils';
 import IMitmRequestContext from '../interfaces/IMitmRequestContext';
 import ResourceState from '../interfaces/ResourceState';

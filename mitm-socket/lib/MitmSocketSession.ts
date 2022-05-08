@@ -1,4 +1,4 @@
-import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
+  import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
 import MitmSocket from '..';
 import BaseIpcHandler, { IGoIpcOpts } from './BaseIpcHandler';
 

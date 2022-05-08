@@ -5,6 +5,12 @@ import ILog, { IBoundLog, ILogData } from '@ulixee/commons/interfaces/ILog';
 import { inspect } from 'util';
 import env from './env';
 
+let isDevtoolsLogging = false;
+try {
+  const saEnv = require('@unblocked-web/secret-agent/env');
+  isDevtoolsLogging ||= saEnv.logDevtools;
+} catch (e) {}
+
 const logLevels = { stats: 0, info: 1, warn: 2, error: 3 } as const;
 let logId = 0;
 export default class TestLogger implements ILog {
@@ -17,6 +23,9 @@ export default class TestLogger implements ILog {
   constructor(readonly outPath: string, module: NodeModule, boundContext?: any) {
     this.module = module ? extractPathFromModule(module) : '';
     if (boundContext) this.boundContext = boundContext;
+    if (this.module.includes('DevtoolsSessionLogger') && isDevtoolsLogging) {
+      this.level = 'stats';
+    }
   }
 
   public stats(action: string, data?: ILogData): number {

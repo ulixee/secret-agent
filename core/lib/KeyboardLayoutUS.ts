@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { IKeyboardKey } from '@unblocked/emulator-spec/IKeyboardLayoutUS';
+import { IKeyboardKey } from '@unblocked-web/emulator-spec/interact/IKeyboardLayoutUS';
 
 export interface IKeyDefinition {
   keyCode?: number;

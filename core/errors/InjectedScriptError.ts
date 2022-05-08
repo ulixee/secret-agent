@@ -1,4 +1,4 @@
-import { IPathStep } from '@unblocked/emulator-spec/IJsPath';
+import { IPathStep } from '@unblocked-web/js-path';
 
 export default class InjectedScriptError extends Error {
   private readonly pathState: { step: IPathStep; index: number };

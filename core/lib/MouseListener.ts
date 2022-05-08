@@ -1,8 +1,8 @@
-import IMouseResult from '@unblocked/emulator-spec/IMouseResult';
+import IMouseResult from '@unblocked-web/emulator-spec/interact/IMouseResult';
 import Frame from './Frame';
-import { INodeVisibility } from '@unblocked/emulator-spec/INodeVisibility';
+import { INodeVisibility } from '@unblocked-web/js-path';
 import InjectedScripts from './InjectedScripts';
-import IWindowOffset from '@unblocked/emulator-spec/IWindowOffset';
+import IWindowOffset from '@unblocked-web/emulator-spec/browser/IWindowOffset';
 
 export default class MouseListener {
   private readonly frame: Frame;

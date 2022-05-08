@@ -1,9 +1,9 @@
 import { TestServer } from './server';
 import { attachFrame, setContent } from './_pageTestUtils';
-import { Helpers, TestLogger } from '@secret-agent/testing/index';
+import { Helpers, TestLogger } from '@unblocked-web/sa-testing/index';
 import Agent from '../lib/Agent';
 import { Browser, BrowserContext, Page } from '../index';
-import { browserEngineOptions } from '@secret-agent/testing/browserUtils';
+import { browserEngineOptions } from '@unblocked-web/sa-testing/browserUtils';
 
 describe('Frames', () => {
   let server: TestServer;
@@ -478,9 +478,12 @@ describe('Frames', () => {
     test('should allow query selectors in cross-domain frames', async () => {
       const koaServer = await Helpers.runKoaServer(false);
 
-      const agent = new Agent({ browserEngine: browserEngineOptions });
+      const agent = new Agent({
+        browserEngine: browser.engine,
+        logger: TestLogger.forTest(module),
+      });
       Helpers.needsClosing.push(agent);
-      await agent.open(browser);
+      await agent.open();
       koaServer.get('/iframePage', ctx => {
         ctx.body = `
         <body>

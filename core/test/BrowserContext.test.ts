@@ -1,5 +1,5 @@
-import { browserEngineOptions } from '@secret-agent/testing/browserUtils';
-import TestLogger from '@secret-agent/testing/TestLogger';
+import { browserEngineOptions } from '@unblocked-web/sa-testing/browserUtils';
+import TestLogger from '@unblocked-web/sa-testing/TestLogger';
 import { URL } from 'url';
 import { Browser, BrowserContext, Page } from '../index';
 import { TestServer } from './server';

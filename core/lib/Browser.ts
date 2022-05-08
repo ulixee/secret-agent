@@ -2,30 +2,24 @@ import { Protocol } from 'devtools-protocol';
 import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
 import { assert } from '@ulixee/commons/lib/utils';
 import Log from '@ulixee/commons/lib/Logger';
-import IBrowserEngine from '@unblocked/emulator-spec/IBrowserEngine';
-import IBrowserLaunchArgs from '@unblocked/emulator-spec/IBrowserLaunchArgs';
-import IBrowser, { IBrowserEvents } from '@unblocked/emulator-spec/IBrowser';
+import IBrowserEngine from '@unblocked-web/emulator-spec/browser/IBrowserEngine';
+import IBrowserLaunchArgs from '@unblocked-web/emulator-spec/browser/IBrowserLaunchArgs';
+import IBrowser, { IBrowserEvents } from '@unblocked-web/emulator-spec/browser/IBrowser';
 import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
 import Resolvable from '@ulixee/commons/lib/Resolvable';
-import { IBrowserHooks, IHooksProvider } from '@unblocked/emulator-spec/IHooks';
+import { IBrowserHooks, IHooksProvider } from '@unblocked-web/emulator-spec/hooks/IHooks';
 import { Connection } from './Connection';
 import BrowserContext, { IBrowserContextCreateOptions } from './BrowserContext';
 import DevtoolsSession from './DevtoolsSession';
 import BrowserProcess from './BrowserProcess';
 import BrowserLaunchError from '../errors/BrowserLaunchError';
 import env from '../env';
-import GetVersionResponse = Protocol.Browser.GetVersionResponse;
-import CreateBrowserContextRequest = Protocol.Target.CreateBrowserContextRequest;
 import * as os from 'os';
+import GetVersionResponse = Protocol.Browser.GetVersionResponse;
 
 const { log } = Log(module);
 
 let browserIdCounter = 0;
-
-export interface IBrowserCreateOptions extends IBrowserHooks {
-  browserEngine: IBrowserEngine;
-  launchArgs?: IBrowserLaunchArgs;
-}
 
 export default class Browser extends TypedEventEmitter<IBrowserEvents> implements IBrowser {
   public devtoolsSession: DevtoolsSession;
@@ -143,31 +137,20 @@ export default class Browser extends TypedEventEmitter<IBrowserEvents> implement
 
     options.isIncognito ??= true;
 
-    const { proxy, isIncognito } = options;
-
-    if (!isIncognito) {
-      if (!this.browserContextsById.has(undefined)) {
-        await this.createBrowserContext(undefined, options);
+    if (!options.isIncognito) {
+      let defaultContext = this.defaultBrowserContext;
+      if (!defaultContext) {
+        defaultContext = new BrowserContext(this, false, options);
+        await this.onNewContext(defaultContext);
       }
-      const context = this.browserContextsById.get(undefined);
-      context.proxy = proxy;
-      return context;
+      defaultContext.proxy = options.proxy;
+      return defaultContext;
     }
 
-    const createContextOptions: CreateBrowserContextRequest = {
-      disposeOnDetach: true,
-    };
-    if (proxy?.address) {
-      createContextOptions.proxyBypassList = '<-loopback>';
-      createContextOptions.proxyServer = proxy.address;
-    }
-
-    // Creates a new incognito browser context. This won't share cookies/cache with other browser contexts.
-    const { browserContextId } = await this.devtoolsSession.send(
-      'Target.createBrowserContext',
-      createContextOptions,
-    );
-    return await this.createBrowserContext(browserContextId, options);
+    const isolatedContext = new BrowserContext(this, true, options);
+    await isolatedContext.open();
+    await this.onNewContext(isolatedContext);
+    return isolatedContext;
   }
 
   public getBrowserContext(id: string): BrowserContext {
@@ -228,7 +211,7 @@ export default class Browser extends TypedEventEmitter<IBrowserEvents> implement
 
   protected async didLaunchProcess(process: BrowserProcess): Promise<void> {
     this.process = process;
-    this.process.on('close', () => {
+    this.process.once('close', () => {
       this.emit('close');
       this.removeAllListeners();
     });
@@ -237,7 +220,7 @@ export default class Browser extends TypedEventEmitter<IBrowserEvents> implement
     this.connection = connection;
     this.devtoolsSession = connection.rootSession;
 
-    this.connection.on('disconnected', this.emit.bind(this, 'close'));
+    this.connection.once('disconnected', this.emit.bind(this, 'close'));
     this.devtoolsSession.on('Target.attachedToTarget', this.onAttachedToTarget.bind(this));
     this.devtoolsSession.on('Target.detachedFromTarget', this.onDetachedFromTarget.bind(this));
     this.devtoolsSession.on('Target.targetCreated', this.onTargetCreated.bind(this));
@@ -380,17 +363,12 @@ export default class Browser extends TypedEventEmitter<IBrowserEvents> implement
     }
   }
 
-  private async createBrowserContext(
-    browserContextId: string,
-    options: IBrowserContextCreateOptions,
-  ): Promise<BrowserContext> {
-    const context = new BrowserContext(this, browserContextId, options);
-    this.browserContextsById.set(browserContextId, context);
-    context.on('close', () => this.browserContextsById.delete(browserContextId));
+  private async onNewContext(context: BrowserContext): Promise<void> {
+    const id = context.id;
+    this.browserContextsById.set(id, context);
+    context.once('close', () => this.browserContextsById.delete(id));
     for (const hook of this.hooks) {
       await hook.onNewBrowserContext?.(context);
     }
-
-    return context;
   }
 }

@@ -1,6 +1,6 @@
-import IRect from '@unblocked/emulator-spec/IRect';
-import IPoint from '@unblocked/emulator-spec/IPoint';
-import { IViewportSize } from '@unblocked/emulator-spec/IInteractionsHelper';
+import IRect from '@unblocked-web/emulator-spec/browser/IRect';
+import IPoint from '@unblocked-web/emulator-spec/browser/IPoint';
+import { IViewportSize } from '@unblocked-web/emulator-spec/interact/IInteractionsHelper';
 
 export function isPointWithinRect(point: IPoint, rect: IRect): boolean {
   if (point.x < rect.x || point.x > rect.x + rect.width) return false;

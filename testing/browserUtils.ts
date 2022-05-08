@@ -1,15 +1,15 @@
-import IViewport from '@unblocked/emulator-spec/IViewport';
-import Browser from 'secret-agent/lib/Browser';
-import ChromeEngine from 'secret-agent/lib/ChromeEngine';
-import { IBrowserContextHooks, IBrowserHooks } from '@unblocked/emulator-spec/IHooks';
-import IBrowser from '@unblocked/emulator-spec/IBrowser';
+import IViewport from '@unblocked-web/emulator-spec/browser/IViewport';
+import Browser from '@unblocked-web/secret-agent/lib/Browser';
+import ChromeEngine from '@unblocked-web/secret-agent/lib/ChromeEngine';
+import { IBrowserContextHooks, IBrowserHooks } from '@unblocked-web/emulator-spec/hooks/IHooks';
+import IBrowser from '@unblocked-web/emulator-spec/browser/IBrowser';
 import env from './env';
 import { Helpers } from './index';
 import DefaultChrome = require('@ulixee/chrome-98-0');
 
 let ChromeApp = DefaultChrome;
 if (env.defaultBrowserId) {
-  ChromeApp = require(`@ulixee/defaultBrowserId`);
+  ChromeApp = require(`@ulixee/${env.defaultBrowserId}`);
 }
 
 export const defaultBrowserEngine = new ChromeEngine(new ChromeApp());

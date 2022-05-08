@@ -1,10 +1,13 @@
-import IExecJsPathResult from '@unblocked/emulator-spec/IExecJsPathResult';
-import type INodePointer from '@unblocked/emulator-spec/INodePointer';
-import IElementRect from '@unblocked/emulator-spec/IElementRect';
-import IPoint from '@unblocked/emulator-spec/IPoint';
-import { IJsPathError } from '@unblocked/emulator-spec/IJsPathError';
-import { INodeVisibility } from '@unblocked/emulator-spec/INodeVisibility';
-import { IJsPath, IPathStep } from '@unblocked/emulator-spec/IJsPath';
+import IExecJsPathResult from '@unblocked-web/emulator-spec/browser/IExecJsPathResult';
+import type {
+  IElementRect,
+  IJsPath,
+  IJsPathError,
+  INodePointer,
+  INodeVisibility,
+  IPathStep,
+} from '@unblocked-web/js-path';
+import IPoint from '@unblocked-web/emulator-spec/browser/IPoint';
 
 const pointerFnName = '__getNodePointer__';
 
@@ -68,7 +71,7 @@ class JsPath {
 
       if (
         !objectAtPath.hasCustomMethodLookup &&
-        (result.nodePointer?.iterableIsState || result.value instanceof Node)
+        (result.nodePointer?.iterableIsNodePointers || result.value instanceof Node)
       ) {
         result.value = undefined;
       }
@@ -159,8 +162,8 @@ class ObjectAtPath {
 
   constructor(readonly jsPath: IJsPath, readonly containerOffset: IPoint = lastContainerOffset) {
     if (!jsPath?.length) return;
-    this.containerOffset = containerOffset;
-    lastContainerOffset = containerOffset;
+    this.containerOffset = containerOffset ?? { x: 0, y: 0 };
+    lastContainerOffset = this.containerOffset;
 
     // @ts-ignore - start listening for events since we've just looked up something on this frame
     if ('listenToInteractionEvents' in window) window.listenToInteractionEvents();
@@ -370,7 +373,7 @@ class ObjectAtPath {
       state.iterableItems = Array.from(objectAtPath);
 
       if (state.iterableItems.length && isCustomType(state.iterableItems[0])) {
-        state.iterableIsState = true;
+        state.iterableIsNodePointers = true;
         const items = state.iterableItems;
         state.iterableItems = [];
         for (const item of items) {

@@ -6,9 +6,12 @@ import {
   LoadStatusPipeline,
   LocationStatus,
   LocationTrigger,
-} from '@unblocked/emulator-spec/Location';
-import { NavigationReason } from '@unblocked/emulator-spec/NavigationReason';
-import INavigation, { ContentPaint, NavigationStatus } from '@unblocked/emulator-spec/INavigation';
+} from '@unblocked-web/emulator-spec/browser/Location';
+import { NavigationReason } from '@unblocked-web/emulator-spec/browser/NavigationReason';
+import INavigation, {
+  ContentPaint,
+  NavigationStatus,
+} from '@unblocked-web/emulator-spec/browser/INavigation';
 import type IResolvablePromise from '@ulixee/commons/interfaces/IResolvablePromise';
 import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
 import type { IBoundLog } from '@ulixee/commons/interfaces/ILog';
@@ -42,16 +45,19 @@ export default class FrameNavigationsObserver {
     options: IWaitForOptions = {},
   ): Promise<INavigation> {
     assert(LocationTrigger[status], `Invalid location status: ${status}`);
-    this.navigations.frame.page.browserContext.commandMarker.incrementMark?.('waitForLocation');
+    const commandMarker = this.navigations.frame.page.browserContext.commandMarker;
+    commandMarker.incrementMark?.('waitForLocation');
 
     // determine if this location trigger has already been satisfied
     const sinceCommandId = Number.isInteger(options.sinceCommandId)
       ? options.sinceCommandId
-      : this.navigations.frame.page.browserContext.commandMarker.getStartingCommandIdFor(
-          'waitForLocation',
-        );
+      : commandMarker.getStartingCommandIdFor('waitForLocation');
 
     const trigger = this.hasLocationTrigger(status, sinceCommandId);
+    this.logger.info(`Frame.waitForLocation(${status})`, {
+      sinceCommandId,
+      preResolved: trigger?.requestedUrl ?? false,
+    });
     if (trigger) return Promise.resolve(trigger);
     // otherwise set pending
     return this.createStatusTriggeredPromise(status, options.timeoutMs, sinceCommandId);
@@ -59,7 +65,7 @@ export default class FrameNavigationsObserver {
 
   public async waitForLoad(
     status: ILoadStatus,
-    options: IWaitForOptions = {},
+    options: IWaitForOptions & { doNotIncrementMarker?: boolean } = {},
   ): Promise<INavigation> {
     if (
       !this.navigations.top &&
@@ -69,7 +75,12 @@ export default class FrameNavigationsObserver {
       await this.navigations.frame.waitForDefaultLoader();
       return;
     }
-    this.navigations.frame.page.browserContext.commandMarker.incrementMark?.('waitForLoad');
+
+    if (!options?.doNotIncrementMarker) {
+      this.navigations.frame.page.browserContext.commandMarker.incrementMark?.('waitForLoad');
+      this.logger.info(`Frame.waitForLoad(${status})`, options);
+    }
+
     assert(LoadStatus[status], `Invalid load status: ${status}`);
 
     const top = this.navigations.top;
@@ -88,6 +99,9 @@ export default class FrameNavigationsObserver {
   public async waitForNavigationResourceId(navigation?: INavigation): Promise<number> {
     const nav = navigation ?? this.navigations.top;
 
+    this.logger.info(`Frame.waitForNavigationResourceId`, {
+      url: nav?.finalUrl ?? nav?.requestedUrl,
+    });
     this.resourceIdResolvable = nav?.resourceIdResolvable;
     const resourceId = await this.resourceIdResolvable?.promise;
     if (nav?.navigationError) {

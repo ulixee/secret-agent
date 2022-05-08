@@ -5,9 +5,9 @@ import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
 import Resolvable from '@ulixee/commons/lib/Resolvable';
 import { createIpcSocketPath } from '@ulixee/commons/lib/IpcUtils';
 import MitmSocketSession from './lib/MitmSocketSession';
-import IHttpSocketWrapper from '@unblocked/emulator-spec/IHttpSocketWrapper';
+import IHttpSocketWrapper from '@unblocked-web/emulator-spec/net/IHttpSocketWrapper';
 import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
-import IHttpSocketConnectOptions from '@unblocked/emulator-spec/IHttpSocketConnectOptions';
+import IHttpSocketConnectOptions from '@unblocked-web/emulator-spec/net/IHttpSocketConnectOptions';
 import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
 
 let idCounter = 0;

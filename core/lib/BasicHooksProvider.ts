@@ -1,4 +1,4 @@
-import { IBrowserHooks, IHooksProvider, INetworkHooks } from '@unblocked/emulator-spec/IHooks';
+import { IBrowserHooks, IHooksProvider, INetworkHooks } from '@unblocked-web/emulator-spec/hooks/IHooks';
 
 type ICallbackFn = (...[]) => Promise<void> | void;
 

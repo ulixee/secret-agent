@@ -222,7 +222,7 @@ export default class HttpRequestHandler extends BaseHttpHandler {
     const { serverToProxyResponse, proxyToClientResponse, requestSession, events } = context;
 
     // NOTE: nodejs won't allow an invalid status, but chrome will.
-    // TODO: we should find a way to keep this value
+    // TODO: we should find a way to keep this status
     if (context.status > 599) {
       log.info(`MitmHttpRequest.modifyStatusResponseCode`, {
         sessionId: requestSession.sessionId,

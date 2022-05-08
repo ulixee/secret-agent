@@ -1,13 +1,13 @@
 import ConsoleMessage from '../lib/ConsoleMessage';
 import sizeOf from 'image-size';
-import { IPage } from '@unblocked/emulator-spec/IPage';
+import { IPage } from '@unblocked-web/emulator-spec/browser/IPage';
 import { TestServer } from './server';
 import { Browser } from '../index';
 import { setContent } from './_pageTestUtils';
 import Page from '../lib/Page';
 import BrowserContext from '../lib/BrowserContext';
-import { TestLogger } from '@secret-agent/testing';
-import { browserEngineOptions, PageHooks } from '@secret-agent/testing/browserUtils';
+import { TestLogger } from '@unblocked-web/sa-testing';
+import { browserEngineOptions, PageHooks } from '@unblocked-web/sa-testing/browserUtils';
 
 describe('Pages', () => {
   let server: TestServer;
@@ -54,7 +54,7 @@ describe('Pages', () => {
         newPage.evaluate(`new Promise(r => {})`).catch(e => (error = e)),
         newPage.close(),
       ]);
-      expect(error.message).toContain('Cancel Pending Promise');
+      expect(error.message).toContain('Cancel Pending');
     });
 
     it('should run beforeunload', async () => {

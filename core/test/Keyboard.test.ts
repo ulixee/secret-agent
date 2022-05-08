@@ -1,8 +1,8 @@
-import { IKeyboardKey } from '@unblocked/emulator-spec/IKeyboardLayoutUS';
+import { IKeyboardKey } from '@unblocked-web/emulator-spec/interact/IKeyboardLayoutUS';
 import { Browser, BrowserContext, Page } from '../index';
 import { TestServer } from './server';
 import { attachFrame, setContent } from './_pageTestUtils';
-import { BrowserUtils, TestLogger } from '@secret-agent/testing';
+import { BrowserUtils, TestLogger } from '@unblocked-web/sa-testing';
 
 const MAC = process.platform === 'darwin';
 

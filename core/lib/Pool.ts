@@ -1,7 +1,7 @@
 import Log from '@ulixee/commons/lib/Logger';
-import { MitmProxy } from '@secret-agent/mitm';
+import { MitmProxy } from '@unblocked-web/sa-mitm';
 import Resolvable from '@ulixee/commons/lib/Resolvable';
-import IBrowserEngine from '@unblocked/emulator-spec/IBrowserEngine';
+import IBrowserEngine from '@unblocked-web/emulator-spec/browser/IBrowserEngine';
 import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
 import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
 import env from '../env';
@@ -9,14 +9,14 @@ import DevtoolsPreferences from './DevtoolsPreferences';
 import Queue from '@ulixee/commons/lib/Queue';
 import ICertificateGenerator, {
   ICertificateStore,
-} from '@secret-agent/mitm/interfaces/ICertificateGenerator';
+} from '@unblocked-web/sa-mitm/interfaces/ICertificateGenerator';
 import Agent, { IAgentCreateOptions } from './Agent';
 import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
 import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
 import Browser from './Browser';
 import IResolvablePromise from '@ulixee/commons/interfaces/IResolvablePromise';
-import IBrowserLaunchArgs from '@unblocked/emulator-spec/IBrowserLaunchArgs';
-import { IHooksProvider } from '@unblocked/emulator-spec/IHooks';
+import IBrowserLaunchArgs from '@unblocked-web/emulator-spec/browser/IBrowserLaunchArgs';
+import { IHooksProvider } from '@unblocked-web/emulator-spec/hooks/IHooks';
 
 const { log } = Log(module);
 

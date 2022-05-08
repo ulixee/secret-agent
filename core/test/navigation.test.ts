@@ -1,9 +1,13 @@
 import * as Fs from 'fs';
-import { BrowserUtils, Helpers, TestLogger } from '@secret-agent/testing';
-import { LoadStatus, LocationStatus, LocationTrigger } from '@unblocked/emulator-spec/Location';
-import { InteractionCommand } from '@unblocked/emulator-spec/IInteractions';
-import { getLogo, ITestKoaServer } from '@secret-agent/testing/helpers';
-import { ContentPaint } from '@unblocked/emulator-spec/INavigation';
+import { BrowserUtils, Helpers, TestLogger } from '@unblocked-web/sa-testing';
+import {
+  LoadStatus,
+  LocationStatus,
+  LocationTrigger,
+} from '@unblocked-web/emulator-spec/browser/Location';
+import { InteractionCommand } from '@unblocked-web/emulator-spec/interact/IInteractions';
+import { getLogo, ITestKoaServer } from '@unblocked-web/sa-testing/helpers';
+import { ContentPaint } from '@unblocked-web/emulator-spec/browser/INavigation';
 import FrameNavigationsObserver from '../lib/FrameNavigationsObserver';
 import { Agent, Page, Pool } from '../index';
 
@@ -273,21 +277,23 @@ describe('basic Navigation tests', () => {
       ctx.body = `<body><a href='${navigateToUrl}'>Clicker</a></body>`;
     });
 
-    await page.goto(startingUrl);
+    await expect(page.goto(startingUrl)).resolves.toBeTruthy();
 
-    await page.waitForLoad(LocationStatus.PaintingStable);
-    await page.interact([
-      {
-        command: InteractionCommand.click,
-        mousePosition: ['window', 'document', ['querySelector', 'a']],
-      },
-    ]);
+    await expect(page.waitForLoad(LocationStatus.PaintingStable)).resolves.toBeTruthy();
+    await expect(
+      page.interact([
+        {
+          command: InteractionCommand.click,
+          mousePosition: ['window', 'document', ['querySelector', 'a']],
+        },
+      ]),
+    ).resolves.toBe(undefined);
 
-    const result = await page.mainFrame.waitForLocation(LocationTrigger.change);
-
-    const currentUrl = result.finalUrl;
-
-    expect(currentUrl).toBe(navigateToUrl);
+    await expect(page.mainFrame.waitForLocation(LocationTrigger.change)).resolves.toEqual(
+      expect.objectContaining({
+        finalUrl: navigateToUrl,
+      }),
+    );
   });
 
   it('handles an in-page navigation change', async () => {
@@ -306,21 +312,23 @@ describe('basic Navigation tests', () => {
 </body>`;
     });
 
-    await page.goto(startingUrl);
+    await expect(page.goto(startingUrl)).resolves.toBeTruthy();
 
-    await page.waitForLoad(LocationStatus.PaintingStable);
-    await page.interact([
-      {
-        command: InteractionCommand.click,
-        mousePosition: ['window', 'document', ['querySelector', 'a']],
-      },
-    ]);
+    await expect(page.waitForLoad(LocationStatus.PaintingStable)).resolves.toBeTruthy();
+    await expect(
+      page.interact([
+        {
+          command: InteractionCommand.click,
+          mousePosition: ['window', 'document', ['querySelector', 'a']],
+        },
+      ]),
+    ).resolves.toBe(undefined);
 
-    const result = await page.mainFrame.waitForLocation(LocationTrigger.change);
-
-    const currentUrl = result.finalUrl;
-
-    expect(currentUrl).toBe(navigateToUrl);
+    await expect(page.mainFrame.waitForLocation(LocationTrigger.change)).resolves.toEqual(
+      expect.objectContaining({
+        finalUrl: navigateToUrl,
+      }),
+    );
 
     const pages = page.mainFrame.navigations;
     expect(pages.history).toHaveLength(2);
@@ -342,15 +350,17 @@ describe('basic Navigation tests', () => {
 </body>`;
     });
 
-    await page.goto(startingUrl);
+    await expect(page.goto(startingUrl)).resolves.toBeTruthy();
 
-    await page.waitForLoad(LocationStatus.PaintingStable);
-    await page.interact([
-      {
-        command: InteractionCommand.click,
-        mousePosition: ['window', 'document', ['querySelector', 'a']],
-      },
-    ]);
+    await expect(page.waitForLoad(LocationStatus.PaintingStable)).resolves.toBeTruthy();
+    await expect(
+      page.interact([
+        {
+          command: InteractionCommand.click,
+          mousePosition: ['window', 'document', ['querySelector', 'a']],
+        },
+      ]),
+    ).resolves.toBe(undefined);
 
     await expect(page.mainFrame.waitForLocation(LocationTrigger.change)).resolves.toBeTruthy();
     await expect(page.waitForLoad('DomContentLoaded')).resolves.toBeTruthy();

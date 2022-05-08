@@ -1,13 +1,13 @@
-import INavigation, { ContentPaint, NavigationStatus } from '@unblocked/emulator-spec/INavigation';
-import { NavigationReason } from '@unblocked/emulator-spec/NavigationReason';
+import INavigation, { ContentPaint, NavigationStatus } from '@unblocked-web/emulator-spec/browser/INavigation';
+import { NavigationReason } from '@unblocked-web/emulator-spec/browser/NavigationReason';
 import { createPromise } from '@ulixee/commons/lib/utils';
 import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
 import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
-import { IDomPaintEvent, ILoadStatus, LoadStatus } from '@unblocked/emulator-spec/Location';
+import { IDomPaintEvent, ILoadStatus, LoadStatus } from '@unblocked-web/emulator-spec/browser/Location';
 import {
   IFrameNavigationEvents,
   IFrameNavigations,
-} from '@unblocked/emulator-spec/IFrameNavigations';
+} from '@unblocked-web/emulator-spec/browser/IFrameNavigations';
 import Frame from './Frame';
 
 export default class FrameNavigations

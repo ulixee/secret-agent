@@ -1,7 +1,7 @@
 import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
 import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
 import DevtoolsSession from './DevtoolsSession';
-import { Protocol } from '@unblocked/emulator-spec/IDevtoolsSession';
+import { Protocol } from '@unblocked-web/emulator-spec/browser/IDevtoolsSession';
 import Frame from './Frame';
 import BrowserContext from './BrowserContext';
 import TargetInfo = Protocol.Target.TargetInfo;
@@ -76,7 +76,10 @@ export default class DevtoolsSessionLogger extends TypedEventEmitter<IDevtoolsLo
   ): void {
     // if sent from browser, only include when matching context id
     if (details.sessionType === 'browser') {
-      if (initiator && initiator !== this.browserContext) return;
+      // don't include other browser context messages
+      if (initiator && initiator instanceof BrowserContext && initiator !== this.browserContext) {
+        return;
+      }
       this.browserContextInitiatedMessageIds.add(event.id);
     }
     if (initiator && initiator instanceof Frame) {

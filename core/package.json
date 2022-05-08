@@ -1,19 +1,20 @@
 {
-  "name": "secret-agent",
+  "name": "@unblocked-web/secret-agent",
   "version": "2.0.0-alpha.1",
   "description": "Fully programmable Devtools Protocol based browser",
   "main": "index.js",
   "dependencies": {
     "@ulixee/commons": "1.5.11",
     "@ulixee/chrome-app": "^1.0.2",
-    "@secret-agent/mitm": "2.0.0-alpha.1",
-    "@unblocked/emulator-spec": "2.0.0-alpha.1",
+    "@unblocked-web/sa-mitm": "2.0.0-alpha.1",
+    "@unblocked-web/js-path": "2.0.0-alpha.1",
+    "@unblocked-web/emulator-spec": "2.0.0-alpha.1",
     "tough-cookie": "^4.0.0",
     "devtools-protocol": "^0.0.981744",
     "nanoid": "^3.3.3"
   },
   "devDependencies": {
-    "@secret-agent/testing": "2.0.0-alpha.1",
+    "@unblocked-web/sa-testing": "2.0.0-alpha.1",
     "image-size": "^1.0.1",
     "vue": "^2.6.14"
   }

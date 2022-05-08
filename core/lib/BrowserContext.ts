@@ -1,6 +1,8 @@
 import { assert } from '@ulixee/commons/lib/utils';
-import IBrowserContext, { IBrowserContextEvents } from '@unblocked/emulator-spec/IBrowserContext';
-import { ICookie } from '@unblocked/emulator-spec/ICookie';
+import IBrowserContext, {
+  IBrowserContextEvents,
+} from '@unblocked-web/emulator-spec/browser/IBrowserContext';
+import { ICookie } from '@unblocked-web/emulator-spec/net/ICookie';
 import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
 import { URL } from 'url';
 import Protocol from 'devtools-protocol';
@@ -8,8 +10,8 @@ import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
 import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
 import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
 import ProtocolMapping from 'devtools-protocol/types/protocol-mapping';
-import { IPage } from '@unblocked/emulator-spec/IPage';
-import { IBrowserContextHooks, IInteractHooks } from '@unblocked/emulator-spec/IHooks';
+import { IPage } from '@unblocked-web/emulator-spec/browser/IPage';
+import { IBrowserContextHooks, IInteractHooks } from '@unblocked-web/emulator-spec/hooks/IHooks';
 import IProxyConnectionOptions from '../interfaces/IProxyConnectionOptions';
 import Resolvable from '@ulixee/commons/lib/Resolvable';
 import ICommandMarker from '../interfaces/ICommandMarker';
@@ -17,7 +19,7 @@ import Page, { IPageCreateOptions } from './Page';
 import { Worker } from './Worker';
 import Browser from './Browser';
 import DevtoolsSession from './DevtoolsSession';
-import IDomStorage from '@unblocked/emulator-spec/IDomStorage';
+import IDomStorage from '@unblocked-web/emulator-spec/browser/IDomStorage';
 import Resources from './Resources';
 import WebsocketMessages from './WebsocketMessages';
 import Log from '@ulixee/commons/lib/Logger';
@@ -25,6 +27,7 @@ import { DefaultCommandMarker } from './DefaultCommandMarker';
 import DevtoolsSessionLogger from './DevtoolsSessionLogger';
 import CookieParam = Protocol.Network.CookieParam;
 import TargetInfo = Protocol.Target.TargetInfo;
+import CreateBrowserContextRequest = Protocol.Target.CreateBrowserContextRequest;
 
 const { log } = Log(module);
 
@@ -51,7 +54,7 @@ export default class BrowserContext
   public devtoolsSessionLogger: DevtoolsSessionLogger;
   public proxy: IProxyConnectionOptions;
   public domStorage: IDomStorage;
-  public readonly id: string;
+  public id: string;
 
   public readonly browser: Browser;
   public get browserId(): string {
@@ -79,15 +82,12 @@ export default class BrowserContext
 
   private readonly events = new EventSubscriber();
 
-  constructor(browser: Browser, contextId: string, options?: IBrowserContextCreateOptions) {
+  constructor(browser: Browser, isIncognito: boolean, options?: IBrowserContextCreateOptions) {
     super();
     this.browser = browser;
-    this.id = contextId;
-    this.isIncognito = !!contextId;
-    this.logger = (options?.logger ?? log).createChild(module, {
-      browserContextId: contextId,
-    });
     this.proxy = options?.proxy;
+    this.isIncognito = isIncognito;
+    this.logger = options?.logger;
     this.commandMarker = options?.commandMarker ?? new DefaultCommandMarker(this);
     this.resources = new Resources(this);
     this.websocketMessages = new WebsocketMessages(this.logger);
@@ -95,6 +95,29 @@ export default class BrowserContext
 
     this.devtoolsSessionLogger.subscribeToDevtoolsMessages(this.browser.devtoolsSession, {
       sessionType: 'browser',
+    });
+  }
+
+  public async open(): Promise<void> {
+    if (!this.isIncognito) return;
+
+    const createContextOptions: CreateBrowserContextRequest = {
+      disposeOnDetach: true,
+    };
+    if (this.proxy?.address) {
+      createContextOptions.proxyBypassList = '<-loopback>';
+      createContextOptions.proxyServer = this.proxy.address;
+    }
+
+    // Creates a new incognito browser context. This won't share cookies/cache with other browser contexts.
+    const { browserContextId } = await this.browser.devtoolsSession.send(
+      'Target.createBrowserContext',
+      createContextOptions,
+      this,
+    );
+    this.id = browserContextId;
+    this.logger ??= log.createChild(module, {
+      browserContextId: browserContextId,
     });
   }
 

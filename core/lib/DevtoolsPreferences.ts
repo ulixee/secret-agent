@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import IDevtoolsSession, { Protocol } from '@unblocked/emulator-spec/IDevtoolsSession';
+import IDevtoolsSession, { Protocol } from '@unblocked-web/emulator-spec/browser/IDevtoolsSession';
 import * as fs from 'fs';
 import { bindFunctions } from '@ulixee/commons/lib/utils';
 import BindingCalledEvent = Protocol.Runtime.BindingCalledEvent;
-import IBrowser from '@unblocked/emulator-spec/IBrowser';
+import IBrowser from '@unblocked-web/emulator-spec/browser/IBrowser';
 
 const devtoolsPreferencesCallback = '_DevtoolsPreferencesCallback';
 

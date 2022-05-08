@@ -18,10 +18,10 @@ import * as tls from 'tls';
 import * as http2 from 'http2';
 import * as stream from 'stream';
 import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
-import MitmSocket from '@secret-agent/mitm-socket';
-import MitmSocketSession from '@secret-agent/mitm-socket/lib/MitmSocketSession';
+import MitmSocket from '@unblocked-web/sa-mitm-socket';
+import MitmSocketSession from '@unblocked-web/sa-mitm-socket/lib/MitmSocketSession';
 import { Helpers, TestLogger } from './index';
-import MitmEnv from '@secret-agent/mitm/env'; // eslint-disable-line import/no-extraneous-dependencies
+import MitmEnv from '@unblocked-web/sa-mitm/env'; // eslint-disable-line import/no-extraneous-dependencies
 
 export const needsClosing: { close: () => Promise<any> | void; onlyCloseOnFinal?: boolean }[] = [];
 

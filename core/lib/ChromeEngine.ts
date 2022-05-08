@@ -1,4 +1,4 @@
-import IBrowserEngine from '@unblocked/emulator-spec/IBrowserEngine';
+import IBrowserEngine from '@unblocked-web/emulator-spec/browser/IBrowserEngine';
 import ChromeApp from '@ulixee/chrome-app';
 import { existsAsync } from '@ulixee/chrome-app/lib/dirUtils';
 

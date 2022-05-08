@@ -1,9 +1,9 @@
 import Resolvable from '@ulixee/commons/lib/Resolvable';
 import * as http from 'http';
-import { BrowserUtils, Helpers, TestLogger } from '@secret-agent/testing';
-import { ITestHttpServer } from '@secret-agent/testing/helpers';
+import { BrowserUtils, Helpers, TestLogger } from '@unblocked-web/sa-testing';
+import { ITestHttpServer } from '@unblocked-web/sa-testing/helpers';
 import { Pool } from '../index';
-import IBrowserEngine from '@unblocked/emulator-spec/IBrowserEngine';
+import IBrowserEngine from '@unblocked-web/emulator-spec/browser/IBrowserEngine';
 
 let httpServer: ITestHttpServer<http.Server>;
 

@@ -1,9 +1,9 @@
-import { IFrame, IFrameEvents, ILifecycleEvents } from '@unblocked/emulator-spec/IFrame';
+import { IFrame, IFrameEvents, ILifecycleEvents } from '@unblocked-web/emulator-spec/browser/IFrame';
 import { URL } from 'url';
 import Protocol from 'devtools-protocol';
 import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
 import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
-import { NavigationReason } from '@unblocked/emulator-spec/NavigationReason';
+import { NavigationReason } from '@unblocked-web/emulator-spec/browser/NavigationReason';
 import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
 import Resolvable from '@ulixee/commons/lib/Resolvable';
 import ProtocolError from '../errors/ProtocolError';
@@ -11,22 +11,26 @@ import DevtoolsSession from './DevtoolsSession';
 import ConsoleMessage from './ConsoleMessage';
 import FramesManager, { DEFAULT_PAGE, ISOLATED_WORLD } from './FramesManager';
 import { NavigationLoader } from './NavigationLoader';
-import IPoint from '@unblocked/emulator-spec/IPoint';
+import IPoint from '@unblocked-web/emulator-spec/browser/IPoint';
 import { JsPath } from './JsPath';
 import MouseListener from './MouseListener';
 import Page from './Page';
 import Interactor from './Interactor';
-import IWindowOffset from '@unblocked/emulator-spec/IWindowOffset';
-import { IInteractionGroups } from '@unblocked/emulator-spec/IInteractions';
+import IWindowOffset from '@unblocked-web/emulator-spec/browser/IWindowOffset';
+import { IInteractionGroups } from '@unblocked-web/emulator-spec/interact/IInteractions';
 import IRegisteredEventListener from '@ulixee/commons/interfaces/IRegisteredEventListener';
-import { IInteractHooks } from '@unblocked/emulator-spec/IHooks';
+import { IInteractHooks } from '@unblocked-web/emulator-spec/hooks/IHooks';
 import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
 import FrameNavigations from './FrameNavigations';
 import FrameNavigationsObserver from './FrameNavigationsObserver';
-import { ILoadStatus, ILocationTrigger, LoadStatus } from '@unblocked/emulator-spec/Location';
+import {
+  ILoadStatus,
+  ILocationTrigger,
+  LoadStatus,
+} from '@unblocked-web/emulator-spec/browser/Location';
 import Timer from '@ulixee/commons/lib/Timer';
 import IWaitForOptions from '../interfaces/IWaitForOptions';
-import INavigation from '@unblocked/emulator-spec/INavigation';
+import INavigation from '@unblocked-web/emulator-spec/browser/INavigation';
 import PageFrame = Protocol.Page.Frame;
 
 const ContextNotFoundCode = -32000;
@@ -148,7 +152,7 @@ export default class Frame extends TypedEventEmitter<IFrameEvents> implements IF
 
   public close(error?: Error): void {
     this.isClosing = true;
-    const cancelMessage = 'Frame closed';
+    const cancelMessage = 'Cancel Pending Promise. Frame closed.';
     this.cancelPendingEvents(cancelMessage);
     error ??= new CanceledPromiseError(cancelMessage);
 
@@ -162,6 +166,7 @@ export default class Frame extends TypedEventEmitter<IFrameEvents> implements IF
   }
 
   public async runPendingNewDocumentScripts(): Promise<void> {
+    if (this.closedWithError) throw this.closedWithError;
     if (this.activeLoaderId !== this.defaultLoaderId) return;
     if (this.parentId) return;
 
@@ -173,15 +178,21 @@ export default class Frame extends TypedEventEmitter<IFrameEvents> implements IF
         this.waitForActiveContextId(true),
         this.waitForActiveContextId(false),
       ]);
+
+      if (this.closedWithError || !this.devtoolsSession.isConnected()) return;
+
       await Promise.all(
         scripts.map(x => {
+          if (this.closedWithError || !this.devtoolsSession.isConnected()) return;
           const contextId = x.isolated ? isolatedContextId : defaultContextId;
+
           return this.devtoolsSession
             .send('Runtime.evaluate', {
               expression: x.script,
               contextId,
             })
             .catch(err => {
+              if (this.closedWithError || err instanceof CanceledPromiseError) return;
               this.logger.warn('NewDocumentScriptError', { err });
             });
         }),
@@ -288,7 +299,10 @@ export default class Frame extends TypedEventEmitter<IFrameEvents> implements IF
   public async interact(...interactionGroups: IInteractionGroups): Promise<void> {
     const timeoutMs = 120e3;
     const interactionResolvable = new Resolvable<void>(timeoutMs);
-    await this.waitForLoad({ timeoutMs });
+    await this.navigationsObserver.waitForLoad(LoadStatus.JavascriptReady, {
+      timeoutMs,
+      doNotIncrementMarker: true,
+    });
     this.waitTimeouts.push({
       timeout: interactionResolvable.timeout,
       reject: interactionResolvable.reject,

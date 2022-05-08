@@ -20,7 +20,7 @@ module.exports = {
     extraFileExtensions: ['.mjs'],
   },
   settings: {
-    'import/external-module-folders': ['core', 'mitm', 'mitm-socket', 'testing'],
+    'import/external-module-folders': ['core', 'mitm', 'mitm-socket', 'testing', 'node_modules'],
     'import/resolver': {
       typescript: {
         project: ['tsconfig.json'],

@@ -2,7 +2,7 @@ import Protocol from 'devtools-protocol';
 import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
 import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
 import IRegisteredEventListener from '@ulixee/commons/interfaces/IRegisteredEventListener';
-import { IFrameManagerEvents } from '@unblocked/emulator-spec/IFrame';
+import { IFrameManagerEvents } from '@unblocked-web/emulator-spec/browser/IFrame';
 import { bindFunctions } from '@ulixee/commons/lib/utils';
 import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
 import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
@@ -12,9 +12,9 @@ import NetworkManager from './NetworkManager';
 import DomStorageTracker from './DomStorageTracker';
 import InjectedScripts from './InjectedScripts';
 import Page from './Page';
-import IResourceMeta from '@unblocked/emulator-spec/IResourceMeta';
-import { IPageEvents } from '@unblocked/emulator-spec/IPage';
-import { IDomPaintEvent } from '@unblocked/emulator-spec/Location';
+import IResourceMeta from '@unblocked-web/emulator-spec/net/IResourceMeta';
+import { IPageEvents } from '@unblocked-web/emulator-spec/browser/IPage';
+import { IDomPaintEvent } from '@unblocked-web/emulator-spec/browser/Location';
 import Resources from './Resources';
 import FrameNavigatedEvent = Protocol.Page.FrameNavigatedEvent;
 import FrameTree = Protocol.Page.FrameTree;
@@ -393,16 +393,6 @@ export default class FramesManager extends TypedEventEmitter<IFrameManagerEvents
     );
     this.framesById.set(id, frame);
 
-    if (!parentId && this.page.opener?.windowOpenParams) {
-      const { url } = this.page.opener?.windowOpenParams;
-      frame.navigations.onNavigationRequested(
-        'newFrame',
-        url,
-        this.page.lastActivityId,
-        newFrame.loaderId,
-      );
-    }
-
     this.emit('frame-created', { frame, loaderId: newFrame.loaderId });
 
     this.replayMissedResourceEventsAfterFrameAttached(frame);
@@ -420,6 +410,8 @@ export default class FramesManager extends TypedEventEmitter<IFrameManagerEvents
       for (const { event: resourceEvent, type } of resourceEvents) {
         if (type === 'resource-will-be-requested')
           this.onResourceWillBeRequested(resourceEvent as any);
+        if (type === 'resource-was-requested')
+          this.onResourceWasRequested(resourceEvent as any);
         else if (type === 'navigation-response')
           this.onNavigationResourceResponse(resourceEvent as any);
         else if (type === 'resource-loaded') this.onResourceLoaded(resourceEvent as any);
@@ -481,8 +473,14 @@ export default class FramesManager extends TypedEventEmitter<IFrameManagerEvents
   }
 
   private onResourceWasRequested(event: IPageEvents['resource-was-requested']): void {
-    const frameId = this.framesById.get(event.frameId).frameId;
-    this.resources.onBrowserDidRequest(this.page.tabId, frameId, event.resource);
+    const frame = event.frameId
+      ? this.getFrameForEventOrQueueForReady('resource-was-requested', event as any)
+      : this.main;
+
+    // if we didn't get a frame, don't keep going
+    if (!frame) return;
+
+    this.resources.onBrowserDidRequest(this.page.tabId, frame.frameId, event.resource);
   }
 
   private onResourceLoaded(event: IPageEvents['resource-loaded']): void {

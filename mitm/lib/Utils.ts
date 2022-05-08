@@ -1,4 +1,4 @@
-import IHttpHeaders from '@unblocked/emulator-spec/IHttpHeaders';
+import IHttpHeaders from '@unblocked-web/emulator-spec/net/IHttpHeaders';
 
 export function parseRawHeaders(rawHeaders: string[]): IHttpHeaders {
   const headers = {};

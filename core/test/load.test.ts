@@ -1,6 +1,6 @@
 import { Browser, BrowserContext, Page } from '../index';
 import { TestServer } from './server';
-import { BrowserUtils, Helpers, TestLogger } from '@secret-agent/testing/index';
+import { BrowserUtils, Helpers, TestLogger } from '@unblocked-web/sa-testing/index';
 
 describe('Load test', () => {
   let server: TestServer;

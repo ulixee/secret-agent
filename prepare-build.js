@@ -8,9 +8,7 @@ function processPackageJson(packagePath) {
   if (fs.existsSync(`${packagePath}/package.build.json`)) {
     overridesJson = JSON.parse(fs.readFileSync(`${packagePath}/package.build.json`, 'utf8'));
   }
-
-  console.log({ packageJson, overridesJson });
-
+  
   if (!overridesJson) return;
 
   const finalPackageJson = {
@@ -20,6 +18,7 @@ function processPackageJson(packagePath) {
     dependencies: overridesJson.dependencies || packageJson.dependencies,
     devDependencies: overridesJson.devDependencies || packageJson.devDependencies,
     workspaces: overridesJson.workspaces || packageJson.workspaces,
+    private: overridesJson.private || packageJson.private,
   };
   if (finalPackageJson.workspaces) {
     finalPackageJson.workspaces.packages = finalPackageJson.workspaces.packages.map(x => {

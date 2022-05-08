@@ -1,15 +1,16 @@
-import MitmSocket from '@secret-agent/mitm-socket';
+import MitmSocket from '@unblocked-web/sa-mitm-socket';
 import * as http2 from 'http2';
 import { ClientHttp2Session, Http2ServerRequest } from 'http2';
-import Log from '@ulixee/commons/lib/Logger';
 import * as https from 'https';
 import * as http from 'http';
-import MitmSocketSession from '@secret-agent/mitm-socket/lib/MitmSocketSession';
-import IHttpHeaders from '@unblocked/emulator-spec/IHttpHeaders';
-import ITcpSettings from '@unblocked/emulator-spec/ITcpSettings';
-import ITlsSettings from '@unblocked/emulator-spec/ITlsSettings';
+import MitmSocketSession from '@unblocked-web/sa-mitm-socket/lib/MitmSocketSession';
+import IHttpHeaders from '@unblocked-web/emulator-spec/net/IHttpHeaders';
+import ITcpSettings from '@unblocked-web/emulator-spec/net/ITcpSettings';
+import ITlsSettings from '@unblocked-web/emulator-spec/net/ITlsSettings';
 import Resolvable from '@ulixee/commons/lib/Resolvable';
-import IHttp2ConnectSettings from '@unblocked/emulator-spec/IHttp2ConnectSettings';
+import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
+import IHttp2ConnectSettings from '@unblocked-web/emulator-spec/net/IHttp2ConnectSettings';
+import IHttpSocketConnectOptions from '@unblocked-web/emulator-spec/net/IHttpSocketConnectOptions';
 import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
 import IMitmRequestContext from '../interfaces/IMitmRequestContext';
 import MitmRequestContext from './MitmRequestContext';
@@ -19,13 +20,7 @@ import ResourceState from '../interfaces/ResourceState';
 import SocketPool from './SocketPool';
 import Http2PushPromiseHandler from '../handlers/Http2PushPromiseHandler';
 import Http2SessionBinding from './Http2SessionBinding';
-import IHttpSocketConnectOptions from '@unblocked/emulator-spec/IHttpSocketConnectOptions';
 import env from '../env';
-import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
-
-// TODO: this is off by default because golang 1.14 has an issue verifying certain certificate authorities:
-// https://github.com/golang/go/issues/24652
-// https://github.com/golang/go/issues/38365
 
 export default class MitmRequestAgent {
   public static defaultMaxConnectionsPerOrigin = 6;
@@ -51,6 +46,7 @@ export default class MitmRequestAgent {
       clientHelloId: tlsSettings?.tlsClientHelloId,
       tcpTtl: tcpSettings?.tcpTtl,
       tcpWindowSize: tcpSettings?.tcpWindowSize,
+      debug: env.isDebug,
     });
     this.maxConnectionsPerOrigin =
       tlsSettings?.socketsPerOrigin ?? MitmRequestAgent.defaultMaxConnectionsPerOrigin;
@@ -161,6 +157,7 @@ export default class MitmRequestAgent {
       keepAlive: options.keepAlive,
       isWebsocket: options.isWebsocket,
       keylogPath: env.sslKeylogFile,
+      debug: options.debug ?? env.isDebug,
     });
     mitmSocket.dnsResolvedIp = ipIfNeeded;
     mitmSocket.dnsLookupTime = dnsLookupTime;

@@ -1,43 +1,44 @@
 # SecretAgent
 
-SecretAgent is a web browser that's built for scraping. 
+SecretAgent is an automated web browser that's built to be controlled from every facet by a developer.
 
-- [x] **Built for scraping** - it's the first modern headless browsers designed specifically for scraping instead of just automated testing.
-- [x] **Designed for web developers** - We've recreated a fully compliant DOM directly in NodeJS allowing you bypass the headaches of previous scraper tools.
 - [x] **Powered by Chrome** - The powerful Chrome engine sits under the hood, allowing for lightning fast rendering.
-- [x] **Emulates any modern browser** - BrowserEmulators make it easy to disguise your script as practically any browser.
-- [x] **Avoids detection along the entire stack** - Don't be blocked because of TLS fingerprints in your networking stack.
+- [x] **Hook in at every level of the stack** - Hooks are defined in the network layer (TCP, TLS, HTTP, HTTP2), browser level and user interactions. You have full control of Chrome Devtools API all along the way.
+- [x] **Track Nodes with JsPath** - Uses the JsPath specification to query and track DOM Nodes.
 
-Check out our [website for more details](https://secretagent.dev).
 
 ## Installation
 
 ```shell script
-npm i --save secret-agent
+npm i --save @unblocked-web/secret-agent
 ```
 
 or
 
 ```shell script
-yarn add secret-agent
+yarn add @unblocked/secret-agent
 ```
 
 ## Usage
 
-SecretAgent provides access to the W3C DOM specification without the need for Puppeteer's complicated evaluate callbacks and multi-context switching:
 
 ```js
-const agent = require('secret-agent');
+const { Agent } = require('@unblocked-web/secret-agent');
 
 (async () => {
-  await agent.goto('https://example.org');
-  const title = await agent.document.title;
-  const intro = await agent.document.querySelector('p').textContent;
+  const agent = new Agent({ browserEngine: new Chrome98() });
+  const page = await agent.newPage();
+  await page.goto('https://example.org/');
+  await page.waitForLoad('PaintingStable');
+  
+  const outerHTML = await page.mainFrame.outerHTML();
+  const title = await page.evaluate('document.title');
+  const intro = await page.evaluate(`document.querySelector('p').textContent`);
+    
   await agent.close();
 })();
 ```
 
-Browse the [full API docs](https://secretagent.dev/docs).
 
 ## Contributing
 

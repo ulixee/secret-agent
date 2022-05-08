@@ -125,7 +125,7 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 
 
-**Note:** Version bump only for package @secret-agent/monorepo
+**Note:** Version bump only for package @unblocked/sa-monorepo
 
 
 
@@ -1011,7 +1011,7 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 
 
-**Note:** Version bump only for package @secret-agent/monorepo
+**Note:** Version bump only for package @unblocked/sa-monorepo
 
 
 

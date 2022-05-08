@@ -1,21 +1,19 @@
-import { IJsPath } from '@unblocked/emulator-spec/IJsPath';
-import IExecJsPathResult from '@unblocked/emulator-spec/IExecJsPathResult';
+import { INodePointer, IElementRect, IJsPath, INodeVisibility } from '@unblocked-web/js-path';
+import IExecJsPathResult from '@unblocked-web/emulator-spec/browser/IExecJsPathResult';
 import TypeSerializer from '@ulixee/commons/lib/TypeSerializer';
 import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
-import { INodeVisibility } from '@unblocked/emulator-spec/INodeVisibility';
-import INodePointer from '@unblocked/emulator-spec/INodePointer';
-import IPoint from '@unblocked/emulator-spec/IPoint';
+import IPoint from '@unblocked-web/emulator-spec/browser/IPoint';
 import Frame from './Frame';
 import InjectedScriptError from '../errors/InjectedScriptError';
-import IElementRect from '@unblocked/emulator-spec/IElementRect';
-import { isMousePositionXY } from '@unblocked/emulator-spec/IInteractions';
+import { isMousePositionXY } from '@unblocked-web/emulator-spec/interact/IInteractions';
 import IJsPathFunctions, {
   getClientRectFnName,
   getComputedVisibilityFnName,
   getNodePointerFnName,
   getNodeIdFnName,
-} from '@unblocked/emulator-spec/IJsPathFunctions';
+} from '@unblocked-web/emulator-spec/browser/IJsPathFunctions';
 import InjectedScripts from './InjectedScripts';
+import { LoadStatus } from '@unblocked-web/emulator-spec/browser/Location';
 
 interface IJsPathSource {
   parentNodeId?: number;
@@ -63,8 +61,11 @@ export class JsPath implements IJsPathFunctions {
     return this.exec<IElementRect>(jsPath);
   }
 
-  public async exec<T>(jsPath: IJsPath): Promise<IExecJsPathResult<T>> {
-    await this.frame.waitForLoad();
+  public async exec<T>(jsPath: IJsPath, timeoutMs?: number): Promise<IExecJsPathResult<T>> {
+    await this.frame.navigationsObserver.waitForLoad(LoadStatus.JavascriptReady, {
+      timeoutMs: timeoutMs ?? 30e3,
+      doNotIncrementMarker: true,
+    });
     const containerOffset = await this.frame.getContainerOffset();
     return this.runJsPath<T>(`exec`, jsPath, containerOffset);
   }
@@ -216,7 +217,7 @@ export class JsPath implements IJsPathFunctions {
 
     // try to record last known position
     const method = this.getJsPathMethod(jsPath);
-    const { id, iterableItems, iterableIsState } = result.nodePointer;
+    const { id, iterableItems, iterableIsNodePointers } = result.nodePointer;
     const parentNodeId = typeof jsPath[0] === 'number' ? jsPath[0] : undefined;
 
     if (method === getClientRectFnName) {
@@ -237,7 +238,7 @@ export class JsPath implements IJsPathFunctions {
         jsPath: cleanJsPath,
       });
     }
-    if (iterableIsState) {
+    if (iterableIsNodePointers) {
       for (let i = 0; i < iterableItems.length; i += 1) {
         const nodePointer = iterableItems[i] as INodePointer;
         if (this.nodeIdToJsPathSource.has(nodePointer.id)) continue;

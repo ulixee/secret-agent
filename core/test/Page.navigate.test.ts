@@ -1,6 +1,6 @@
 import { TestServer } from './server';
 import { Browser, BrowserContext, Page } from '../index';
-import { BrowserUtils, TestLogger } from '@secret-agent/testing/index';
+import { BrowserUtils, TestLogger } from '@unblocked-web/sa-testing/index';
 
 describe('Page.navigate', () => {
   let server: TestServer;
@@ -189,12 +189,14 @@ describe('Page.navigate', () => {
       const failed = page.goto(`${server.baseUrl}/one-style.html`).catch(e => e);
       await server.waitForRequest('/one-style.html');
       await page.goto(`${server.baseUrl}/empty.html`);
+      await expect(page.waitForLoad('AllContentLoaded')).resolves.toBeTruthy();
       const error = await failed;
       expect(error.message).toBeTruthy();
     });
 
     it('should work with lazy loading iframes', async () => {
       await page.goto(`${server.baseUrl}/frames/lazy-frame.html`);
+      await expect(page.waitForLoad('AllContentLoaded')).resolves.toBeTruthy();
       expect(page.frames.length).toBe(2);
     });
 
@@ -203,6 +205,7 @@ describe('Page.navigate', () => {
         res.end(`<iframe src=${server.emptyPage}></iframe>`);
       });
       await expect(page.goto(`${httpsServer.baseUrl}/mixedcontent.html`)).resolves.toBeTruthy();
+      await expect(page.waitForLoad('AllContentLoaded')).resolves.toBeTruthy();
       expect(page.frames).toHaveLength(2);
     });
   });

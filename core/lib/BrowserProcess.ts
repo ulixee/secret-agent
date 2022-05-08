@@ -3,7 +3,7 @@ import { ChildProcess } from 'child_process';
 import * as readline from 'readline';
 import Log from '@ulixee/commons/lib/Logger';
 import * as Fs from 'fs';
-import IBrowserEngine from '@unblocked/emulator-spec/IBrowserEngine';
+import IBrowserEngine from '@unblocked-web/emulator-spec/browser/IBrowserEngine';
 import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
 import { bindFunctions } from '@ulixee/commons/lib/utils';
 import { PipeTransport } from './PipeTransport';

@@ -1,11 +1,11 @@
-import { BrowserUtils, Helpers, TestLogger } from '@secret-agent/testing';
-import MitmRequestContext from '@secret-agent/mitm/lib/MitmRequestContext';
+import { BrowserUtils, Helpers, TestLogger } from '@unblocked-web/sa-testing';
+import MitmRequestContext from '@unblocked-web/sa-mitm/lib/MitmRequestContext';
 import { createPromise } from '@ulixee/commons/lib/utils';
-import { LocationStatus } from '@unblocked/emulator-spec/Location';
-import { ITestKoaServer } from '@secret-agent/testing/helpers';
+import { LocationStatus } from '@unblocked-web/emulator-spec/browser/Location';
+import { ITestKoaServer } from '@unblocked-web/sa-testing/helpers';
 import Resolvable from '@ulixee/commons/lib/Resolvable';
 import { Pool } from '../index';
-import env from '@secret-agent/mitm/env';
+import env from '@unblocked-web/sa-mitm/env';
 
 const mocks = {
   MitmRequestContext: {
@@ -41,10 +41,8 @@ test('should send a Host header to secure http1 Chrome requests', async () => {
   const agent = await pool.createAgent({ logger: TestLogger.forTest(module) });
   Helpers.needsClosing.push(agent);
   const page = await agent.newPage();
-  env.allowInsecure = true;
   await page.goto(url);
   expect(rawHeaders[0]).toBe('Host');
-  env.allowInsecure = false;
 });
 
 test('should send preflight requests', async () => {
@@ -269,7 +267,6 @@ window.addEventListener('load', function() {
     }
   });
 
-  env.allowInsecure = true;
   const agent = await pool.createAgent({ logger: TestLogger.forTest(module) });
   Helpers.needsClosing.push(agent);
   const page = await agent.newPage();

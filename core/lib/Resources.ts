@@ -2,21 +2,21 @@ import RequestSession, {
   IRequestSessionHttpErrorEvent,
   IRequestSessionRequestEvent,
   IRequestSessionResponseEvent,
-} from '@secret-agent/mitm/handlers/RequestSession';
-import IResourceMeta from '@unblocked/emulator-spec/IResourceMeta';
+} from '@unblocked-web/sa-mitm/handlers/RequestSession';
+import IResourceMeta from '@unblocked-web/emulator-spec/net/IResourceMeta';
 import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
 import Resolvable from '@ulixee/commons/lib/Resolvable';
-import MitmRequestContext from '@secret-agent/mitm/lib/MitmRequestContext';
-import { IBrowserResourceRequest } from '@unblocked/emulator-spec/IBrowserNetworkEvents';
-import { ICookie } from '@unblocked/emulator-spec/ICookie';
-import { IPageEvents } from '@unblocked/emulator-spec/IPage';
-import IHttpResourceLoadDetails from '@unblocked/emulator-spec/IHttpResourceLoadDetails';
-import HeadersHandler from '@secret-agent/mitm/handlers/HeadersHandler';
+import MitmRequestContext from '@unblocked-web/sa-mitm/lib/MitmRequestContext';
+import { IBrowserResourceRequest } from '@unblocked-web/emulator-spec/browser/IBrowserNetworkEvents';
+import { ICookie } from '@unblocked-web/emulator-spec/net/ICookie';
+import { IPageEvents } from '@unblocked-web/emulator-spec/browser/IPage';
+import IHttpResourceLoadDetails from '@unblocked-web/emulator-spec/net/IHttpResourceLoadDetails';
+import HeadersHandler from '@unblocked-web/sa-mitm/handlers/HeadersHandler';
 import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
 import { Cookie } from 'tough-cookie';
 import BrowserContext from './BrowserContext';
 import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
-import IBrowserRequestMatcher from '@secret-agent/mitm/interfaces/IBrowserRequestMatcher';
+import IBrowserRequestMatcher from '@unblocked-web/sa-mitm/interfaces/IBrowserRequestMatcher';
 import { IMitmRequestPendingBrowserRequest, IResourceEvents } from '../interfaces/IResourceEvents';
 
 export default class Resources

@@ -1,9 +1,9 @@
-import { Helpers, TestLogger } from '@secret-agent/testing';
+import { Helpers, TestLogger } from '@unblocked-web/sa-testing';
 import { createPromise } from '@ulixee/commons/lib/utils';
 import * as http2 from 'http2';
 import * as stream from 'stream';
 import * as WebSocket from 'ws';
-import { getTlsConnection, httpGetWithSocket } from '@secret-agent/testing/helpers';
+import { getTlsConnection, httpGetWithSocket } from '@unblocked-web/sa-testing/helpers';
 import * as https from 'https';
 import { IncomingMessage } from 'http';
 import MitmSocket from '../index';

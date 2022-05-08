@@ -4,8 +4,8 @@ import * as https from 'https';
 import * as net from 'net';
 import * as WebSocket from 'ws';
 import * as HttpProxyAgent from 'http-proxy-agent';
-import { Helpers, TestLogger } from '@secret-agent/testing';
-import { getProxyAgent, runHttpsServer } from '@secret-agent/testing/helpers';
+import { Helpers, TestLogger } from '@unblocked-web/sa-testing';
+import { getProxyAgent, runHttpsServer } from '@unblocked-web/sa-testing/helpers';
 import MitmServer from '../lib/MitmProxy';
 import RequestSession from '../handlers/RequestSession';
 import HeadersHandler from '../handlers/HeadersHandler';
@@ -27,7 +27,6 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
-  env.allowInsecure = false;
   TestLogger.testNumber += 1;
 });
 
@@ -50,7 +49,6 @@ test('should create up to a max number of secure connections per origin', async 
   const connectionsByOrigin = session.requestAgent.socketPoolByOrigin;
 
   const proxyCredentials = session.getProxyCredentials();
-  env.allowInsecure = true;
   const promises = [];
   for (let i = 0; i < 10; i += 1) {
     // eslint-disable-next-line jest/valid-expect-in-promise
@@ -92,7 +90,6 @@ test('should create new connections as needed when no keepalive', async () => {
   const connectionsByOrigin = session.requestAgent.socketPoolByOrigin;
 
   const proxyCredentials = session.getProxyCredentials();
-  env.allowInsecure = true;
   const promises = [];
   for (let i = 0; i < 4; i += 1) {
     // eslint-disable-next-line jest/valid-expect-in-promise
@@ -135,7 +132,6 @@ test('should be able to handle a reused socket that closes on server', async () 
 
   const session = createMitmSession(mitmServer);
   const proxyCredentials = session.getProxyCredentials();
-  env.allowInsecure = true;
 
   {
     let headers: IncomingHttpHeaders;
@@ -243,7 +239,6 @@ test('it should reuse http2 connections', async () => {
   const proxyCredentials = session.getProxyCredentials();
 
   const proxyUrl = `http://${proxyCredentials}@localhost:${mitmServer.port}`;
-  env.allowInsecure = true;
   const results = await Promise.all([
     Helpers.http2Get(baseUrl, { ':path': '/test1' }, session.sessionId, proxyUrl),
     Helpers.http2Get(baseUrl, { ':path': '/test2' }, session.sessionId, proxyUrl),
@@ -251,7 +246,6 @@ test('it should reuse http2 connections', async () => {
   ]);
   expect(results).toStrictEqual(['/test1', '/test2', '/test3']);
 
-  env.allowInsecure = false;
   const host = baseUrl.replace('https://', '');
   // not reusable, so should not be here
   // @ts-ignore

@@ -1,10 +1,10 @@
-import { Helpers, TestLogger } from '@secret-agent/testing';
-import { InteractionCommand } from '@unblocked/emulator-spec/IInteractions';
-import { ITestKoaServer } from '@secret-agent/testing/helpers';
-import { LoadStatus, LocationStatus } from '@unblocked/emulator-spec/Location';
+import { Helpers, TestLogger } from '@unblocked-web/sa-testing';
+import { InteractionCommand } from '@unblocked-web/emulator-spec/interact/IInteractions';
+import { ITestKoaServer } from '@unblocked-web/sa-testing/helpers';
+import { LoadStatus, LocationStatus } from '@unblocked-web/emulator-spec/browser/Location';
 import { Agent, Pool } from '../index';
-import IViewport from '@unblocked/emulator-spec/IViewport';
-import { defaultBrowserEngine, PageHooks } from '@secret-agent/testing/browserUtils';
+import IViewport from '@unblocked-web/emulator-spec/browser/IViewport';
+import { defaultBrowserEngine, PageHooks } from '@unblocked-web/sa-testing/browserUtils';
 import { IAgentCreateOptions } from '../lib/Agent';
 
 let koaServer: ITestKoaServer;

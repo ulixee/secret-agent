@@ -25,7 +25,7 @@ import IDevtoolsSession, {
   DevtoolsEvents,
   IDevtoolsEventMessage,
   IDevtoolsResponseMessage,
-} from '@unblocked/emulator-spec/IDevtoolsSession';
+} from '@unblocked-web/emulator-spec/browser/IDevtoolsSession';
 import ProtocolError from '../errors/ProtocolError';
 import { Connection } from './Connection';
 import RemoteObject = Protocol.Runtime.RemoteObject;
@@ -65,7 +65,7 @@ export default class DevtoolsSession
     sendInitiator?: object,
   ): Promise<ProtocolMapping.Commands[T]['returnType']> {
     if (!this.isConnected()) {
-      throw new CanceledPromiseError(`${method} called after session closed (${this.sessionId})`);
+      throw new CanceledPromiseError(`Cancel Pending Promise (${method}): Target closed.`);
     }
 
     const id = this.connection.nextId;

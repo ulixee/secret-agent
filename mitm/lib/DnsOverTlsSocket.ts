@@ -2,12 +2,13 @@ import { randomBytes } from 'crypto';
 import * as dnsPacket from 'dns-packet';
 import IResolvablePromise from '@ulixee/commons/interfaces/IResolvablePromise';
 import { createPromise } from '@ulixee/commons/lib/utils';
-import MitmSocket from '@secret-agent/mitm-socket/index';
+import MitmSocket from '@unblocked-web/sa-mitm-socket/index';
 import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
 import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
-import IDnsSettings from '@unblocked/emulator-spec/IDnsSettings';
+import IDnsSettings from '@unblocked-web/emulator-spec/net/IDnsSettings';
 import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
 import RequestSession from '../handlers/RequestSession';
+import env from "../env";
 
 export default class DnsOverTlsSocket {
   public get host(): string {
@@ -69,7 +70,7 @@ export default class DnsOverTlsSocket {
       port: String(port ?? 853),
       isSsl: true,
       keepAlive: true,
-      debug: true,
+      debug: env.isDebug,
     });
 
     await this.mitmSocket.connect(this.requestSession.requestAgent.socketSession, 10e3);

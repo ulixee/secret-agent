@@ -6,33 +6,31 @@ import {
   IMousePositionXY,
   InteractionCommand,
   isMousePositionXY,
-} from '@unblocked/emulator-spec/IInteractions';
+} from '@unblocked-web/emulator-spec/interact/IInteractions';
 import { assert } from '@ulixee/commons/lib/utils';
 import {
   getKeyboardKey,
   IKeyboardKey,
   KeyboardKey,
-} from '@unblocked/emulator-spec/IKeyboardLayoutUS';
+} from '@unblocked-web/emulator-spec/interact/IKeyboardLayoutUS';
 import IInteractionsHelper, {
   IRectLookup,
   IViewportSize,
-} from '@unblocked/emulator-spec/IInteractionsHelper';
+} from '@unblocked-web/emulator-spec/interact/IInteractionsHelper';
 import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
-import INodePointer from '@unblocked/emulator-spec/INodePointer';
-import IPoint from '@unblocked/emulator-spec/IPoint';
-import IMouseResult from '@unblocked/emulator-spec/IMouseResult';
+import { INodePointer, IJsPath, INodeVisibility } from '@unblocked-web/js-path';
+import IPoint from '@unblocked-web/emulator-spec/browser/IPoint';
+import IMouseResult from '@unblocked-web/emulator-spec/interact/IMouseResult';
 import IResolvablePromise from '@ulixee/commons/interfaces/IResolvablePromise';
-import { IInteractHooks } from '@unblocked/emulator-spec/IHooks';
+import { IInteractHooks } from '@unblocked-web/emulator-spec/hooks/IHooks';
 import Frame from './Frame';
 import { JsPath } from './JsPath';
 import MouseListener from './MouseListener';
 import * as rectUtils from './rectUtils';
-import { IJsPath } from '@unblocked/emulator-spec/IJsPath';
-import { INodeVisibility } from '@unblocked/emulator-spec/INodeVisibility';
-import IRect from '@unblocked/emulator-spec/IRect';
-import { IKeyboard, IMouse } from '@unblocked/emulator-spec/IInput';
+import IRect from '@unblocked-web/emulator-spec/browser/IRect';
+import { IKeyboard, IMouse } from '@unblocked-web/emulator-spec/interact/IInput';
 import BrowserContext from './BrowserContext';
-import IWindowOffset from '@unblocked/emulator-spec/IWindowOffset';
+import IWindowOffset from '@unblocked-web/emulator-spec/browser/IWindowOffset';
 import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
 
 const commandsNeedingScroll = new Set([
@@ -131,6 +129,8 @@ export default class Interactor implements IInteractionsHelper {
   public play(interactions: IInteractionGroups, resolvablePromise: IResolvablePromise<any>): void {
     this.browserContext.commandMarker.incrementMark?.('interact');
     this.preInteractionPaintStableStatus = this.frame.navigations.getPaintStableStatus();
+
+    this.logger.info('Interactor.play', { interactions });
 
     this.injectScrollToPositions(interactions)
       .then(async finalInteractions => {

@@ -1,5 +1,5 @@
 {
-  "name": "@unblocked/secret-agent-monorepo",
+  "name": "@unblocked-web/secret-agent-monorepo",
   "private": true,
   "version": "0.0.1",
   "description": "The Unblocked Automated Web Browser",
@@ -21,15 +21,15 @@
     "test": "yarn tsc && cd build && yarn test:build",
     "lint": "eslint --cache ./"
   },
-  "repository": "git@github.com:unblocked/secret-agent.git",
-  "author": "Data Liberation Foundation",
+  "repository": "git@github.com:unblocked-web/secret-agent.git",
+  "author": "Ulixee",
   "contributors": [
     "Caleb Clark",
     "Blake Byrnes"
   ],
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/unblocked/secret-agent/issues"
+    "url": "https://github.com/unblocked-web/secret-agent/issues"
   },
   "engines": {
     "node": ">=14.7.0"
@@ -81,7 +81,8 @@
       "mitm-socket",
       "testing",
       "examples",
-      "../unblocked/emulator-spec/build"
+      "../emulator-spec/build",
+      "../js-path/build"
     ]
   },
   "lint-staged": {

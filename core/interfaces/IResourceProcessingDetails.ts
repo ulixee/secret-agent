@@ -1,4 +1,4 @@
-import IHttpHeaders from '@unblocked/emulator-spec/IHttpHeaders';
+import IHttpHeaders from '@unblocked-web/emulator-spec/net/IHttpHeaders';
 
 export default interface IResourceProcessingDetails {
   socketId: number;

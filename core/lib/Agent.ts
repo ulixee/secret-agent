@@ -1,7 +1,8 @@
-import { RequestSession } from '@secret-agent/mitm';
+import '@ulixee/commons/lib/SourceMapSupport';
+import { RequestSession } from '@unblocked-web/sa-mitm';
 import BrowserContext from './BrowserContext';
 import Log from '@ulixee/commons/lib/Logger';
-import MitmProxy from '@secret-agent/mitm/lib/MitmProxy';
+import MitmProxy from '@unblocked-web/sa-mitm/lib/MitmProxy';
 import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
 import env from '../env';
 import IProxyConnectionOptions from '../interfaces/IProxyConnectionOptions';
@@ -11,17 +12,19 @@ import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
 import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
 import { nanoid } from 'nanoid';
 import Page from './Page';
-import { IBrowserContextHooks, IHooksProvider } from '@unblocked/emulator-spec/IHooks';
+import { IBrowserContextHooks, IHooksProvider } from '@unblocked-web/emulator-spec/hooks/IHooks';
 import ICommandMarker from '../interfaces/ICommandMarker';
-import IBrowserEngine from '@unblocked/emulator-spec/IBrowserEngine';
+import IBrowserEngine from '@unblocked-web/emulator-spec/browser/IBrowserEngine';
 import Resolvable from '@ulixee/commons/lib/Resolvable';
 import BasicHooksProvider from './BasicHooksProvider';
-import IBrowserLaunchArgs from '@unblocked/emulator-spec/IBrowserLaunchArgs';
+import IBrowserLaunchArgs from '@unblocked-web/emulator-spec/browser/IBrowserLaunchArgs';
+import ChromeApp from '@ulixee/chrome-app';
+import ChromeEngine from './ChromeEngine';
 
 const { log } = Log(module);
 
 export interface IAgentCreateOptions extends IBrowserLaunchArgs {
-  browserEngine?: IBrowserEngine;
+  browserEngine?: IBrowserEngine | ChromeApp;
   hooks?: IHooksProvider;
   id?: string;
   logger?: IBoundLog;
@@ -65,6 +68,9 @@ export default class Agent extends TypedEventEmitter<{ close: void }> {
         sessionId: this.id,
       });
     if (options.hooks) this.hooksProvider.add(options.hooks);
+    if (options.browserEngine instanceof ChromeApp) {
+      options.browserEngine = new ChromeEngine(options.browserEngine);
+    }
     this.mitmRequestSession = new RequestSession(
       this.id,
       this.hooksProvider,
@@ -72,6 +78,13 @@ export default class Agent extends TypedEventEmitter<{ close: void }> {
       options.upstreamProxyUrl,
     );
     this.enableMitm = !env.disableMitm && !options.disableMitm;
+
+    this.logger.info('Agent created', {
+      id: this.id,
+      incognito: this.isIncognito,
+      hasHooks: !!options.hooks,
+      browserEngine: { fullVersion: options.browserEngine.fullVersion },
+    });
   }
 
   // opens outside a pool. NOTE: will shut down browser after use
@@ -92,12 +105,19 @@ export default class Agent extends TypedEventEmitter<{ close: void }> {
       mitmProxy.registerSession(this.mitmRequestSession, isIsolatedMitm);
     }
 
+    this.logger.info('Agent Opening in Browser', {
+      id: this.id,
+      browserId: browser.id,
+      mitmEnabled: !!mitmProxy,
+      usingIsolatedMitm: !!this.isolatedMitm
+    });
+
     return await this.createBrowserContext(browser);
   }
 
   public async openInPool(pool: Pool): Promise<BrowserContext> {
     const browser = await pool.getBrowser(
-      this.options.browserEngine,
+      this.options.browserEngine as IBrowserEngine,
       this.hooksProvider,
       this.options,
     );
@@ -113,10 +133,18 @@ export default class Agent extends TypedEventEmitter<{ close: void }> {
       }
     }
 
+    this.logger.info('Agent Opening in Pool', {
+      id: this.id,
+      browserId: browser.id,
+      mitmEnabled: this.enableMitm,
+      usingIsolatedMitm: !!this.isolatedMitm
+    });
+
     return await this.createBrowserContext(browser);
   }
 
-  public newPage(): Promise<Page> {
+  public async newPage(): Promise<Page> {
+    if (!this.browserContext) await this.open();
     return this.browserContext.newPage();
   }
 
@@ -148,7 +176,7 @@ export default class Agent extends TypedEventEmitter<{ close: void }> {
   }
 
   protected async createSingleUseBrowser(mitm: MitmProxy): Promise<Browser> {
-    const browser = new Browser(this.options.browserEngine, this.hooksProvider, {
+    const browser = new Browser(this.options.browserEngine as any, this.hooksProvider, {
       proxyPort: mitm?.port,
     });
     this.events.once(this, 'close', () => browser.close());

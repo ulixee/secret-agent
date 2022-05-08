@@ -1,6 +1,7 @@
-import IBrowser from '@unblocked/emulator-spec/IBrowser';
-import IBrowserLaunchArgs from '@unblocked/emulator-spec/IBrowserLaunchArgs';
-import { Agent } from 'secret-agent';
+import IBrowser from '@unblocked-web/emulator-spec/browser/IBrowser';
+import IBrowserLaunchArgs from '@unblocked-web/emulator-spec/browser/IBrowserLaunchArgs';
+import { Agent } from '@unblocked-web/secret-agent';
+import { IJsPath } from '@unblocked-web/js-path';
 const Chrome98 = require('@ulixee/chrome-98-0');
 
 async function run() {
@@ -21,68 +22,88 @@ async function run() {
   console.log('\n-- PRINTING location.href ---------');
   console.log(page.mainFrame.url);
 
-  const stories = await page.evaluate<
-    {
-      nodeId: number;
-      id: string;
-      score: number;
-      title: string;
-      age: string;
-      commentCount: number;
-      url: string;
-      contributor: { id: string; username: string };
-    }[]
-  >(
+  const storyNodeIds = await page.evaluate<number[]>(
     `(() => {
-    const stories = document.querySelectorAll('.athing');
-    const result = [];
-    for (const story of stories) {
+   const nodeIds = [];
+    for (const story of document.querySelectorAll('.athing')) {
       const nodeId = NodeTracker.watchNode(story);
-      const extraElem =  story.nextElementSibling;
-      const record = { nodeId };
-      const titleElem =  story.querySelector('a.storylink');
-      const scoreElem = extraElem.querySelector('.score');
-      
-      record.score = scoreElem ? parseInt(scoreElem.textContent,10) ?? 0;
-      record.id = story.getAttribute('id');
-      record.age = extraElem.querySelector('.age a').textContent;
-      record.title = titleElem.textContent;
-      const contributor = extraElem.querySelector('.hnuser').textContent;
-      record.contributor = { id: contributor, username: contributor };
-  
-      const links = Array.from(extraElem.querySelectorAll('.subtext > a'));
-      const commentsLink = links[links.length - 1];
-      const commentText = commentsLink.textContent;
-      record.commentCount = commentText.includes('comment')
-        ? parseInt(commentText.trim().match(/(\d+)\s/)[0], 10)
-        : 0;
-  
-      lastStory = commentsLink;
-      record.url = titleElem.getAttribute('href');
-      result.push(record);
+      nodeIds.push(nodeId);
     }
-    return result;
-  })`,
+    return nodeIds;
+  })()`,
     true,
   );
-  let lastStory;
+  interface IRecord {
+    nodeId: number;
+    id: string;
+    score: number;
+    title: string;
+    age: string;
+    commentCount: number;
+    url: string;
+    contributor: { id: string; username: string };
+  }
+  const stories: IRecord[] = [];
+  for (const storyNodeId of storyNodeIds) {
+    const record = await page.evaluate<IRecord>(
+      `(() => {
+      const nodeId = ${storyNodeId};
+      const story = NodeTracker.getWatchedNodeWithId(nodeId);
+      const extraElem =  story.nextElementSibling;
+      const record = { nodeId };
+      const titleElem = story.querySelector('a.storylink') || story.querySelector('a.titlelink');
+      const scoreElem = extraElem.querySelector('.score');
+      const contributorElem = extraElem.querySelector('.hnuser');
+      
+      record.score = scoreElem ? parseInt(scoreElem.textContent,10) : 0;
+      record.id = story.getAttribute('id');
+      record.age = extraElem.querySelector('.age a').textContent;
+      record.title = titleElem ? titleElem.textContent : '';
+      const contributor = contributorElem ? contributorElem.textContent : '';
+      record.contributor = { id: contributor, username: contributor };
+  
+      const links = [...extraElem.querySelectorAll('.subtext > a')];
+      const commentsLink = links[links.length - 1];
+      if (commentsLink) record.comments = parseInt(commentsLink.textContent,10);
+  
+      if (titleElem) record.url = titleElem.getAttribute('href');
+      return record;
+  })()`,
+      true,
+    );
+    stories.push(record);
+  }
+  console.log('-- READ stories ---------------');
   const output = [];
 
   for (const story of stories) {
     await wait(200);
-    lastStory = [story.nodeId];
     await page.interact([
       {
         command: 'move',
-        mousePosition: lastStory,
+        mousePosition: [story.nodeId],
       },
     ]);
     output.push(story);
   }
+  console.log('-- MOVED MOUSE OVER EACH story ---------------');
 
-  if (lastStory) {
-    await page.click(lastStory);
+  const lastId = storyNodeIds[storyNodeIds.length - 1];
+  const lastStoryComment = await page.mainFrame.evaluate<IJsPath>(`(() => {
+    const nodeId = ${lastId};
+    const story = NodeTracker.getWatchedNodeWithId(nodeId);
+    const extraElem =  story.nextElementSibling;
+    const links = [...extraElem.querySelectorAll('.subtext > a')];
+    const commentsLink = links[links.length - 1];
+      
+    if (commentsLink) return [NodeTracker.watchNode(commentsLink)];
+  })()`);
+
+  if (lastStoryComment) {
+    console.log(`-- GOT LAST COMMENT LINK [${lastStoryComment.toString()}]---------------`);
+    await page.click(lastStoryComment);
     await page.mainFrame.waitForLocation('change');
+    await page.mainFrame.waitForLoad({ loadStatus: 'AllContentLoaded' });
     const textAreaNodeId = await page.mainFrame.jsPath.getNodePointerId([
       'document',
       ['querySelector', 'textarea'],
@@ -100,7 +121,7 @@ async function run() {
       `(() => {
     const lastComment = Array.from(document.querySelectorAll('.commtext')).slice(-1).pop()
     return NodeTracker.watchNode(lastComment);
-    }`,
+    })()`,
       true,
     );
     await page.interact([
