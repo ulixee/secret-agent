@@ -14,21 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import IDevtoolsSession, { Protocol } from '@unblocked-web/emulator-spec/browser/IDevtoolsSession';
+import IDevtoolsSession, { Protocol } from '@unblocked-web/specifications/agent/browser/IDevtoolsSession';
 import * as fs from 'fs';
 import { bindFunctions } from '@ulixee/commons/lib/utils';
 import BindingCalledEvent = Protocol.Runtime.BindingCalledEvent;
-import IBrowser from '@unblocked-web/emulator-spec/browser/IBrowser';
+import IBrowserEngine from '@unblocked-web/specifications/agent/browser/IBrowserEngine';
 
 const devtoolsPreferencesCallback = '_DevtoolsPreferencesCallback';
 
 export default class DevtoolsPreferences {
+  readonly preferencesPath: string;
   private cachedPreferences: any;
-  constructor(readonly preferencesPath: string) {
+
+  constructor(browserEngine: IBrowserEngine) {
     bindFunctions(this);
+    const browserDir = browserEngine.executablePath.split(browserEngine.fullVersion).shift();
+    this.preferencesPath = `${browserDir}/devtoolsPreferences.json`;
   }
 
-  private installOnConnect(session: IDevtoolsSession): Promise<void> {
+  public installOnConnect(session: IDevtoolsSession): Promise<void> {
     session.on('Runtime.bindingCalled', event => this.onPreferenceAction(session, event));
 
     return Promise.all([
@@ -110,13 +114,5 @@ export default class DevtoolsPreferences {
         this.cachedPreferences = {};
       }
     }
-  }
-
-  public static install(browser: IBrowser): void {
-    const browserDir = browser.engine.executablePath.split(browser.engine.fullVersion).shift();
-    const preferencesPath = `${browserDir}/devtoolsPreferences.json`;
-
-    const preferencesInterceptor = new DevtoolsPreferences(preferencesPath);
-    browser.hook({ onDevtoolsPanelAttached: preferencesInterceptor.installOnConnect });
   }
 }

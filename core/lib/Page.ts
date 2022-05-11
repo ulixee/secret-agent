@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 import Protocol from 'devtools-protocol';
-import { IPage, IPageEvents } from '@unblocked-web/emulator-spec/browser/IPage';
+import { IPage, IPageEvents } from '@unblocked-web/specifications/agent/browser/IPage';
 import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
 import { assert, createPromise } from '@ulixee/commons/lib/utils';
 import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
@@ -31,22 +31,22 @@ import BrowserContext from './BrowserContext';
 import { Worker } from './Worker';
 import ConsoleMessage from './ConsoleMessage';
 import Frame from './Frame';
-import IScreenshotOptions from '@unblocked-web/emulator-spec/browser/IScreenshotOptions';
+import IScreenshotOptions from '@unblocked-web/specifications/agent/browser/IScreenshotOptions';
 import {
   IElementInteractVerification,
   IInteractionGroup,
   InteractionCommand,
-} from '@unblocked-web/emulator-spec/interact/IInteractions';
-import IResourceMeta from '@unblocked-web/emulator-spec/net/IResourceMeta';
+} from '@unblocked-web/specifications/agent/interact/IInteractions';
+import IResourceMeta from '@unblocked-web/specifications/agent/net/IResourceMeta';
 import * as Url from 'url';
 import Timer from '@ulixee/commons/lib/Timer';
-import { ILoadStatus, LoadStatus } from '@unblocked-web/emulator-spec/browser/Location';
+import { ILoadStatus, LoadStatus } from '@unblocked-web/specifications/agent/browser/Location';
 import { IJsPath } from '@unblocked-web/js-path';
 import IWaitForOptions from '../interfaces/IWaitForOptions';
-import INavigation from '@unblocked-web/emulator-spec/browser/INavigation';
-import IExecJsPathResult from '@unblocked-web/emulator-spec/browser/IExecJsPathResult';
+import INavigation from '@unblocked-web/specifications/agent/browser/INavigation';
+import IExecJsPathResult from '@unblocked-web/specifications/agent/browser/IExecJsPathResult';
 import DomStorageTracker, { IDomStorageEvents } from './DomStorageTracker';
-import IDialog from '@unblocked-web/emulator-spec/browser/IDialog';
+import IDialog from '@unblocked-web/specifications/agent/browser/IDialog';
 import ConsoleAPICalledEvent = Protocol.Runtime.ConsoleAPICalledEvent;
 import ExceptionThrownEvent = Protocol.Runtime.ExceptionThrownEvent;
 import WindowOpenEvent = Protocol.Page.WindowOpenEvent;
@@ -84,6 +84,7 @@ export default class Page extends TypedEventEmitter<IPageLevelEvents> implements
   public framesManager: FramesManager;
   public domStorageTracker: DomStorageTracker;
   public groupName: string;
+  public runPageScripts = true;
 
   public popupInitializeFn?: (
     page: Page,
@@ -143,6 +144,7 @@ export default class Page extends TypedEventEmitter<IPageLevelEvents> implements
     this.browserContext = browserContext;
     this.devtoolsSession = devtoolsSession;
     this.installJsPathIntoIsolatedContext = pageOptions?.installJsPathIntoDefaultContext !== true;
+    this.runPageScripts = pageOptions?.runPageScripts !== false;
 
     this.groupName = pageOptions?.groupName;
     this.logger = logger.createChild(module, {

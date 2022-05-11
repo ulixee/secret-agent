@@ -1,9 +1,9 @@
-import { IFrame, IFrameEvents, ILifecycleEvents } from '@unblocked-web/emulator-spec/browser/IFrame';
+import { IFrame, IFrameEvents, ILifecycleEvents } from '@unblocked-web/specifications/agent/browser/IFrame';
 import { URL } from 'url';
 import Protocol from 'devtools-protocol';
 import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
 import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
-import { NavigationReason } from '@unblocked-web/emulator-spec/browser/NavigationReason';
+import { NavigationReason } from '@unblocked-web/specifications/agent/browser/NavigationReason';
 import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
 import Resolvable from '@ulixee/commons/lib/Resolvable';
 import ProtocolError from '../errors/ProtocolError';
@@ -11,15 +11,15 @@ import DevtoolsSession from './DevtoolsSession';
 import ConsoleMessage from './ConsoleMessage';
 import FramesManager, { DEFAULT_PAGE, ISOLATED_WORLD } from './FramesManager';
 import { NavigationLoader } from './NavigationLoader';
-import IPoint from '@unblocked-web/emulator-spec/browser/IPoint';
+import IPoint from '@unblocked-web/specifications/agent/browser/IPoint';
 import { JsPath } from './JsPath';
 import MouseListener from './MouseListener';
 import Page from './Page';
 import Interactor from './Interactor';
-import IWindowOffset from '@unblocked-web/emulator-spec/browser/IWindowOffset';
-import { IInteractionGroups } from '@unblocked-web/emulator-spec/interact/IInteractions';
+import IWindowOffset from '@unblocked-web/specifications/agent/browser/IWindowOffset';
+import { IInteractionGroups } from '@unblocked-web/specifications/agent/interact/IInteractions';
 import IRegisteredEventListener from '@ulixee/commons/interfaces/IRegisteredEventListener';
-import { IInteractHooks } from '@unblocked-web/emulator-spec/hooks/IHooks';
+import { IInteractHooks } from '@unblocked-web/specifications/agent/hooks/IHooks';
 import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
 import FrameNavigations from './FrameNavigations';
 import FrameNavigationsObserver from './FrameNavigationsObserver';
@@ -27,10 +27,10 @@ import {
   ILoadStatus,
   ILocationTrigger,
   LoadStatus,
-} from '@unblocked-web/emulator-spec/browser/Location';
+} from '@unblocked-web/specifications/agent/browser/Location';
 import Timer from '@ulixee/commons/lib/Timer';
 import IWaitForOptions from '../interfaces/IWaitForOptions';
-import INavigation from '@unblocked-web/emulator-spec/browser/INavigation';
+import INavigation from '@unblocked-web/specifications/agent/browser/INavigation';
 import PageFrame = Protocol.Page.Frame;
 
 const ContextNotFoundCode = -32000;
@@ -90,8 +90,8 @@ export default class Frame extends TypedEventEmitter<IFrameEvents> implements IF
   public activeLoaderId: string;
   public navigationLoadersById: { [loaderId: string]: NavigationLoader } = {};
   public readonly logger: IBoundLog;
-  public get hooks(): IInteractHooks[] {
-    return [...this.page.browserContext.hooks, ...this.frameHooks] as IInteractHooks[];
+  public get hooks(): IInteractHooks {
+    return this.page.browserContext.hooks;
   }
 
   public navigations: FrameNavigations;
@@ -116,7 +116,6 @@ export default class Frame extends TypedEventEmitter<IFrameEvents> implements IF
   private defaultContextCreated: Resolvable<void>;
   private readonly checkIfAttached: () => boolean;
   private inPageCounter = 0;
-  private frameHooks: IInteractHooks[] = [];
   private events = new EventSubscriber();
   private devtoolsNodeIdByNodePointerId: Record<number, string> = {};
 
@@ -144,10 +143,6 @@ export default class Frame extends TypedEventEmitter<IFrameEvents> implements IF
     this.setEventsToLog(['frame-navigated']);
     this.storeEventsWithoutListeners = true;
     this.onAttached(internalFrame);
-  }
-
-  public hook(hooks: IInteractHooks): void {
-    this.frameHooks.push(hooks);
   }
 
   public close(error?: Error): void {

@@ -1,7 +1,7 @@
 import * as http from 'http';
 import * as http2 from 'http2';
-import IHttpResourceLoadDetails from '@unblocked-web/emulator-spec/net/IHttpResourceLoadDetails';
-import MitmSocket from '@unblocked-web/sa-mitm-socket';
+import IHttpResourceLoadDetails from '@unblocked-web/specifications/agent/net/IHttpResourceLoadDetails';
+import MitmSocket from '@unblocked-web/agent-mitm-socket';
 import RequestSession from '../handlers/RequestSession';
 import CacheHandler from '../handlers/CacheHandler';
 import ResourceState from './ResourceState';

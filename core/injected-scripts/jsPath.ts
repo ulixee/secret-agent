@@ -1,4 +1,4 @@
-import IExecJsPathResult from '@unblocked-web/emulator-spec/browser/IExecJsPathResult';
+import IExecJsPathResult from '@unblocked-web/specifications/agent/browser/IExecJsPathResult';
 import type {
   IElementRect,
   IJsPath,
@@ -7,7 +7,7 @@ import type {
   INodeVisibility,
   IPathStep,
 } from '@unblocked-web/js-path';
-import IPoint from '@unblocked-web/emulator-spec/browser/IPoint';
+import IPoint from '@unblocked-web/specifications/agent/browser/IPoint';
 
 const pointerFnName = '__getNodePointer__';
 

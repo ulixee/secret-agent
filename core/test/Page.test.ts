@@ -1,13 +1,13 @@
 import ConsoleMessage from '../lib/ConsoleMessage';
 import sizeOf from 'image-size';
-import { IPage } from '@unblocked-web/emulator-spec/browser/IPage';
+import { IPage } from '@unblocked-web/specifications/agent/browser/IPage';
 import { TestServer } from './server';
 import { Browser } from '../index';
 import { setContent } from './_pageTestUtils';
 import Page from '../lib/Page';
 import BrowserContext from '../lib/BrowserContext';
-import { TestLogger } from '@unblocked-web/sa-testing';
-import { browserEngineOptions, PageHooks } from '@unblocked-web/sa-testing/browserUtils';
+import { TestLogger } from '@unblocked-web/agent-testing';
+import { browserEngineOptions, PageHooks } from '@unblocked-web/agent-testing/browserUtils';
 
 describe('Pages', () => {
   let server: TestServer;
@@ -23,7 +23,7 @@ describe('Pages', () => {
     await browser.launch();
     const logger = TestLogger.forTest(module);
     context = await browser.newContext({ logger });
-    context.hook(hooks);
+    context.hooks = hooks;
   });
 
   afterEach(async () => {

@@ -1,6 +1,6 @@
-# SecretAgent
+# Unblocked Agent
 
-SecretAgent is an automated web browser that's built to be controlled from every facet by a developer.
+Unblocked Agent is an automated web browser that's built to be controlled from every facet by a developer.
 
 - [x] **Powered by Chrome** - The powerful Chrome engine sits under the hood, allowing for lightning fast rendering.
 - [x] **Hook in at every level of the stack** - Hooks are defined in the network layer (TCP, TLS, HTTP, HTTP2), browser level and user interactions. You have full control of Chrome Devtools API all along the way.
@@ -10,20 +10,20 @@ SecretAgent is an automated web browser that's built to be controlled from every
 ## Installation
 
 ```shell script
-npm i --save @unblocked-web/secret-agent
+npm i --save @unblocked-web/agent
 ```
 
 or
 
 ```shell script
-yarn add @unblocked/secret-agent
+yarn add @unblocked/agent
 ```
 
 ## Usage
 
 
 ```js
-const { Agent } = require('@unblocked-web/secret-agent');
+const { Agent } = require('@unblocked-web/agent');
 
 (async () => {
   const agent = new Agent({ browserEngine: new Chrome98() });
@@ -42,7 +42,7 @@ const { Agent } = require('@unblocked-web/secret-agent');
 
 ## Contributing
 
-We'd love your help in making SecretAgent a better tool. Please don't hesitate to send a pull request.
+We'd love your help in making Unblocked Agent a better tool. Please don't hesitate to send a pull request.
 
 ## License
 

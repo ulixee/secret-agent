@@ -70,7 +70,7 @@ function processPackageJson(packagePath) {
     finalPackageJson.types = finalPackageJson.main.replace('.js', '.d.ts');
   }
 
-  if (finalPackageJson.name === 'secret-agent') {
+  if (finalPackageJson.name === 'agent') {
     fs.copyFileSync(readmePath, `${packagePath}/README.md`);
   }
 

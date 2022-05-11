@@ -2,12 +2,12 @@ import Protocol from 'devtools-protocol';
 import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
 import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
 import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
-import IDomStorage, { IDomStorageForOrigin } from '@unblocked-web/emulator-spec/browser/IDomStorage';
-import { IIndexedDB } from '@unblocked-web/emulator-spec/browser/IIndexedDB';
+import IDomStorage, { IDomStorageForOrigin } from '@unblocked-web/specifications/agent/browser/IDomStorage';
+import { IIndexedDB } from '@unblocked-web/specifications/agent/browser/IIndexedDB';
 import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
 import Resolvable from '@ulixee/commons/lib/Resolvable';
 import Page from './Page';
-import { IFrame } from '@unblocked-web/emulator-spec/browser/IFrame';
+import { IFrame } from '@unblocked-web/specifications/agent/browser/IFrame';
 import NetworkManager from './NetworkManager';
 import DevtoolsSession from './DevtoolsSession';
 import DomStorageItemAddedEvent = Protocol.DOMStorage.DomStorageItemAddedEvent;
@@ -35,6 +35,8 @@ export default class DomStorageTracker extends TypedEventEmitter<IDomStorageEven
     [origin: string]: IDomStorageForOrigin;
   };
 
+  public isEnabled = false;
+
   protected readonly logger: IBoundLog;
 
   private readonly events = new EventSubscriber();
@@ -46,7 +48,6 @@ export default class DomStorageTracker extends TypedEventEmitter<IDomStorageEven
   private readonly indexedDBContentUpdatingOrigins = new Set<string>();
 
   private trackedOrigins = new Set<string>();
-  private isEnabled = false;
 
   constructor(
     page: Page,

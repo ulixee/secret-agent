@@ -1,14 +1,14 @@
 import { URL } from 'url';
 import * as http from 'http';
 import * as http2 from 'http2';
-import IResourceRequest from '@unblocked-web/emulator-spec/net/IResourceRequest';
+import IResourceRequest from '@unblocked-web/specifications/agent/net/IResourceRequest';
 import { TLSSocket } from 'tls';
-import MitmSocket from '@unblocked-web/sa-mitm-socket';
-import OriginType, { isOriginType } from '@unblocked-web/emulator-spec/net/OriginType';
+import MitmSocket from '@unblocked-web/agent-mitm-socket';
+import OriginType, { isOriginType } from '@unblocked-web/specifications/agent/net/OriginType';
 import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
-import IHttpHeaders from '@unblocked-web/emulator-spec/net/IHttpHeaders';
-import IResourceResponse from '@unblocked-web/emulator-spec/net/IResourceResponse';
-import { IBrowserResourceRequest } from '@unblocked-web/emulator-spec/browser/IBrowserNetworkEvents';
+import IHttpHeaders from '@unblocked-web/specifications/agent/net/IHttpHeaders';
+import IResourceResponse from '@unblocked-web/specifications/agent/net/IResourceResponse';
+import { IBrowserResourceRequest } from '@unblocked-web/specifications/agent/browser/IBrowserNetworkEvents';
 import HttpResponseCache from './HttpResponseCache';
 import HeadersHandler from '../handlers/HeadersHandler';
 import { IRequestSessionResponseEvent } from '../handlers/RequestSession';
@@ -20,13 +20,13 @@ import ResourceState from '../interfaces/ResourceState';
 export default class MitmRequestContext {
   private static contextIdCounter = 0;
 
-  public static createFromPuppetResourceRequest(
+  public static createFromResourceRequest(
     resourceLoadDetails: IBrowserResourceRequest,
   ): IMitmRequestContext {
     return {
       id: (this.contextIdCounter += 1),
       ...resourceLoadDetails,
-      requestOriginalHeaders: { ...resourceLoadDetails.requestHeaders },
+      requestOriginalHeaders: Object.freeze({ ...resourceLoadDetails.requestHeaders }),
       didInterceptResource: !!resourceLoadDetails.browserBlockedReason,
       cacheHandler: null,
       clientToProxyRequest: null,
@@ -88,7 +88,7 @@ export default class MitmRequestContext {
       url,
       requestSession,
       requestHeaders,
-      requestOriginalHeaders: parseRawHeaders(clientToProxyRequest.rawHeaders),
+      requestOriginalHeaders: Object.freeze(parseRawHeaders(clientToProxyRequest.rawHeaders)),
       clientToProxyRequest,
       proxyToClientResponse,
       requestTime: Date.now(),

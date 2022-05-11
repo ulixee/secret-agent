@@ -1,8 +1,11 @@
-import IBrowserEngine from '@unblocked-web/emulator-spec/browser/IBrowserEngine';
+import IBrowserEngine from '@unblocked-web/specifications/agent/browser/IBrowserEngine';
 import ChromeApp from '@ulixee/chrome-app';
 import { existsAsync } from '@ulixee/chrome-app/lib/dirUtils';
+import env from '../env';
 
 export default class ChromeEngine implements IBrowserEngine {
+  public static defaultPackageName = `@ulixee/${env.defaultChromeId}`;
+
   public name = 'chrome';
   public fullVersion: string;
   public executablePath: string;
@@ -46,9 +49,16 @@ ${remedyMessage}`);
     await this.source.validateHostRequirements();
   }
 
-  from(npmPackage: string): ChromeEngine {
+  static fromPackageName(npmPackage: string): ChromeEngine {
     const Chrome = require(npmPackage) as any;
     const engine = new Chrome();
     return new ChromeEngine(engine);
   }
+
+  static default(): ChromeEngine {
+    const Chrome = require(this.defaultPackageName) as any;
+    const engine = new Chrome();
+    return new ChromeEngine(engine);
+  }
+
 }

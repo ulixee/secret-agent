@@ -9,8 +9,8 @@ export default {
   // https://github.com/golang/go/issues/24652
   // https://github.com/golang/go/issues/38365
   allowInsecure: Boolean(JSON.parse(process.env.MITM_ALLOW_INSECURE ?? 'true')),
-  enableMitmCache: Boolean(JSON.parse(process.env.SA_ENABLE_MITM_CACHE ?? 'false')),
+  enableMitmCache: Boolean(JSON.parse(process.env.UBK_ENABLE_MITM_CACHE ?? 'false')),
   defaultStorageDirectory:
-    process.env.SA_NETWORK_DIR ?? process.env.SA_DATA_DIR ?? Path.join(Os.tmpdir(), '.ulixee'),
+    process.env.UBK_NETWORK_DIR ?? process.env.UBK_DATA_DIR ?? Path.join(Os.tmpdir(), '.ulixee'),
   isDebug: envDebug.includes('sa:*') || envDebug.includes('sa*') || envDebug === '*' || envDebug.includes('sa:mitm'),
 };

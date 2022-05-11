@@ -1,6 +1,6 @@
 import { TestServer } from './server';
 import { Browser, BrowserContext, Page } from '../index';
-import { BrowserUtils, TestLogger } from '@unblocked-web/sa-testing';
+import { BrowserUtils, TestLogger } from '@unblocked-web/agent-testing';
 
 describe('Worker test', () => {
   let server: TestServer;

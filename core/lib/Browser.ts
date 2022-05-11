@@ -2,12 +2,12 @@ import { Protocol } from 'devtools-protocol';
 import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
 import { assert } from '@ulixee/commons/lib/utils';
 import Log from '@ulixee/commons/lib/Logger';
-import IBrowserEngine from '@unblocked-web/emulator-spec/browser/IBrowserEngine';
-import IBrowserLaunchArgs from '@unblocked-web/emulator-spec/browser/IBrowserLaunchArgs';
-import IBrowser, { IBrowserEvents } from '@unblocked-web/emulator-spec/browser/IBrowser';
+import IBrowserEngine from '@unblocked-web/specifications/agent/browser/IBrowserEngine';
+import IBrowserLaunchArgs from '@unblocked-web/specifications/agent/browser/IBrowserLaunchArgs';
+import IBrowser, { IBrowserEvents } from '@unblocked-web/specifications/agent/browser/IBrowser';
 import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
 import Resolvable from '@ulixee/commons/lib/Resolvable';
-import { IBrowserHooks, IHooksProvider } from '@unblocked-web/emulator-spec/hooks/IHooks';
+import { IBrowserHooks, IHooksProvider } from '@unblocked-web/specifications/agent/hooks/IHooks';
 import { Connection } from './Connection';
 import BrowserContext, { IBrowserContextCreateOptions } from './BrowserContext';
 import DevtoolsSession from './DevtoolsSession';
@@ -26,6 +26,7 @@ export default class Browser extends TypedEventEmitter<IBrowserEvents> implement
   public readonly id: string;
   public readonly engine: IBrowserEngine;
   public readonly browserContextsById = new Map<string, BrowserContext>();
+  public hooks: IBrowserHooks = {};
 
   public get name(): string {
     if (!this.version) return 'Unlaunched';
@@ -48,7 +49,6 @@ export default class Browser extends TypedEventEmitter<IBrowserEvents> implement
 
   public launchPromise = new Resolvable<void | Error>();
   public isLaunchStarted = false;
-  private readonly hooks: IBrowserHooks[] = [];
   private isShuttingDown: Promise<Error | void>;
 
   private connection: Connection;
@@ -73,10 +73,8 @@ export default class Browser extends TypedEventEmitter<IBrowserEvents> implement
     this.applyDefaultLaunchArgs(launchArgs);
 
     if (hooks) {
-      this.hooks.push(hooks);
-      for (const hook of this.hooks) {
-        hook.onNewBrowser?.(this, launchArgs);
-      }
+      this.hooks = hooks;
+      hooks.onNewBrowser?.(this, launchArgs);
     }
   }
 
@@ -205,10 +203,6 @@ export default class Browser extends TypedEventEmitter<IBrowserEvents> implement
     return !this.connection.isClosed;
   }
 
-  public hook(hooks: IBrowserHooks): void {
-    this.hooks.push(hooks);
-  }
-
   protected async didLaunchProcess(process: BrowserProcess): Promise<void> {
     this.process = process;
     this.process.once('close', () => {
@@ -258,7 +252,7 @@ export default class Browser extends TypedEventEmitter<IBrowserEvents> implement
       if (runningAsRoot) {
         // eslint-disable-next-line no-console
         console.warn(
-          'WARNING: SecretAgent is being run under "root" user - disabling Chrome sandbox! ' +
+          'WARNING: Agent is being run under "root" user - disabling Chrome sandbox! ' +
             'Run under regular user to get rid of this warning.',
         );
         launchArgs.push('--no-sandbox');
@@ -309,9 +303,7 @@ export default class Browser extends TypedEventEmitter<IBrowserEvents> implement
     if (targetInfo.type === 'other' && targetInfo.url.startsWith('devtools://devtools')) {
       const devtoolsSession = this.connection.getSession(sessionId);
       const context = this.getBrowserContext(targetInfo.browserContextId);
-      for (const hook of this.hooks) {
-        void hook.onDevtoolsPanelAttached?.(devtoolsSession).catch(() => null);
-      }
+      void this.hooks?.onDevtoolsPanelAttached?.(devtoolsSession).catch(() => null);
       context?.onDevtoolsPanelAttached(devtoolsSession, targetInfo);
       return;
     }
@@ -367,8 +359,7 @@ export default class Browser extends TypedEventEmitter<IBrowserEvents> implement
     const id = context.id;
     this.browserContextsById.set(id, context);
     context.once('close', () => this.browserContextsById.delete(id));
-    for (const hook of this.hooks) {
-      await hook.onNewBrowserContext?.(context);
-    }
+    this.emit('new-context', { context });
+    await this.hooks?.onNewBrowserContext?.(context);
   }
 }

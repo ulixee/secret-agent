@@ -1,9 +1,7 @@
-import { Agent } from '@unblocked-web/secret-agent';
-
-const Chrome98 = require('@ulixee/chrome-98-0');
+import { Agent } from '@unblocked-web/agent';
 
 async function run() {
-  const agent = new Agent({ browserEngine: new Chrome98() });
+  const agent = new Agent();
   const page = await agent.newPage();
   await page.goto('https://example.org/');
   await page.waitForLoad('PaintingStable');

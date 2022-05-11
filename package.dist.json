@@ -1,8 +1,8 @@
 {
-  "name": "@unblocked-web/secret-agent-monorepo",
+  "name": "@unblocked-web/agent-monorepo",
   "private": true,
   "license": "MIT",
   "scripts": {
-    "postinstall": "yarn workspace @unblocked/sa-mitm-socket postinstall"
+    "postinstall": "yarn workspace @unblocked/agent-mitm-socket postinstall"
   }
 }

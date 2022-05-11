@@ -1,9 +1,9 @@
 import Resolvable from '@ulixee/commons/lib/Resolvable';
 import * as http from 'http';
-import { BrowserUtils, Helpers, TestLogger } from '@unblocked-web/sa-testing';
-import { ITestHttpServer } from '@unblocked-web/sa-testing/helpers';
+import { BrowserUtils, Helpers, TestLogger } from '@unblocked-web/agent-testing';
+import { ITestHttpServer } from '@unblocked-web/agent-testing/helpers';
 import { Pool } from '../index';
-import IBrowserEngine from '@unblocked-web/emulator-spec/browser/IBrowserEngine';
+import IBrowserEngine from '@unblocked-web/specifications/agent/browser/IBrowserEngine';
 
 let httpServer: ITestHttpServer<http.Server>;
 
@@ -21,14 +21,14 @@ describe('Pool tests', () => {
     Helpers.needsClosing.push(pool);
     expect(pool.activeAgentsCount).toBe(0);
 
-    const agent1 = await pool.createAgent({ logger: TestLogger.forTest(module) });
+    const agent1 = pool.createAgent({ logger: TestLogger.forTest(module) });
     Helpers.needsClosing.push(agent1);
     const page1 = await agent1.newPage();
     // #1
     await page1.goto(`${httpServer.baseUrl}/pool1`);
     expect(pool.activeAgentsCount).toBe(1);
 
-    const agent2 = await pool.createAgent({ logger: TestLogger.forTest(module) });
+    const agent2 = pool.createAgent({ logger: TestLogger.forTest(module) });
     Helpers.needsClosing.push(agent2);
     const page2 = await agent2.newPage();
 
@@ -36,7 +36,7 @@ describe('Pool tests', () => {
     await page2.goto(`${httpServer.baseUrl}/pool2`);
     expect(pool.activeAgentsCount).toBe(2);
 
-    const agent3 = await pool.createAgent({ logger: TestLogger.forTest(module) });
+    const agent3 = pool.createAgent({ logger: TestLogger.forTest(module) });
     const page3 = await agent3.newPage();
     Helpers.needsClosing.push(agent3);
 
@@ -67,7 +67,7 @@ describe('Pool tests', () => {
     const pool = new Pool(BrowserUtils.newPoolOptions);
     Helpers.needsClosing.push(pool);
 
-    const agent = await pool.createAgent({ logger: TestLogger.forTest(module) });
+    const agent = pool.createAgent({ logger: TestLogger.forTest(module) });
     Helpers.needsClosing.push(agent);
     const page = await agent.newPage();
     await page.goto(`${httpServer.baseUrl}/context-events`);
@@ -84,12 +84,12 @@ describe('Pool tests', () => {
     const pool = new Pool(BrowserUtils.newPoolOptions);
     Helpers.needsClosing.push(pool);
 
-    const agent1 = await pool.createAgent({ logger: TestLogger.forTest(module) });
+    const agent1 = pool.createAgent({ logger: TestLogger.forTest(module) });
     Helpers.needsClosing.push(agent1);
     const page = await agent1.newPage();
     await page.goto(`${httpServer.baseUrl}/no-windows`);
 
-    const agent2 = await pool.createAgent({ logger: TestLogger.forTest(module) });
+    const agent2 = pool.createAgent({ logger: TestLogger.forTest(module) });
     Helpers.needsClosing.push(agent2);
     const page2 = await agent2.newPage();
     await page2.goto(`${httpServer.baseUrl}/no-windows2`);
@@ -115,7 +115,7 @@ describe('Pool tests', () => {
     const pool = new Pool(BrowserUtils.newPoolOptions);
     Helpers.needsClosing.push(pool);
 
-    const agent = await pool.createAgent({ logger: TestLogger.forTest(module) });
+    const agent = pool.createAgent({ logger: TestLogger.forTest(module) });
     Helpers.needsClosing.push(agent);
     const page = await agent.newPage();
 

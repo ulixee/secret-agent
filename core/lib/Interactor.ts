@@ -6,31 +6,31 @@ import {
   IMousePositionXY,
   InteractionCommand,
   isMousePositionXY,
-} from '@unblocked-web/emulator-spec/interact/IInteractions';
+} from '@unblocked-web/specifications/agent/interact/IInteractions';
 import { assert } from '@ulixee/commons/lib/utils';
 import {
   getKeyboardKey,
   IKeyboardKey,
   KeyboardKey,
-} from '@unblocked-web/emulator-spec/interact/IKeyboardLayoutUS';
+} from '@unblocked-web/specifications/agent/interact/IKeyboardLayoutUS';
 import IInteractionsHelper, {
   IRectLookup,
   IViewportSize,
-} from '@unblocked-web/emulator-spec/interact/IInteractionsHelper';
+} from '@unblocked-web/specifications/agent/interact/IInteractionsHelper';
 import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
 import { INodePointer, IJsPath, INodeVisibility } from '@unblocked-web/js-path';
-import IPoint from '@unblocked-web/emulator-spec/browser/IPoint';
-import IMouseResult from '@unblocked-web/emulator-spec/interact/IMouseResult';
+import IPoint from '@unblocked-web/specifications/agent/browser/IPoint';
+import IMouseResult from '@unblocked-web/specifications/agent/interact/IMouseResult';
 import IResolvablePromise from '@ulixee/commons/interfaces/IResolvablePromise';
-import { IInteractHooks } from '@unblocked-web/emulator-spec/hooks/IHooks';
+import { IInteractHooks } from '@unblocked-web/specifications/agent/hooks/IHooks';
 import Frame from './Frame';
 import { JsPath } from './JsPath';
 import MouseListener from './MouseListener';
 import * as rectUtils from './rectUtils';
-import IRect from '@unblocked-web/emulator-spec/browser/IRect';
-import { IKeyboard, IMouse } from '@unblocked-web/emulator-spec/interact/IInput';
+import IRect from '@unblocked-web/specifications/agent/browser/IRect';
+import { IKeyboard, IMouse } from '@unblocked-web/specifications/agent/interact/IInput';
 import BrowserContext from './BrowserContext';
-import IWindowOffset from '@unblocked-web/emulator-spec/browser/IWindowOffset';
+import IWindowOffset from '@unblocked-web/specifications/agent/browser/IWindowOffset';
 import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
 
 const commandsNeedingScroll = new Set([
@@ -70,6 +70,13 @@ export default class Interactor implements IInteractionsHelper {
     return this.browserContext.browser.engine.doesBrowserAnimateScrolling;
   }
 
+  public beforeEachInteractionStep: (
+    interactionStep: IInteractionStep,
+    isMouseCommand: boolean,
+  ) => Promise<void>;
+
+  public afterInteractionGroups: () => Promise<void>;
+
   public logger: IBoundLog;
 
   public viewportSize: IViewportSize;
@@ -86,7 +93,7 @@ export default class Interactor implements IInteractionsHelper {
 
   private readonly frame: Frame;
 
-  private get hooks(): IInteractHooks[] {
+  private get hooks(): IInteractHooks {
     return this.frame.hooks;
   }
 
@@ -112,10 +119,8 @@ export default class Interactor implements IInteractionsHelper {
   constructor(frame: Frame) {
     this.frame = frame;
     this.logger = frame.logger.createChild(module);
-    for (const hook of this.hooks) {
-      if (hook.playInteractions) {
-        this.playAllInteractions = hook.playInteractions.bind(hook);
-      }
+    if (this.hooks.playInteractions) {
+      this.playAllInteractions = this.hooks.playInteractions.bind(this.hooks);
     }
   }
 
@@ -141,9 +146,9 @@ export default class Interactor implements IInteractionsHelper {
             this.playInteraction.bind(this, resolvablePromise),
             this,
           );
-          // eslint-disable-next-line promise/always-return
         } finally {
-          await this.afterInteractionGroups();
+          // eslint-disable-next-line promise/always-return
+          await this.afterInteractionGroups?.();
         }
       })
       .then(resolvablePromise.resolve)
@@ -250,12 +255,6 @@ export default class Interactor implements IInteractionsHelper {
     };
   }
 
-  private async afterInteractionGroups(): Promise<void> {
-    for (const hook of this.hooks) {
-      await hook.afterInteractionGroups?.();
-    }
-  }
-
   private async playInteraction(
     resolvable: IResolvablePromise<any>,
     interactionStep: IInteractionStep,
@@ -264,12 +263,11 @@ export default class Interactor implements IInteractionsHelper {
       this.logger.warn('Canceling interaction due to external event');
       throw new CanceledPromiseError('Canceling interaction due to external event');
     }
-    for (const hook of this.hooks) {
-      await hook.beforeEachInteractionStep?.(
-        interactionStep,
-        mouseCommands.has(interactionStep.command),
-      );
-    }
+    await this.beforeEachInteractionStep?.(
+      interactionStep,
+      mouseCommands.has(interactionStep.command),
+    );
+
     switch (interactionStep.command) {
       case InteractionCommand.move: {
         const [x, y] = await this.getMousePositionXY(interactionStep);
@@ -277,23 +275,29 @@ export default class Interactor implements IInteractionsHelper {
         break;
       }
       case InteractionCommand.scroll: {
-        const interactRect = await this.getInteractionRect(interactionStep);
+        const scrollOffset = await this.scrollOffset;
 
+        let scrollToY = scrollOffset.y;
+        let scrollToX = scrollOffset.x;
         // if this is a JsPath, see if we actually need to scroll
-        if (
-          isMousePositionXY(interactionStep.mousePosition) === false &&
-          this.isRectInViewport(interactRect, this.viewportSize, 10).all
-        ) {
-          break;
+        if (isMousePositionXY(interactionStep.mousePosition) === false) {
+          const interactRect = await this.getInteractionRect(interactionStep);
+          const isRectVisible = this.isRectInViewport(interactRect, this.viewportSize, 50);
+          if (isRectVisible.all) return;
+
+          const pointForRect = this.createScrollPointForRect(interactRect, this.viewportSize);
+
+          // positions are all relative to viewport, so normalize based on the current offsets
+          if (!isRectVisible.height) scrollToY += pointForRect.y;
+          if (!isRectVisible.width) scrollToX += pointForRect.x;
+        } else {
+          [scrollToX, scrollToY] = interactionStep.mousePosition as IMousePositionXY;
         }
 
-        const startScroll = await this.scrollOffset;
-        const [x, y] = await this.getMousePositionXY(interactionStep, false, interactRect);
-        const maxX = startScroll.width - this.viewportSize.width;
-        const maxY = startScroll.height - this.viewportSize.height;
-
-        const deltaX = Math.min(x, maxX) - startScroll.x;
-        const deltaY = Math.min(y, maxY) - startScroll.y;
+        const maxX = scrollOffset.width - this.viewportSize.width - scrollOffset.x;
+        const maxY = scrollOffset.height - this.viewportSize.height - scrollOffset.y;
+        const deltaX = Math.min(scrollToX - scrollOffset.x, maxX);
+        const deltaY = Math.min(scrollToY - scrollOffset.y, maxY);
 
         if (deltaY !== 0 || deltaX !== 0) {
           await this.mouse.wheel({ deltaX, deltaY });
@@ -402,9 +406,7 @@ export default class Interactor implements IInteractionsHelper {
   private async initializeViewport(isMainFrame: boolean): Promise<void> {
     await this.getWindowOffset();
     if (isMainFrame) {
-      for (const hook of this.hooks) {
-        await hook?.adjustStartingMousePoint?.(this.mouse.position, this);
-      }
+      await this.hooks?.adjustStartingMousePoint?.(this.mouse.position, this);
     }
   }
 
@@ -461,7 +463,7 @@ export default class Interactor implements IInteractionsHelper {
     return finalInteractions;
   }
 
-  private static async defaultPlayInteractions(
+  public static async defaultPlayInteractions(
     interactionGroups: IInteractionGroups,
     runFn: (interactionStep: IInteractionStep) => Promise<void>,
   ): Promise<void> {

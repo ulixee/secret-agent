@@ -1,6 +1,8 @@
 const pkg = require('./package.json');
 
-const workspaces = pkg.workspaces.packages.map(x => x.replace('/*', ''));
+const workspaces = pkg.workspaces.packages
+  .filter(x => !x.startsWith('..'))
+  .map(x => x.replace('/*', ''));
 
 module.exports = {
   verbose: false,

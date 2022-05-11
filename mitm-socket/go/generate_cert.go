@@ -118,8 +118,8 @@ func NewAuthority() (*x509.Certificate, *rsa.PrivateKey, error) {
 	tmpl := &x509.Certificate{
 		SerialNumber: big.NewInt(serial),
 		Subject: pkix.Name{
-			CommonName:   "UlixeeCA",
-			Organization: []string{"Data Liberation Foundation"},
+			CommonName:   "Unblocked",
+			Organization: []string{"Unblocked"},
 		},
 		SubjectKeyId:          keyID,
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
@@ -127,7 +127,7 @@ func NewAuthority() (*x509.Certificate, *rsa.PrivateKey, error) {
 		BasicConstraintsValid: true,
 		NotBefore:             time.Now().AddDate(-1, 0, 0),
 		NotAfter:              time.Now().AddDate(1, 0, 0),
-		DNSNames:              []string{"UlixeeCA"},
+		DNSNames:              []string{"Unblocked"},
 		IsCA:                  true,
 	}
 
@@ -218,7 +218,7 @@ func NewCertConfig(ca *x509.Certificate, caPrivateKey *rsa.PrivateKey) (*CertCon
 		publicKey:     pub,
 		privateKeyPEM: string(privateKeyPEM),
 		keyID:         keyID,
-		organization:  "Data Liberation Foundation",
+		organization:  "Unblocked",
 	}, nil
 }
 

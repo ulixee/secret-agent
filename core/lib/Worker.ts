@@ -1,10 +1,10 @@
 import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
 import Protocol from 'devtools-protocol';
 import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
-import { IWorker, IWorkerEvents } from '@unblocked-web/emulator-spec/browser/IWorker';
+import { IWorker, IWorkerEvents } from '@unblocked-web/specifications/agent/browser/IWorker';
 import { createPromise } from '@ulixee/commons/lib/utils';
 import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
-import { IBrowserContextHooks } from '@unblocked-web/emulator-spec/hooks/IHooks';
+import { IBrowserContextHooks } from '@unblocked-web/specifications/agent/hooks/IHooks';
 import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
 import BrowserContext from './BrowserContext';
 import DevtoolsSession from './DevtoolsSession';
@@ -79,7 +79,7 @@ export class Worker extends TypedEventEmitter<IWorkerEvents> implements IWorker 
         throw err;
       }),
       this.devtoolsSession.send('Runtime.enable'),
-      this.initializeEmulation(hooks as IBrowserContextHooks[]),
+      this.initializeEmulation(hooks as IBrowserContextHooks),
       this.devtoolsSession.send('Runtime.runIfWaitingForDebugger'),
     ]);
 
@@ -118,11 +118,11 @@ export class Worker extends TypedEventEmitter<IWorkerEvents> implements IWorker 
     };
   }
 
-  private initializeEmulation(hooks: IBrowserContextHooks[]): Promise<any> {
-    if (!hooks.some(x => !!x.onNewWorker)) return;
+  private initializeEmulation(hooks: IBrowserContextHooks): Promise<any> {
+    if (!hooks.onNewWorker) return;
 
     return Promise.all([
-      ...hooks.map(x => x.onNewWorker?.(this)),
+      hooks.onNewWorker(this),
       this.devtoolsSession.send('Debugger.enable'),
       this.devtoolsSession.send('Debugger.setBreakpointByUrl', {
         lineNumber: 0,
@@ -132,7 +132,7 @@ export class Worker extends TypedEventEmitter<IWorkerEvents> implements IWorker 
       .then(this.resumeAfterEmulation.bind(this))
       .catch(error => {
         if (error instanceof CanceledPromiseError) return;
-        this.logger.error('Emulator.onNewPuppetWorkerError', {
+        this.logger.error('Emulator.onNewWorkerError', {
           error,
         });
         throw error;

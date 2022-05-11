@@ -1,9 +1,9 @@
 import { LookupAddress, promises as nodeDns } from 'dns';
-import { Helpers, TestLogger } from '@unblocked-web/sa-testing';
+import { Helpers, TestLogger } from '@unblocked-web/agent-testing';
 import DnsOverTlsSocket from '../lib/DnsOverTlsSocket';
 import { Dns } from '../lib/Dns';
 import RequestSession from '../handlers/RequestSession';
-import { INetworkHooks } from '@unblocked-web/emulator-spec/hooks/IHooks';
+import { INetworkHooks } from '@unblocked-web/specifications/agent/hooks/IHooks';
 
 const CloudFlare = {
   host: '1.1.1.1',

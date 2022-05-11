@@ -1,5 +1,5 @@
 {
-  "name": "@unblocked-web/secret-agent-monorepo",
+  "name": "@unblocked-web/agent-monorepo",
   "private": true,
   "scripts": {
     "build": "yarn",

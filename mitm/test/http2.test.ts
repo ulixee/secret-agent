@@ -1,10 +1,10 @@
-import { Helpers, TestLogger } from '@unblocked-web/sa-testing';
+import { Helpers, TestLogger } from '@unblocked-web/agent-testing';
 import * as http2 from 'http2';
 import { IncomingHttpHeaders, IncomingHttpStatusHeader } from 'http2';
 import { URL } from 'url';
-import MitmSocket from '@unblocked-web/sa-mitm-socket';
-import IHttpHeaders from '@unblocked-web/emulator-spec/net/IHttpHeaders';
-import MitmSocketSession from '@unblocked-web/sa-mitm-socket/lib/MitmSocketSession';
+import MitmSocket from '@unblocked-web/agent-mitm-socket';
+import IHttpHeaders from '@unblocked-web/specifications/agent/net/IHttpHeaders';
+import MitmSocketSession from '@unblocked-web/agent-mitm-socket/lib/MitmSocketSession';
 import MitmServer from '../lib/MitmProxy';
 import RequestSession from '../handlers/RequestSession';
 import HttpRequestHandler from '../handlers/HttpRequestHandler';

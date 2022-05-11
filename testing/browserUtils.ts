@@ -1,8 +1,8 @@
-import IViewport from '@unblocked-web/emulator-spec/browser/IViewport';
-import Browser from '@unblocked-web/secret-agent/lib/Browser';
-import ChromeEngine from '@unblocked-web/secret-agent/lib/ChromeEngine';
-import { IBrowserContextHooks, IBrowserHooks } from '@unblocked-web/emulator-spec/hooks/IHooks';
-import IBrowser from '@unblocked-web/emulator-spec/browser/IBrowser';
+import IViewport from '@unblocked-web/specifications/agent/browser/IViewport';
+import Browser from '@unblocked-web/agent/lib/Browser';
+import ChromeEngine from '@unblocked-web/agent/lib/ChromeEngine';
+import { IBrowserContextHooks, IBrowserHooks } from '@unblocked-web/specifications/agent/hooks/IHooks';
+import IBrowser from '@unblocked-web/specifications/agent/browser/IBrowser';
 import env from './env';
 import { Helpers } from './index';
 import DefaultChrome = require('@ulixee/chrome-98-0');

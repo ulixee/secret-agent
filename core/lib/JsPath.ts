@@ -1,19 +1,19 @@
 import { INodePointer, IElementRect, IJsPath, INodeVisibility } from '@unblocked-web/js-path';
-import IExecJsPathResult from '@unblocked-web/emulator-spec/browser/IExecJsPathResult';
+import IExecJsPathResult from '@unblocked-web/specifications/agent/browser/IExecJsPathResult';
 import TypeSerializer from '@ulixee/commons/lib/TypeSerializer';
 import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
-import IPoint from '@unblocked-web/emulator-spec/browser/IPoint';
+import IPoint from '@unblocked-web/specifications/agent/browser/IPoint';
 import Frame from './Frame';
 import InjectedScriptError from '../errors/InjectedScriptError';
-import { isMousePositionXY } from '@unblocked-web/emulator-spec/interact/IInteractions';
+import { isMousePositionXY } from '@unblocked-web/specifications/agent/interact/IInteractions';
 import IJsPathFunctions, {
   getClientRectFnName,
   getComputedVisibilityFnName,
   getNodePointerFnName,
   getNodeIdFnName,
-} from '@unblocked-web/emulator-spec/browser/IJsPathFunctions';
+} from '@unblocked-web/specifications/agent/browser/IJsPathFunctions';
 import InjectedScripts from './InjectedScripts';
-import { LoadStatus } from '@unblocked-web/emulator-spec/browser/Location';
+import { LoadStatus } from '@unblocked-web/specifications/agent/browser/Location';
 
 interface IJsPathSource {
   parentNodeId?: number;

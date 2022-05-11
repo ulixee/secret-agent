@@ -2,7 +2,7 @@ import Protocol from 'devtools-protocol';
 import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
 import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
 import IRegisteredEventListener from '@ulixee/commons/interfaces/IRegisteredEventListener';
-import { IFrameManagerEvents } from '@unblocked-web/emulator-spec/browser/IFrame';
+import { IFrameManagerEvents } from '@unblocked-web/specifications/agent/browser/IFrame';
 import { bindFunctions } from '@ulixee/commons/lib/utils';
 import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
 import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
@@ -12,9 +12,9 @@ import NetworkManager from './NetworkManager';
 import DomStorageTracker from './DomStorageTracker';
 import InjectedScripts from './InjectedScripts';
 import Page from './Page';
-import IResourceMeta from '@unblocked-web/emulator-spec/net/IResourceMeta';
-import { IPageEvents } from '@unblocked-web/emulator-spec/browser/IPage';
-import { IDomPaintEvent } from '@unblocked-web/emulator-spec/browser/Location';
+import IResourceMeta from '@unblocked-web/specifications/agent/net/IResourceMeta';
+import { IPageEvents } from '@unblocked-web/specifications/agent/browser/IPage';
+import { IDomPaintEvent } from '@unblocked-web/specifications/agent/browser/Location';
 import Resources from './Resources';
 import FrameNavigatedEvent = Protocol.Page.FrameNavigatedEvent;
 import FrameTree = Protocol.Page.FrameTree;
@@ -35,9 +35,7 @@ export default class FramesManager extends TypedEventEmitter<IFrameManagerEvents
   public readonly page: Page;
   public readonly pendingNewDocumentScripts: { script: string; isolated: boolean }[] = [];
 
-  public get mainFrameId(): string {
-    return Array.from(this.attachedFrameIds).find(id => !this.framesById.get(id).parentId);
-  }
+  public mainFrameId: string;
 
   public get main(): Frame {
     return this.framesById.get(this.mainFrameId);
@@ -216,6 +214,25 @@ export default class FramesManager extends TypedEventEmitter<IFrameManagerEvents
     }
   }
 
+  public clearChildFrames(): void {
+    for (const [id, childFrame] of this.framesById) {
+      if (id !== this.mainFrameId && !this.attachedFrameIds.has(id)) {
+        this.framesById.delete(id);
+        try {
+          childFrame.close();
+        } catch (error) {
+          if (!(error instanceof CanceledPromiseError)) {
+            this.logger.warn('Error closing frame after navigation', {
+              error,
+              id,
+              url: childFrame.url,
+            });
+          }
+        }
+      }
+    }
+  }
+
   /////// EXECUTION CONTEXT ////////////////////////////////////////////////////
 
   public getSecurityOrigins(): { origin: string; frameId: string }[] {
@@ -295,6 +312,10 @@ export default class FramesManager extends TypedEventEmitter<IFrameManagerEvents
   private async onFrameNavigated(navigatedEvent: FrameNavigatedEvent): Promise<void> {
     await this.isReady;
     const frame = this.recordFrame(navigatedEvent.frame);
+    // if main frame, clear out other frames
+    if (!frame.parentId) {
+      this.clearChildFrames();
+    }
     frame.onNavigated(navigatedEvent.frame);
     if (!frame.isDefaultUrl && !frame.parentId) {
       this.pendingNewDocumentScripts.length = 0;
@@ -362,6 +383,7 @@ export default class FramesManager extends TypedEventEmitter<IFrameManagerEvents
 
   private recurseFrameTree(frameTree: FrameTree): void {
     const { frame, childFrames } = frameTree;
+    this.mainFrameId = frame.id;
     this.recordFrame(frame, true);
 
     this.attachedFrameIds.add(frame.id);
@@ -410,8 +432,7 @@ export default class FramesManager extends TypedEventEmitter<IFrameManagerEvents
       for (const { event: resourceEvent, type } of resourceEvents) {
         if (type === 'resource-will-be-requested')
           this.onResourceWillBeRequested(resourceEvent as any);
-        if (type === 'resource-was-requested')
-          this.onResourceWasRequested(resourceEvent as any);
+        if (type === 'resource-was-requested') this.onResourceWasRequested(resourceEvent as any);
         else if (type === 'navigation-response')
           this.onNavigationResourceResponse(resourceEvent as any);
         else if (type === 'resource-loaded') this.onResourceLoaded(resourceEvent as any);

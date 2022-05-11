@@ -1,5 +1,5 @@
 {
-  "name": "@unblocked-web/secret-agent-monorepo",
+  "name": "@unblocked-web/agent-monorepo",
   "private": true,
   "version": "0.0.1",
   "description": "The Unblocked Automated Web Browser",
@@ -9,7 +9,7 @@
     "build": "yarn tsc && cd build && yarn",
     "build:dist": "shx rm -rf build-dist && tsc -b tsconfig.dist.json && yarn copy:dist && node prepare-dist.js",
     "build:dist-local": "yarn build:dist && cd build-dist && SA_REBUILD_MITM_SOCKET=1 yarn",
-    "build:docker": "yarn build:dist && docker build -t secret-agent .",
+    "build:docker": "yarn build:dist && docker build -t agent .",
     "build:ci": "yarn tsc && cd build && yarn install",
     "copy:dist": "cross-env OUT_DIR=build-dist node copyfiles.js",
     "copy:build": "cross-env OUT_DIR=build node copyfiles.js",
@@ -21,7 +21,7 @@
     "test": "yarn tsc && cd build && yarn test:build",
     "lint": "eslint --cache ./"
   },
-  "repository": "git@github.com:unblocked-web/secret-agent.git",
+  "repository": "git@github.com:unblocked-web/agent.git",
   "author": "Ulixee",
   "contributors": [
     "Caleb Clark",
@@ -29,7 +29,7 @@
   ],
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/unblocked-web/secret-agent/issues"
+    "url": "https://github.com/unblocked-web/agent/issues"
   },
   "engines": {
     "node": ">=14.7.0"
@@ -81,7 +81,7 @@
       "mitm-socket",
       "testing",
       "examples",
-      "../emulator-spec/build",
+      "../specifications/build",
       "../js-path/build"
     ]
   },

@@ -25,12 +25,12 @@ jobs:
           cache: 'yarn'
 
       - name: (TEMP) Clone Emulator Spec
-        run:  git clone https://github.com/unblocked-web/emulator-spec.git
+        run:  git clone https://github.com/unblocked-web/specifications.git
         working-directory: ..
 
       - name: (TEMP) Install Emulator Spec
         run: yarn && yarn build
-        working-directory: ../emulator-spec
+        working-directory: ../specifications
 
       - name: Install Dependencies
         run: yarn install --immutable --network-timeout 1000000
@@ -79,16 +79,16 @@ jobs:
           cache: 'yarn'
 
       - name: (TEMP) Clone Emulator Spec
-        run:  git clone https://github.com/unblocked-web/emulator-spec.git
+        run:  git clone https://github.com/unblocked-web/specifications.git
         working-directory: ..
 
       - name: (TEMP) Install Emulator Spec
         run: yarn && yarn build
-        working-directory: ../emulator-spec
+        working-directory: ../specifications
 
       - name: (TEMP) Install Emulator Spec
         run: yarn link
-        working-directory: ../emulator-spec/build
+        working-directory: ../specifications/agent/build
 
       - uses: actions/setup-go@v2
         with:
@@ -110,7 +110,7 @@ jobs:
         run: pwd && yarn --network-timeout 1000000
         working-directory: ./build
         env:
-          SA_REBUILD_MITM_SOCKET: 1
+          UBK_REBUILD_MITM_SOCKET: 1
 
       - name: Linux - Add Chrome Env
         if: ${{ matrix.browser }}
@@ -126,7 +126,7 @@ jobs:
         run: yarn test --testTimeout=60000 --maxWorkers=2
         working-directory: ./build
         env:
-          SA_DEFAULT_BROWSER_ID: ${{ matrix.browser }}
+          UBK_DEFAULT_BROWSER_ID: ${{ matrix.browser }}
 
       - name: 'Tar files'
         if: ${{ failure() }}

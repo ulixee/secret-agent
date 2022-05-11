@@ -7,7 +7,7 @@ import env from './env';
 
 let isDevtoolsLogging = false;
 try {
-  const saEnv = require('@unblocked-web/secret-agent/env');
+  const saEnv = require('@unblocked-web/agent/env');
   isDevtoolsLogging ||= saEnv.logDevtools;
 } catch (e) {}
 
@@ -111,6 +111,6 @@ function extractPathFromModule(module: NodeModule): string {
   return fullPath
     .replace('.js', '')
     .replace('.ts', '')
-    .replace(/^(.*)[/\\]secret-agent[/\\](.+)$/, '$2')
+    .replace(/^(.*)[/\\]agent[/\\](.+)$/, '$2')
     .replace(/^.*[/\\]build[/\\](.+)$/, '$1');
 }

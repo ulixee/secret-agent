@@ -1,7 +1,7 @@
 import { Browser, BrowserContext, Page } from '../index';
 import { TestServer } from './server';
-import { TestLogger } from '@unblocked-web/sa-testing';
-import { browserEngineOptions, PageHooks } from '@unblocked-web/sa-testing/browserUtils';
+import { TestLogger } from '@unblocked-web/agent-testing';
+import { browserEngineOptions, PageHooks } from '@unblocked-web/agent-testing/browserUtils';
 
 describe('Page.popups', () => {
   let server: TestServer;
@@ -21,7 +21,7 @@ describe('Page.popups', () => {
     });
     const logger = TestLogger.forTest(module);
     context = await browser.newContext({ logger });
-    context.hook(hooks);
+    context.hooks = hooks;
     context.on('page', event => {
       needsClosing.push(event.page);
     });

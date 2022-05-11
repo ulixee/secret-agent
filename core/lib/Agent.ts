@@ -1,8 +1,8 @@
 import '@ulixee/commons/lib/SourceMapSupport';
-import { RequestSession } from '@unblocked-web/sa-mitm';
+import { RequestSession } from '@unblocked-web/agent-mitm';
 import BrowserContext from './BrowserContext';
 import Log from '@ulixee/commons/lib/Logger';
-import MitmProxy from '@unblocked-web/sa-mitm/lib/MitmProxy';
+import MitmProxy from '@unblocked-web/agent-mitm/lib/MitmProxy';
 import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
 import env from '../env';
 import IProxyConnectionOptions from '../interfaces/IProxyConnectionOptions';
@@ -12,40 +12,44 @@ import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
 import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
 import { nanoid } from 'nanoid';
 import Page from './Page';
-import { IBrowserContextHooks, IHooksProvider } from '@unblocked-web/emulator-spec/hooks/IHooks';
+import { IHooksProvider } from '@unblocked-web/specifications/agent/hooks/IHooks';
 import ICommandMarker from '../interfaces/ICommandMarker';
-import IBrowserEngine from '@unblocked-web/emulator-spec/browser/IBrowserEngine';
+import IBrowserEngine from '@unblocked-web/specifications/agent/browser/IBrowserEngine';
 import Resolvable from '@ulixee/commons/lib/Resolvable';
-import BasicHooksProvider from './BasicHooksProvider';
-import IBrowserLaunchArgs from '@unblocked-web/emulator-spec/browser/IBrowserLaunchArgs';
-import ChromeApp from '@ulixee/chrome-app';
-import ChromeEngine from './ChromeEngine';
+import IEmulationProfile, {
+  IEmulationOptions,
+} from '@unblocked-web/specifications/plugin/IEmulationProfile';
+import AgentPlugins from './AgentPlugins';
+import { IAgentPluginClass } from '@unblocked-web/specifications/plugin/IAgentPlugin';
 
 const { log } = Log(module);
 
-export interface IAgentCreateOptions extends IBrowserLaunchArgs {
-  browserEngine?: IBrowserEngine | ChromeApp;
-  hooks?: IHooksProvider;
+export interface IAgentCreateOptions extends Omit<IEmulationProfile, keyof IEmulationOptions> {
   id?: string;
-  logger?: IBoundLog;
-  upstreamProxyUrl?: string;
+  agentPlugins?: IAgentPluginClass[];
   commandMarker?: ICommandMarker;
 }
 
 export default class Agent extends TypedEventEmitter<{ close: void }> {
   public readonly id: string;
   public browserContext: BrowserContext;
-  public mitmRequestSession: RequestSession;
-  public logger: IBoundLog;
-  public hooksProvider = new BasicHooksProvider();
+  public readonly mitmRequestSession: RequestSession;
+  public readonly logger: IBoundLog;
 
-  private isClosing: Resolvable<void>;
-  public get isIncognito(): boolean {
-    return this.options.disableIncognito !== true;
+  public get emulationProfile(): IEmulationProfile {
+    return this.plugins.profile;
   }
 
+  public get isIncognito(): boolean {
+    return this.plugins.profile.options.disableIncognito !== true;
+  }
+
+  private isOpen: Resolvable<BrowserContext>;
+  private readonly plugins: AgentPlugins;
+  private isClosing: Resolvable<void>;
   private events = new EventSubscriber();
   private readonly enableMitm: boolean = true;
+  private readonly closeBrowserOnClose: boolean = false;
   private isolatedMitm: MitmProxy;
 
   private get mitmProxyConnectionInfo(): IProxyConnectionOptions {
@@ -58,89 +62,83 @@ export default class Agent extends TypedEventEmitter<{ close: void }> {
     }
   }
 
-  constructor(private options: IAgentCreateOptions) {
+  constructor(private readonly options?: IAgentCreateOptions, readonly pool?: Pool) {
     super();
+    this.options ??= {};
     this.id = options.id ?? nanoid();
+    if (!this.pool) {
+      this.pool = new Pool({ maxConcurrentAgents: 1 });
+      this.events.once(this, 'close', this.close);
+      this.closeBrowserOnClose = true;
+    }
 
     this.logger =
       options.logger?.createChild(module) ??
       log.createChild(module, {
         sessionId: this.id,
       });
-    if (options.hooks) this.hooksProvider.add(options.hooks);
-    if (options.browserEngine instanceof ChromeApp) {
-      options.browserEngine = new ChromeEngine(options.browserEngine);
-    }
+
+    this.plugins = new AgentPlugins(options, options.agentPlugins);
     this.mitmRequestSession = new RequestSession(
       this.id,
-      this.hooksProvider,
+      this.plugins,
       this.logger,
-      options.upstreamProxyUrl,
+      this.plugins.profile.upstreamProxyUrl,
     );
-    this.enableMitm = !env.disableMitm && !options.disableMitm;
+    this.enableMitm = !env.disableMitm && !this.plugins.profile.options.disableMitm;
 
     this.logger.info('Agent created', {
       id: this.id,
       incognito: this.isIncognito,
-      hasHooks: !!options.hooks,
-      browserEngine: { fullVersion: options.browserEngine.fullVersion },
+      hasHooks: !!this.plugins.hasHooks,
+      browserEngine: { fullVersion: this.plugins.profile.browserEngine.fullVersion },
     });
   }
 
-  // opens outside a pool. NOTE: will shut down browser after use
-  public async open(browser?: Browser): Promise<BrowserContext> {
-    let mitmProxy: MitmProxy;
-    if (this.enableMitm) {
-      mitmProxy = await MitmProxy.start();
-    }
+  public async open(): Promise<BrowserContext> {
+    if (this.isOpen) return this.isOpen.promise;
+    this.isOpen = new Resolvable();
+    try {
+      if (!this.options.browserEngine)
+        throw new Error('A browserEngine is required create a new Agent instance.');
 
-    browser ??= await this.createSingleUseBrowser(mitmProxy);
-
-    if (mitmProxy) {
-      const isIsolatedMitm = browser.supportsBrowserContextProxy && this.isIncognito;
-
-      if (isIsolatedMitm) {
-        this.isolatedMitm = mitmProxy;
+      const pool = this.pool;
+      await pool.waitForAvailability(this);
+      const browser = await pool.getBrowser(
+        this.options.browserEngine as IBrowserEngine,
+        this.plugins,
+        this.plugins.profile.options,
+      );
+      if (this.closeBrowserOnClose) {
+        this.events.once(this, 'close', () => browser.close());
+        this.events.once(browser, 'close', () => this.close());
       }
-      mitmProxy.registerSession(this.mitmRequestSession, isIsolatedMitm);
-    }
 
-    this.logger.info('Agent Opening in Browser', {
-      id: this.id,
-      browserId: browser.id,
-      mitmEnabled: !!mitmProxy,
-      usingIsolatedMitm: !!this.isolatedMitm
-    });
-
-    return await this.createBrowserContext(browser);
-  }
-
-  public async openInPool(pool: Pool): Promise<BrowserContext> {
-    const browser = await pool.getBrowser(
-      this.options.browserEngine as IBrowserEngine,
-      this.hooksProvider,
-      this.options,
-    );
-
-    if (this.enableMitm) {
-      if (browser.supportsBrowserContextProxy && this.isIncognito) {
-        const mitmProxy = await pool.createMitmProxy();
-        this.isolatedMitm = mitmProxy;
-        // register session will automatically close with the request session
-        mitmProxy.registerSession(this.mitmRequestSession, true);
-      } else {
-        pool.sharedMitmProxy.registerSession(this.mitmRequestSession, false);
+      if (this.enableMitm) {
+        if (browser.supportsBrowserContextProxy && this.isIncognito) {
+          const mitmProxy = await pool.createMitmProxy();
+          this.isolatedMitm = mitmProxy;
+          // register session will automatically close with the request session
+          mitmProxy.registerSession(this.mitmRequestSession, true);
+        } else {
+          pool.sharedMitmProxy.registerSession(this.mitmRequestSession, false);
+        }
       }
+
+      this.logger.info('Agent Opening in Pool', {
+        id: this.id,
+        browserId: browser.id,
+        mitmEnabled: this.enableMitm,
+        usingIsolatedMitm: !!this.isolatedMitm,
+      });
+
+      return await this.createBrowserContext(browser);
+    } catch (err) {
+      this.isOpen.reject(err);
+    } finally {
+      this.isOpen.resolve(this.browserContext);
     }
-
-    this.logger.info('Agent Opening in Pool', {
-      id: this.id,
-      browserId: browser.id,
-      mitmEnabled: this.enableMitm,
-      usingIsolatedMitm: !!this.isolatedMitm
-    });
-
-    return await this.createBrowserContext(browser);
+    return this.isOpen;
   }
 
   public async newPage(): Promise<Page> {
@@ -148,8 +146,9 @@ export default class Agent extends TypedEventEmitter<{ close: void }> {
     return this.browserContext.newPage();
   }
 
-  public hook(hooks: IHooksProvider): void {
-    this.hooksProvider.add(hooks);
+  public hook(hooks: IHooksProvider): this {
+    this.plugins.hook(hooks);
+    return this;
   }
 
   public async close(): Promise<void> {
@@ -175,32 +174,22 @@ export default class Agent extends TypedEventEmitter<{ close: void }> {
     return this.isClosing;
   }
 
-  protected async createSingleUseBrowser(mitm: MitmProxy): Promise<Browser> {
-    const browser = new Browser(this.options.browserEngine as any, this.hooksProvider, {
-      proxyPort: mitm?.port,
-    });
-    this.events.once(this, 'close', () => browser.close());
-    this.events.once(browser, 'close', () => this.close());
-    await browser.launch();
-    return browser;
-  }
-
   protected async createBrowserContext(browser: Browser): Promise<BrowserContext> {
     this.browserContext = await browser.newContext({
       logger: this.logger,
       proxy: this.mitmProxyConnectionInfo,
+      hooks: this.plugins,
       isIncognito: this.isIncognito,
       commandMarker: this.options.commandMarker,
     });
-    this.browserContext.hook(this.hooksProvider as IBrowserContextHooks);
     this.events.once(browser, 'close', () => this.close());
 
     if (this.enableMitm) {
       // hook request session to browserContext (this is how RequestSession subscribes to new page creations)
-      this.browserContext.hook(this.mitmRequestSession);
+      this.plugins.hook(this.mitmRequestSession);
       const requestSession = this.mitmRequestSession;
       this.browserContext.resources.connectToMitm(requestSession);
-      await this.hooksProvider.onHttpAgentInitialized?.(requestSession.requestAgent);
+      await this.plugins.onHttpAgentInitialized(requestSession.requestAgent);
     }
 
     return this.browserContext;

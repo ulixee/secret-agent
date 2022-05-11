@@ -6,12 +6,12 @@ import {
   LoadStatusPipeline,
   LocationStatus,
   LocationTrigger,
-} from '@unblocked-web/emulator-spec/browser/Location';
-import { NavigationReason } from '@unblocked-web/emulator-spec/browser/NavigationReason';
+} from '@unblocked-web/specifications/agent/browser/Location';
+import { NavigationReason } from '@unblocked-web/specifications/agent/browser/NavigationReason';
 import INavigation, {
   ContentPaint,
   NavigationStatus,
-} from '@unblocked-web/emulator-spec/browser/INavigation';
+} from '@unblocked-web/specifications/agent/browser/INavigation';
 import type IResolvablePromise from '@ulixee/commons/interfaces/IResolvablePromise';
 import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
 import type { IBoundLog } from '@ulixee/commons/interfaces/ILog';

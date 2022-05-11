@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import { stringifiedTypeSerializerClass } from '@ulixee/commons/lib/TypeSerializer';
 import FramesManager from './FramesManager';
-import { IDomPaintEvent } from '@unblocked-web/emulator-spec/browser/Location';
+import { IDomPaintEvent } from '@unblocked-web/specifications/agent/browser/Location';
 
 const pageScripts = {
   NodeTracker: fs.readFileSync(`${__dirname}/../injected-scripts/NodeTracker.js`, 'utf8'),

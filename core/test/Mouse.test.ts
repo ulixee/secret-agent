@@ -1,9 +1,9 @@
-import { IKeyboardKey } from '@unblocked-web/emulator-spec/interact/IKeyboardLayoutUS';
-import TestLogger from '@unblocked-web/sa-testing/TestLogger';
+import { IKeyboardKey } from '@unblocked-web/specifications/agent/interact/IKeyboardLayoutUS';
+import TestLogger from '@unblocked-web/agent-testing/TestLogger';
 import { TestServer } from './server';
 import { Browser, BrowserContext, Page } from '../index';
 import { setContent } from './_pageTestUtils';
-import { defaultBrowserEngine } from '@unblocked-web/sa-testing/browserUtils';
+import { defaultBrowserEngine } from '@unblocked-web/agent-testing/browserUtils';
 
 describe('Mouse', () => {
   let server: TestServer;

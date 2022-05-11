@@ -4,7 +4,7 @@ import {
   isPointWithinRect,
   isRectInViewport,
 } from '../lib/rectUtils';
-import IRect from '@unblocked-web/emulator-spec/browser/IRect';
+import IRect from '@unblocked-web/specifications/agent/browser/IRect';
 
 test('should find a point in a rect', () => {
   const rect: IRect = { x: 0, y: 0, width: 10, height: 10 };

@@ -1,5 +1,5 @@
 import { Browser, BrowserContext } from '../index';
-import { BrowserUtils, Helpers, TestLogger } from '@unblocked-web/sa-testing/index';
+import { BrowserUtils, Helpers, TestLogger } from '@unblocked-web/agent-testing/index';
 import TypeSerializer, { stringifiedTypeSerializerClass } from '@ulixee/commons/lib/TypeSerializer';
 import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
 

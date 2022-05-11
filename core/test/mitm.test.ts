@@ -1,11 +1,10 @@
-import { BrowserUtils, Helpers, TestLogger } from '@unblocked-web/sa-testing';
-import MitmRequestContext from '@unblocked-web/sa-mitm/lib/MitmRequestContext';
+import { BrowserUtils, Helpers, TestLogger } from '@unblocked-web/agent-testing';
+import MitmRequestContext from '@unblocked-web/agent-mitm/lib/MitmRequestContext';
 import { createPromise } from '@ulixee/commons/lib/utils';
-import { LocationStatus } from '@unblocked-web/emulator-spec/browser/Location';
-import { ITestKoaServer } from '@unblocked-web/sa-testing/helpers';
+import { LocationStatus } from '@unblocked-web/specifications/agent/browser/Location';
+import { ITestKoaServer } from '@unblocked-web/agent-testing/helpers';
 import Resolvable from '@ulixee/commons/lib/Resolvable';
 import { Pool } from '../index';
-import env from '@unblocked-web/sa-mitm/env';
 
 const mocks = {
   MitmRequestContext: {
@@ -18,6 +17,7 @@ let pool: Pool;
 beforeAll(async () => {
   koa = await Helpers.runKoaServer(true);
   pool = new Pool(BrowserUtils.newPoolOptions);
+  Helpers.onClose(() => pool.close(), true);
   await pool.start();
 });
 
@@ -38,7 +38,7 @@ test('should send a Host header to secure http1 Chrome requests', async () => {
   });
 
   const url = `${server.baseUrl}/`;
-  const agent = await pool.createAgent({ logger: TestLogger.forTest(module) });
+  const agent = pool.createAgent({ logger: TestLogger.forTest(module) });
   Helpers.needsClosing.push(agent);
   const page = await agent.newPage();
   await page.goto(url);
@@ -62,7 +62,7 @@ test('should send preflight requests', async () => {
     });
   });
 
-  const agent = await pool.createAgent({ logger: TestLogger.forTest(module) });
+  const agent = pool.createAgent({ logger: TestLogger.forTest(module) });
   Helpers.needsClosing.push(agent);
   agent.mitmRequestSession.interceptorHandlers.push({
     urls: ['http://dataliberationfoundation.org/postback'],
@@ -123,7 +123,7 @@ myWorker.postMessage('send');
       resolve(requestBody.toString());
     });
   });
-  const agent = await pool.createAgent({ logger: TestLogger.forTest(module) });
+  const agent = pool.createAgent({ logger: TestLogger.forTest(module) });
   Helpers.needsClosing.push(agent);
   const page = await agent.newPage();
   await page.goto(`${koa.baseUrl}/testWorker`);
@@ -170,7 +170,7 @@ sharedWorker.port.addEventListener('message', message => {
       xhrResolvable.resolve(requestBody.toString());
     }
   });
-  const agent = await pool.createAgent({ logger: TestLogger.forTest(module) });
+  const agent = pool.createAgent({ logger: TestLogger.forTest(module) });
   Helpers.needsClosing.push(agent);
   const page = await agent.newPage();
   await page.goto(`${server.baseUrl}/testSharedWorker`);
@@ -267,7 +267,7 @@ window.addEventListener('load', function() {
     }
   });
 
-  const agent = await pool.createAgent({ logger: TestLogger.forTest(module) });
+  const agent = pool.createAgent({ logger: TestLogger.forTest(module) });
   Helpers.needsClosing.push(agent);
   const page = await agent.newPage();
   await page.goto(`${server.baseUrl}/service-worker`);
@@ -284,7 +284,7 @@ window.addEventListener('load', function() {
 });
 
 test('should proxy iframe requests', async () => {
-  const agent = await pool.createAgent({ logger: TestLogger.forTest(module) });
+  const agent = pool.createAgent({ logger: TestLogger.forTest(module) });
   const page = await agent.newPage();
 
   agent.mitmRequestSession.interceptorHandlers.push({

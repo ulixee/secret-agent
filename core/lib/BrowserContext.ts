@@ -1,8 +1,8 @@
 import { assert } from '@ulixee/commons/lib/utils';
 import IBrowserContext, {
   IBrowserContextEvents,
-} from '@unblocked-web/emulator-spec/browser/IBrowserContext';
-import { ICookie } from '@unblocked-web/emulator-spec/net/ICookie';
+} from '@unblocked-web/specifications/agent/browser/IBrowserContext';
+import { ICookie } from '@unblocked-web/specifications/agent/net/ICookie';
 import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
 import { URL } from 'url';
 import Protocol from 'devtools-protocol';
@@ -10,8 +10,8 @@ import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
 import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
 import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
 import ProtocolMapping from 'devtools-protocol/types/protocol-mapping';
-import { IPage } from '@unblocked-web/emulator-spec/browser/IPage';
-import { IBrowserContextHooks, IInteractHooks } from '@unblocked-web/emulator-spec/hooks/IHooks';
+import { IPage } from '@unblocked-web/specifications/agent/browser/IPage';
+import { IBrowserContextHooks, IInteractHooks } from '@unblocked-web/specifications/agent/hooks/IHooks';
 import IProxyConnectionOptions from '../interfaces/IProxyConnectionOptions';
 import Resolvable from '@ulixee/commons/lib/Resolvable';
 import ICommandMarker from '../interfaces/ICommandMarker';
@@ -19,7 +19,7 @@ import Page, { IPageCreateOptions } from './Page';
 import { Worker } from './Worker';
 import Browser from './Browser';
 import DevtoolsSession from './DevtoolsSession';
-import IDomStorage from '@unblocked-web/emulator-spec/browser/IDomStorage';
+import IDomStorage from '@unblocked-web/specifications/agent/browser/IDomStorage';
 import Resources from './Resources';
 import WebsocketMessages from './WebsocketMessages';
 import Log from '@ulixee/commons/lib/Logger';
@@ -34,6 +34,7 @@ const { log } = Log(module);
 export interface IBrowserContextCreateOptions {
   logger?: IBoundLog;
   proxy?: IProxyConnectionOptions;
+  hooks?: IBrowserContextHooks & IInteractHooks;
   isIncognito?: boolean;
   commandMarker?: ICommandMarker;
 }
@@ -55,6 +56,7 @@ export default class BrowserContext
   public proxy: IProxyConnectionOptions;
   public domStorage: IDomStorage;
   public id: string;
+  public hooks: IBrowserContextHooks & IInteractHooks = {};
 
   public readonly browser: Browser;
   public get browserId(): string {
@@ -70,7 +72,6 @@ export default class BrowserContext
   };
 
   public readonly commandMarker: ICommandMarker;
-  public readonly hooks: (IBrowserContextHooks | IInteractHooks)[] = [];
 
   private attachedTargetIds = new Set<string>();
   private pageOptionsByTargetId = new Map<string, IPageCreateOptions>();
@@ -88,6 +89,7 @@ export default class BrowserContext
     this.proxy = options?.proxy;
     this.isIncognito = isIncognito;
     this.logger = options?.logger;
+    this.hooks = options?.hooks ?? {};
     this.commandMarker = options?.commandMarker ?? new DefaultCommandMarker(this);
     this.resources = new Resources(this);
     this.websocketMessages = new WebsocketMessages(this.logger);
@@ -119,10 +121,6 @@ export default class BrowserContext
     this.logger ??= log.createChild(module, {
       browserContextId: browserContextId,
     });
-  }
-
-  public hook(hooks: IBrowserContextHooks | IInteractHooks): void {
-    this.hooks.push(hooks);
   }
 
   public defaultPageInitializationFn: (page: IPage) => Promise<any> = () => Promise.resolve();
@@ -167,13 +165,9 @@ export default class BrowserContext
   }
 
   initializePage(page: Page): Promise<any> {
-    if (this.pageOptionsByTargetId.get(page.targetId)?.runPageScripts === false)
-      return Promise.resolve();
+    if (page.runPageScripts === false) return Promise.resolve();
 
-    return Promise.all([
-      this.defaultPageInitializationFn(page),
-      ...this.hooks.map(x => (x as IBrowserContextHooks).onNewPage?.(page)),
-    ]);
+    return Promise.all([this.defaultPageInitializationFn(page), this.hooks.onNewPage?.(page)]);
   }
 
   async onPageAttached(devtoolsSession: DevtoolsSession, targetInfo: TargetInfo): Promise<Page> {
@@ -233,19 +227,11 @@ export default class BrowserContext
 
   onDevtoolsPanelAttached(devtoolsSession: DevtoolsSession, targetInfo: TargetInfo): void {
     this.devtoolsSessionsById.set(targetInfo.targetId, devtoolsSession);
-    for (const hook of this.hooks) {
-      if ('onDevtoolsPanelAttached' in hook) {
-        hook.onDevtoolsPanelAttached(devtoolsSession).catch(() => null);
-      }
-    }
+    this.hooks.onDevtoolsPanelAttached?.(devtoolsSession).catch(() => null);
   }
 
   onDevtoolsPanelDetached(devtoolsSession: DevtoolsSession): void {
-    for (const hook of this.hooks) {
-      if ('onDevtoolsPanelDetached' in hook) {
-        hook.onDevtoolsPanelDetached(devtoolsSession).catch(() => null);
-      }
-    }
+    this.hooks.onDevtoolsPanelDetached?.(devtoolsSession).catch(() => null);
   }
 
   async onSharedWorkerAttached(

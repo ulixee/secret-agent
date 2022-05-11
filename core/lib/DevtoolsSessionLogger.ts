@@ -1,7 +1,7 @@
 import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
 import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
 import DevtoolsSession from './DevtoolsSession';
-import { Protocol } from '@unblocked-web/emulator-spec/browser/IDevtoolsSession';
+import { Protocol } from '@unblocked-web/specifications/agent/browser/IDevtoolsSession';
 import Frame from './Frame';
 import BrowserContext from './BrowserContext';
 import TargetInfo = Protocol.Target.TargetInfo;

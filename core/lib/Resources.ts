@@ -2,21 +2,21 @@ import RequestSession, {
   IRequestSessionHttpErrorEvent,
   IRequestSessionRequestEvent,
   IRequestSessionResponseEvent,
-} from '@unblocked-web/sa-mitm/handlers/RequestSession';
-import IResourceMeta from '@unblocked-web/emulator-spec/net/IResourceMeta';
+} from '@unblocked-web/agent-mitm/handlers/RequestSession';
+import IResourceMeta from '@unblocked-web/specifications/agent/net/IResourceMeta';
 import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
 import Resolvable from '@ulixee/commons/lib/Resolvable';
-import MitmRequestContext from '@unblocked-web/sa-mitm/lib/MitmRequestContext';
-import { IBrowserResourceRequest } from '@unblocked-web/emulator-spec/browser/IBrowserNetworkEvents';
-import { ICookie } from '@unblocked-web/emulator-spec/net/ICookie';
-import { IPageEvents } from '@unblocked-web/emulator-spec/browser/IPage';
-import IHttpResourceLoadDetails from '@unblocked-web/emulator-spec/net/IHttpResourceLoadDetails';
-import HeadersHandler from '@unblocked-web/sa-mitm/handlers/HeadersHandler';
+import MitmRequestContext from '@unblocked-web/agent-mitm/lib/MitmRequestContext';
+import { IBrowserResourceRequest } from '@unblocked-web/specifications/agent/browser/IBrowserNetworkEvents';
+import { ICookie } from '@unblocked-web/specifications/agent/net/ICookie';
+import { IPageEvents } from '@unblocked-web/specifications/agent/browser/IPage';
+import IHttpResourceLoadDetails from '@unblocked-web/specifications/agent/net/IHttpResourceLoadDetails';
+import HeadersHandler from '@unblocked-web/agent-mitm/handlers/HeadersHandler';
 import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
 import { Cookie } from 'tough-cookie';
 import BrowserContext from './BrowserContext';
 import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
-import IBrowserRequestMatcher from '@unblocked-web/sa-mitm/interfaces/IBrowserRequestMatcher';
+import IBrowserRequestMatcher from '@unblocked-web/agent-mitm/interfaces/IBrowserRequestMatcher';
 import { IMitmRequestPendingBrowserRequest, IResourceEvents } from '../interfaces/IResourceEvents';
 
 export default class Resources
@@ -25,6 +25,7 @@ export default class Resources
 {
   public readonly browserRequestIdToResources = new Map<string, IResourceMeta[]>();
   public hasRegisteredMitm = false;
+  public isCollecting = true;
 
   public readonly resourcesById = new Map<number, IResourceMeta>();
   public readonly cookiesByDomain = new Map<string, Record<string, ICookie>>();
@@ -106,6 +107,7 @@ export default class Resources
   }
 
   public trackBrowserRequestToResourceId(browserRequestId: string, resource: IResourceMeta): void {
+    if (!this.isCollecting) return;
     if (!browserRequestId) return;
     // NOTE: browserRequestId can be shared amongst redirects
     let resources = this.browserRequestIdToResources.get(browserRequestId);
@@ -123,9 +125,10 @@ export default class Resources
     resourceRequest: IBrowserResourceRequest,
     getBody: () => Promise<Buffer>,
   ): Promise<IResourceMeta | null> {
+    if (!this.isCollecting) return;
     if (this.browserRequestIdToResources.has(resourceRequest.browserRequestId)) return;
 
-    const ctx = MitmRequestContext.createFromPuppetResourceRequest(resourceRequest);
+    const ctx = MitmRequestContext.createFromResourceRequest(resourceRequest);
     const resourceDetails = MitmRequestContext.toEmittedResource(ctx);
     resourceDetails.frameId = frameId;
     if (!resourceRequest.browserServedFromCache) {
@@ -145,6 +148,7 @@ export default class Resources
     frameId: number,
     resource: IBrowserResourceRequest,
   ): IMitmRequestPendingBrowserRequest {
+    if (!this.isCollecting) return;
     this.browserRequestIdToTabId.set(resource.browserRequestId, tabId);
     let pendingRequest = this.findMatchingRequest(resource);
 
@@ -177,6 +181,7 @@ export default class Resources
     frameId: number,
     resource: IBrowserResourceRequest,
   ): void {
+    if (!this.isCollecting) return;
     this.browserRequestIdToTabId.set(resource.browserRequestId, tabId);
 
     const pendingRequest = this.mitmRequestsPendingBrowserRequest.find(
@@ -193,10 +198,11 @@ export default class Resources
   }
 
   public onBrowserResourceLoaded(tabId: number, resource: IBrowserResourceRequest): boolean {
+    if (!this.isCollecting) return;
     const knownResource = this.getBrowserRequestLatestResource(resource.browserRequestId);
     if (knownResource) {
       if (!knownResource.response) {
-        const ctx = MitmRequestContext.createFromPuppetResourceRequest(resource);
+        const ctx = MitmRequestContext.createFromResourceRequest(resource);
         const resourceDetails = MitmRequestContext.toEmittedResource(ctx);
         knownResource.response = resourceDetails.response;
       }
@@ -317,13 +323,14 @@ export default class Resources
     // record errors
     const resource = this.onMitmRequestError(tabId, event, event.error);
 
-    if (tabId && isDocument) {
+    if (resource && tabId && isDocument) {
       const page = this.browserContext.pagesByTabId.get(tabId);
       page?.framesManager.checkForResolvedNavigation(browserRequestId, resource, event.error);
     }
   }
 
   protected onMitmRequest(request: IRequestSessionRequestEvent): void {
+    if (!this.isCollecting) return;
     this.logger.info('MitmRequest', {
       url: request.url.href,
       method: request.request.method,
@@ -338,6 +345,7 @@ export default class Resources
     event: IRequestSessionHttpErrorEvent,
     error: Error,
   ): IResourceMeta {
+    if (!this.isCollecting) return;
     const request = event.request;
     const resource = this.resourceEventToMeta(tabId, request);
     this.emit('change', {
@@ -379,6 +387,7 @@ export default class Resources
     resourceEvent: IRequestSessionResponseEvent | IRequestSessionRequestEvent,
     type: 'mitm-request' | 'mitm-response' | 'browser-loaded',
   ): IResourceMeta {
+    if (!this.isCollecting) return;
     const resource = this.resourceEventToMeta(tabId, resourceEvent);
     const resourceResponseEvent = resourceEvent as IRequestSessionResponseEvent;
 

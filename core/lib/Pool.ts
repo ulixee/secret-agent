@@ -1,7 +1,7 @@
 import Log from '@ulixee/commons/lib/Logger';
-import { MitmProxy } from '@unblocked-web/sa-mitm';
+import { MitmProxy } from '@unblocked-web/agent-mitm';
 import Resolvable from '@ulixee/commons/lib/Resolvable';
-import IBrowserEngine from '@unblocked-web/emulator-spec/browser/IBrowserEngine';
+import IBrowserEngine from '@unblocked-web/specifications/agent/browser/IBrowserEngine';
 import { CanceledPromiseError } from '@ulixee/commons/interfaces/IPendingWaitEvent';
 import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
 import env from '../env';
@@ -9,14 +9,15 @@ import DevtoolsPreferences from './DevtoolsPreferences';
 import Queue from '@ulixee/commons/lib/Queue';
 import ICertificateGenerator, {
   ICertificateStore,
-} from '@unblocked-web/sa-mitm/interfaces/ICertificateGenerator';
+} from '@unblocked-web/agent-mitm/interfaces/ICertificateGenerator';
 import Agent, { IAgentCreateOptions } from './Agent';
 import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
 import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
 import Browser from './Browser';
 import IResolvablePromise from '@ulixee/commons/interfaces/IResolvablePromise';
-import IBrowserLaunchArgs from '@unblocked-web/emulator-spec/browser/IBrowserLaunchArgs';
-import { IHooksProvider } from '@unblocked-web/emulator-spec/hooks/IHooks';
+import IBrowserLaunchArgs from '@unblocked-web/specifications/agent/browser/IBrowserLaunchArgs';
+import { IHooksProvider } from '@unblocked-web/specifications/agent/hooks/IHooks';
+import { IAgentPluginClass } from '@unblocked-web/specifications/plugin/IAgentPlugin';
 
 const { log } = Log(module);
 
@@ -24,6 +25,7 @@ interface ICreatePoolOptions {
   maxConcurrentAgents?: number;
   certificateStore?: ICertificateStore;
   defaultBrowserEngine?: IBrowserEngine;
+  agentPlugins?: IAgentPluginClass[];
   dataDir?: string;
   logger?: IBoundLog;
 }
@@ -46,11 +48,12 @@ export default class Pool extends TypedEventEmitter<{
   public readonly browsersById = new Map<string, Browser>();
   public readonly agentsById = new Map<string, Agent>();
   public sharedMitmProxy: MitmProxy;
+  public agentPlugins: IAgentPluginClass[] = [];
 
   #activeAgentsCount = 0;
   #waitingForAvailability: {
-    options: IAgentCreateOptions;
-    promise: IResolvablePromise<Agent>;
+    agent: Agent;
+    promise: IResolvablePromise<void>;
   }[] = [];
 
   private isClosing: Resolvable<void>;
@@ -63,6 +66,7 @@ export default class Pool extends TypedEventEmitter<{
   constructor(readonly options: ICreatePoolOptions = {}) {
     super();
     this.maxConcurrentAgents = options.maxConcurrentAgents ?? 10;
+    this.agentPlugins = options.agentPlugins ?? [];
     this.logger = options.logger?.createChild(module) ?? log.createChild(module, {});
   }
 
@@ -73,28 +77,34 @@ export default class Pool extends TypedEventEmitter<{
     await this.startSharedMitm();
   }
 
-  public createAgent(options?: IAgentCreateOptions): Promise<Agent> {
+  public createAgent(options?: IAgentCreateOptions): Agent {
     options ??= {};
     options.browserEngine ??= this.options.defaultBrowserEngine;
+    options.agentPlugins ??= [...this.agentPlugins];
+    const agent = new Agent(options, this);
+    this.agentsById.set(agent.id, agent);
+    this.emit('agent-created', { agent });
+    return agent;
+  }
 
-    if (!options.browserEngine)
-      throw new Error('A browserEngine is required create a new Agent instance.');
-
-    this.logger.info('Pool.createAgent', {
+  public async waitForAvailability(agent: Agent): Promise<void> {
+    this.logger.info('Pool.waitForAvailability', {
       maxConcurrentAgents: this.maxConcurrentAgents,
       activeAgentsCount: this.activeAgentsCount,
       waitingForAvailability: this.#waitingForAvailability.length,
     });
 
-    if (!this.hasAvailability) {
-      const resolvablePromise = new Resolvable<Agent>();
-      this.#waitingForAvailability.push({
-        options,
-        promise: resolvablePromise,
-      });
-      return resolvablePromise.promise;
+    if (this.hasAvailability) {
+      await this.waitForAgentClose(agent);
+      return;
     }
-    return this.createAgentNow(options);
+
+    const resolvablePromise = new Resolvable<void>();
+    this.#waitingForAvailability.push({
+      agent,
+      promise: resolvablePromise,
+    });
+    await resolvablePromise.promise;
   }
 
   public async createMitmProxy(): Promise<MitmProxy> {
@@ -123,8 +133,14 @@ export default class Pool extends TypedEventEmitter<{
       if (existing) return existing;
 
       this.browsersById.set(browser.id, browser);
+
+      this.events.on(browser, 'new-context', this.watchForContextPagesClosed.bind(this));
       this.events.once(browser, 'close', this.onBrowserClosed.bind(this, browser.id));
-      DevtoolsPreferences.install(browser);
+
+      if (browser.engine.isHeaded) {
+        const preferencesInterceptor = new DevtoolsPreferences(browser.engine);
+        browser.hooks.onDevtoolsPanelAttached = preferencesInterceptor.installOnConnect;
+      }
 
       await browser.launch();
       this.emit('browser-launched', { browser });
@@ -183,21 +199,10 @@ export default class Pool extends TypedEventEmitter<{
     }
   }
 
-  protected async createAgentNow(options: IAgentCreateOptions): Promise<Agent> {
+  protected waitForAgentClose(agent: Agent): void {
     this.#activeAgentsCount += 1;
     try {
-      const agent = new Agent(options);
-      this.agentsById.set(agent.id, agent);
-      this.emit('agent-created', { agent });
-
-      await agent.openInPool(this);
-      this.events.on(
-        agent.browserContext,
-        'all-pages-closed',
-        this.checkForInactiveBrowserEngine.bind(this, agent.browserContext.browser.id),
-      );
-      this.events.once(agent, 'close', this.onAgentClosed.bind(this, agent));
-      return agent;
+      this.events.once(agent, 'close', this.onAgentClosed.bind(this, agent.id));
     } catch (err) {
       this.#activeAgentsCount -= 1;
 
@@ -205,11 +210,11 @@ export default class Pool extends TypedEventEmitter<{
     }
   }
 
-  private onAgentClosed(agent: Agent): void {
+  private onAgentClosed(closedAgentId: string): void {
     this.#activeAgentsCount -= 1;
-    this.agentsById.delete(agent.id);
+    this.agentsById.delete(closedAgentId);
 
-    this.logger.info('ReleasingChrome', {
+    this.logger.info('ReleasingAgent', {
       maxConcurrentAgents: this.maxConcurrentAgents,
       activeAgentsCount: this.activeAgentsCount,
       waitingForAvailability: this.#waitingForAvailability.length,
@@ -217,11 +222,11 @@ export default class Pool extends TypedEventEmitter<{
     if (!this.#waitingForAvailability.length || !this.hasAvailability) {
       return;
     }
-    const { options, promise } = this.#waitingForAvailability.shift();
 
-    // NOTE: we want this to blow up if an exception occurs inside the promise
-    // eslint-disable-next-line promise/catch-or-return, @typescript-eslint/no-floating-promises
-    this.createAgentNow(options).then(session => promise.resolve(session));
+    const { agent, promise } = this.#waitingForAvailability.shift();
+
+    this.waitForAgentClose(agent);
+    promise.resolve();
   }
 
   private async startSharedMitm(): Promise<void> {
@@ -244,7 +249,7 @@ export default class Pool extends TypedEventEmitter<{
       if (agent.browserContext?.browserId === browserId) await agent.close();
     }
 
-    this.logger.info('BrowserEngine.closed', {
+    this.logger.info('Browser.closed', {
       engine: this.browsersById.get(browserId)?.engine,
       browserId,
     });
@@ -252,6 +257,15 @@ export default class Pool extends TypedEventEmitter<{
     if (this.browsersById.size === 0) {
       this.emit('all-browsers-closed');
     }
+  }
+
+  private watchForContextPagesClosed(event: Browser['EventTypes']['new-context']): void {
+    const browserContext = event.context;
+    this.events.on(
+      browserContext,
+      'all-pages-closed',
+      this.checkForInactiveBrowserEngine.bind(this, browserContext.browser.id),
+    );
   }
 
   private checkForInactiveBrowserEngine(browserId: string): void {
@@ -263,9 +277,9 @@ export default class Pool extends TypedEventEmitter<{
       }
     }
 
-    this.logger.info('Browser.allTabsClosed', {
+    this.logger.info('Browser.allPagesClosed', {
       browserId,
-      engineHasOtherOpenTabs: hasWindows,
+      engineHasOtherOpenPages: hasWindows,
     });
     if (hasWindows) return;
 

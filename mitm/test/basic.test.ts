@@ -1,12 +1,12 @@
 import * as http from 'http';
 import { IncomingHttpHeaders } from 'http';
-import { Helpers, TestLogger } from '@unblocked-web/sa-testing';
+import { Helpers, TestLogger } from '@unblocked-web/agent-testing';
 import * as HttpProxyAgent from 'http-proxy-agent';
 import * as Url from 'url';
 import { AddressInfo, Socket } from 'net';
 import * as WebSocket from 'ws';
 import { createPromise } from '@ulixee/commons/lib/utils';
-import IHttpResourceLoadDetails from '@unblocked-web/emulator-spec/net/IHttpResourceLoadDetails';
+import IHttpResourceLoadDetails from '@unblocked-web/specifications/agent/net/IHttpResourceLoadDetails';
 import HttpRequestHandler from '../handlers/HttpRequestHandler';
 import RequestSession, { IRequestSessionRequestEvent } from '../handlers/RequestSession';
 import MitmServer from '../lib/MitmProxy';

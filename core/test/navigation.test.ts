@@ -1,13 +1,13 @@
 import * as Fs from 'fs';
-import { BrowserUtils, Helpers, TestLogger } from '@unblocked-web/sa-testing';
+import { BrowserUtils, Helpers, TestLogger } from '@unblocked-web/agent-testing';
 import {
   LoadStatus,
   LocationStatus,
   LocationTrigger,
-} from '@unblocked-web/emulator-spec/browser/Location';
-import { InteractionCommand } from '@unblocked-web/emulator-spec/interact/IInteractions';
-import { getLogo, ITestKoaServer } from '@unblocked-web/sa-testing/helpers';
-import { ContentPaint } from '@unblocked-web/emulator-spec/browser/INavigation';
+} from '@unblocked-web/specifications/agent/browser/Location';
+import { InteractionCommand } from '@unblocked-web/specifications/agent/interact/IInteractions';
+import { getLogo, ITestKoaServer } from '@unblocked-web/agent-testing/helpers';
+import { ContentPaint } from '@unblocked-web/specifications/agent/browser/INavigation';
 import FrameNavigationsObserver from '../lib/FrameNavigationsObserver';
 import { Agent, Page, Pool } from '../index';
 
@@ -15,7 +15,7 @@ let koaServer: ITestKoaServer;
 let pool: Pool;
 
 async function createAgent(): Promise<{ agent: Agent; page: Page }> {
-  const agent = await pool.createAgent({ logger: TestLogger.forTest(module) });
+  const agent = pool.createAgent({ logger: TestLogger.forTest(module) });
   const page = await agent.newPage();
   Helpers.needsClosing.push(agent);
   return { agent: agent, page };

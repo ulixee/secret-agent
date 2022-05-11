@@ -1,16 +1,18 @@
-import IBrowser from '@unblocked-web/emulator-spec/browser/IBrowser';
-import IBrowserLaunchArgs from '@unblocked-web/emulator-spec/browser/IBrowserLaunchArgs';
-import { Agent } from '@unblocked-web/secret-agent';
+import { Agent } from '@unblocked-web/agent';
 import { IJsPath } from '@unblocked-web/js-path';
+
 const Chrome98 = require('@ulixee/chrome-98-0');
 
 async function run() {
   const agent = new Agent({
     browserEngine: new Chrome98(),
-    hooks: {
-      onNewBrowser(browser: IBrowser, options: IBrowserLaunchArgs) {
-        options.showChrome = true;
-      },
+    options: {
+      showChrome: true,
+    },
+  });
+  agent.hook({
+    onNewBrowser(browser) {
+      browser.engine.launchArguments.push('--no-startup-window', '--disable-background-networking');
     },
   });
   await agent.open();
@@ -102,7 +104,7 @@ async function run() {
   if (lastStoryComment) {
     console.log(`-- GOT LAST COMMENT LINK [${lastStoryComment.toString()}]---------------`);
     await page.click(lastStoryComment);
-    await page.mainFrame.waitForLocation('change');
+    await page.mainFrame.waitForLocation('change', { timeoutMs: 10e3 });
     await page.mainFrame.waitForLoad({ loadStatus: 'AllContentLoaded' });
     const textAreaNodeId = await page.mainFrame.jsPath.getNodePointerId([
       'document',

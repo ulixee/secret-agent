@@ -1,10 +1,10 @@
-import { Helpers, TestLogger } from '@unblocked-web/sa-testing';
-import { InteractionCommand } from '@unblocked-web/emulator-spec/interact/IInteractions';
-import { ITestKoaServer } from '@unblocked-web/sa-testing/helpers';
-import { LoadStatus, LocationStatus } from '@unblocked-web/emulator-spec/browser/Location';
+import { Helpers, TestLogger } from '@unblocked-web/agent-testing';
+import { InteractionCommand } from '@unblocked-web/specifications/agent/interact/IInteractions';
+import { ITestKoaServer } from '@unblocked-web/agent-testing/helpers';
+import { LoadStatus, LocationStatus } from '@unblocked-web/specifications/agent/browser/Location';
 import { Agent, Pool } from '../index';
-import IViewport from '@unblocked-web/emulator-spec/browser/IViewport';
-import { defaultBrowserEngine, PageHooks } from '@unblocked-web/sa-testing/browserUtils';
+import IViewport from '@unblocked-web/specifications/agent/browser/IViewport';
+import { defaultBrowserEngine, PageHooks } from '@unblocked-web/agent-testing/browserUtils';
 import { IAgentCreateOptions } from '../lib/Agent';
 
 let koaServer: ITestKoaServer;
@@ -26,7 +26,7 @@ afterEach(Helpers.afterEach);
 async function createAgent(options?: { viewport: IViewport }): Promise<Agent> {
   const agentOptions = new PageHooks(options) as Partial<IAgentCreateOptions>;
   agentOptions.logger = TestLogger.forTest(module);
-  const agent = await pool.createAgent(agentOptions);
+  const agent = pool.createAgent(agentOptions);
   Helpers.needsClosing.push(agent);
   return agent;
 }

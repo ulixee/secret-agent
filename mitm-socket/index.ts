@@ -5,9 +5,9 @@ import { TypedEventEmitter } from '@ulixee/commons/lib/eventUtils';
 import Resolvable from '@ulixee/commons/lib/Resolvable';
 import { createIpcSocketPath } from '@ulixee/commons/lib/IpcUtils';
 import MitmSocketSession from './lib/MitmSocketSession';
-import IHttpSocketWrapper from '@unblocked-web/emulator-spec/net/IHttpSocketWrapper';
+import IHttpSocketWrapper from '@unblocked-web/specifications/agent/net/IHttpSocketWrapper';
 import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
-import IHttpSocketConnectOptions from '@unblocked-web/emulator-spec/net/IHttpSocketConnectOptions';
+import IHttpSocketConnectOptions from '@unblocked-web/specifications/agent/net/IHttpSocketConnectOptions';
 import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
 
 let idCounter = 0;
@@ -66,7 +66,7 @@ export default class MitmSocket
     this.logger = logger.createChild(module);
     this.connectOpts.isSsl ??= true;
 
-    this.socketPath = createIpcSocketPath(`sa-${sessionId}-${this.id}`);
+    this.socketPath = createIpcSocketPath(`agent-${sessionId}-${this.id}`);
 
     // start listening
     this.server = new net.Server().unref();
