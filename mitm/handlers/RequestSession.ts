@@ -238,7 +238,7 @@ export default class RequestSession
   public static sendNeedsAuth(socket: net.Socket): void {
     socket.end(
       'HTTP/1.1 407 Proxy Authentication Required\r\n' +
-        'Proxy-Authenticate: Basic realm="sa"\r\n\r\n',
+        'Proxy-Authenticate: Basic realm="agent"\r\n\r\n',
     );
   }
 }

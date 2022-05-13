@@ -16,7 +16,7 @@ const releasesAssetsUrl = `https://github.com/unblocked-web/agent/releases/downl
 
 // tslint:disable:no-console
 
-const forceBuild = Boolean(JSON.parse(process.env.UBK_REBUILD_MITM_SOCKET || 'false'));
+const forceBuild = Boolean(JSON.parse(process.env.UBK_MITM_REBUILD_SOCKET || 'false'));
 
 (async function install() {
   let programName = 'connect';

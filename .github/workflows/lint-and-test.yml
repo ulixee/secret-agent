@@ -88,7 +88,7 @@ jobs:
 
       - name: (TEMP) Install Emulator Spec
         run: yarn link
-        working-directory: ../specifications/agent/build
+        working-directory: ../specifications/build
 
       - uses: actions/setup-go@v2
         with:
@@ -110,7 +110,7 @@ jobs:
         run: pwd && yarn --network-timeout 1000000
         working-directory: ./build
         env:
-          UBK_REBUILD_MITM_SOCKET: 1
+          UBK_MITM_REBUILD_SOCKET: 1
 
       - name: Linux - Add Chrome Env
         if: ${{ matrix.browser }}

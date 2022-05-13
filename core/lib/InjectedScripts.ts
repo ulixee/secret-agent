@@ -21,15 +21,15 @@ ${pageScripts.MouseEvents};
 ${pageScripts.PaintEvents};
 
 window.TypeSerializer = TypeSerializer;
-window.SA = {
+window.UBK = {
   JsPath,
   MouseEvents
 };
 })('${pageEventsCallbackName}');`;
 
 export default class InjectedScripts {
-  public static JsPath = `SA.JsPath`;
-  public static MouseEvents = `SA.MouseEvents`;
+  public static JsPath = `UBK.JsPath`;
+  public static MouseEvents = `UBK.MouseEvents`;
 
   public static install(
     framesManager: FramesManager,

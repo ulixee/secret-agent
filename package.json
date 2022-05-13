@@ -8,7 +8,7 @@
     "bump-version": "lerna version --conventional-commits --no-push --exact --force-publish",
     "build": "yarn tsc && cd build && yarn",
     "build:dist": "shx rm -rf build-dist && tsc -b tsconfig.dist.json && yarn copy:dist && node prepare-dist.js",
-    "build:dist-local": "yarn build:dist && cd build-dist && SA_REBUILD_MITM_SOCKET=1 yarn",
+    "build:dist-local": "yarn build:dist && cd build-dist && UBK_MITM_REBUILD_SOCKET=1 yarn",
     "build:docker": "yarn build:dist && docker build -t agent .",
     "build:ci": "yarn tsc && cd build && yarn install",
     "copy:dist": "cross-env OUT_DIR=build-dist node copyfiles.js",
@@ -17,7 +17,7 @@
     "watch": "yarn tsc && tsc -b -w tsconfig.json",
     "watch:dist": "tsc -b -w tsconfig.dist.json",
     "clean": "tsc -b --clean  tsconfig.json",
-    "test:build": "cross-env NODE_ENV=test SA_DATA_DIR=.data-test jest",
+    "test:build": "cross-env NODE_ENV=test UBK_DATA_DIR=.data-test jest",
     "test": "yarn tsc && cd build && yarn test:build",
     "lint": "eslint --cache ./"
   },
