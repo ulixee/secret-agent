@@ -229,6 +229,7 @@ export default class Resources
     resource: IBrowserResourceRequest,
     loadError: Error,
   ): IResourceMeta {
+    if (!this.isCollecting) return null;
     this.browserRequestIdToTabId.set(resource.browserRequestId, tabId);
 
     const pendingRequest =
@@ -260,6 +261,7 @@ export default class Resources
   }
 
   public determineResourceType(mitmResource: IHttpResourceLoadDetails): void {
+    if (!this.isCollecting) return;
     const pendingBrowserRequest =
       this.findMatchingRequest(mitmResource, 'noMitmResourceId') ??
       // if no request from browser (and unmatched), queue a new one
@@ -292,6 +294,7 @@ export default class Resources
   /////// MITM REQUESTS ////////////////////////////////////////////////////////////////////////////////////////////////
 
   protected onMitmResponse(event: IRequestSessionResponseEvent): void {
+    if (!this.isCollecting) return;
     const defaultTabId = this.browserContext.lastOpenedPage?.tabId;
 
     const tabId = this.getBrowserRequestTabId(event.browserRequestId);
@@ -302,6 +305,7 @@ export default class Resources
   }
 
   protected onMitmError(event: IRequestSessionHttpErrorEvent): void {
+    if (!this.isCollecting) return;
     const { browserRequestId, request, resourceType, response } = event.request;
     let tabId = this.getBrowserRequestTabId(browserRequestId);
     const url = request?.url;

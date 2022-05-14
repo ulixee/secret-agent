@@ -130,6 +130,7 @@ export default class Agent extends TypedEventEmitter<{ close: void }> {
         browserId: browser.id,
         mitmEnabled: this.enableMitm,
         usingIsolatedMitm: !!this.isolatedMitm,
+        isIncognito: this.isIncognito,
       });
 
       return await this.createBrowserContext(browser);

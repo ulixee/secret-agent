@@ -40,7 +40,7 @@ export default class Http2PushPromiseHandler {
     });
 
     this.context.serverToProxyResponse = serverPushStream;
-    this.session.trackResourceRedirects(this.context);
+    this.session.lookupSourceRedirect(this.context);
     this.context.setState(ResourceState.ServerToProxyPush);
     this.session.emit('request', MitmRequestContext.toEmittedResource(this.context));
   }

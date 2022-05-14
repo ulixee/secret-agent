@@ -16,7 +16,10 @@ import IMitmRequestContext from '../interfaces/IMitmRequestContext';
 import { Dns } from '../lib/Dns';
 import ResourceState from '../interfaces/ResourceState';
 import IBrowserRequestMatcher from '../interfaces/IBrowserRequestMatcher';
-import { IBrowserContextHooks, INetworkHooks } from '@unblocked-web/specifications/agent/hooks/IHooks';
+import {
+  IBrowserContextHooks,
+  INetworkHooks,
+} from '@unblocked-web/specifications/agent/hooks/IHooks';
 import { IPage } from '@unblocked-web/specifications/agent/browser/IPage';
 import EventSubscriber from '@ulixee/commons/lib/EventSubscriber';
 import { IBoundLog } from '@ulixee/commons/interfaces/ILog';
@@ -42,12 +45,13 @@ export default class RequestSession
   }[] = [];
 
   public requestAgent: MitmRequestAgent;
-  public requestedUrls: {
-    url: string;
-    redirectedToUrl: string;
-    redirectChain: string[];
-    responseTime: number;
-  }[] = [];
+  public redirectsByRedirectedUrl: {
+    [requestedUrl: string]: {
+      url: string;
+      redirectChain: string[];
+      responseTime: number;
+    }[];
+  } = {};
 
   public respondWithHttpErrorStacks = true;
 
@@ -79,24 +83,36 @@ export default class RequestSession
     this.hooks.push(hooks);
   }
 
-  public trackResourceRedirects(resource: IHttpResourceLoadDetails): void {
-    const resourceRedirect = {
-      url: resource.url.href,
-      redirectedToUrl: resource.redirectedToUrl,
-      responseTime: resource.responseTime,
-      redirectChain: [],
-    };
-    this.requestedUrls.push(resourceRedirect);
-
-    const redirect = this.requestedUrls.find(
-      x =>
-        x.redirectedToUrl === resourceRedirect.url && resource.requestTime - x.responseTime < 5e3,
+  public lookupSourceRedirect(resource: IHttpResourceLoadDetails): void {
+    const url = resource.url.href;
+    const redirect = this.redirectsByRedirectedUrl[url]?.find(
+      x => resource.requestTime - x.responseTime < 5e3,
     );
+
     resource.isFromRedirect = !!redirect;
     if (redirect) {
       const redirectChain = [redirect.url, ...redirect.redirectChain];
       resource.previousUrl = redirectChain[0];
       resource.firstRedirectingUrl = redirectChain[redirectChain.length - 1];
+    }
+  }
+
+  public trackResourceRedirects(resource: IHttpResourceLoadDetails): void {
+    if (!resource.redirectedToUrl) return;
+
+    const resourceRedirect = {
+      url: resource.url.href,
+      responseTime: resource.responseTime,
+      redirectChain: [],
+    };
+    this.redirectsByRedirectedUrl[resource.redirectedToUrl] ??= [];
+    this.redirectsByRedirectedUrl[resource.redirectedToUrl].push(resourceRedirect);
+
+    const redirect = this.redirectsByRedirectedUrl[resourceRedirect.url]?.find(
+      x => resource.requestTime - x.responseTime < 5e3,
+    );
+    if (redirect) {
+      const redirectChain = [redirect.url, ...redirect.redirectChain];
       resourceRedirect.redirectChain = redirectChain;
     }
   }

@@ -201,6 +201,8 @@ describe('basic MitM tests', () => {
     const proxyHost = `http://localhost:${mitmServer.port}`;
     const session = createSession(mitmServer);
 
+    const requestFn = jest.fn();
+    session.on('request', requestFn)
     const resourcePromise = new Promise<IRequestSessionRequestEvent>(resolve =>
       session.on('response', resolve),
     );
@@ -216,7 +218,7 @@ describe('basic MitM tests', () => {
       Buffer.from(JSON.stringify({ gotData: true, isCompressed: 'no' })),
     );
 
-    expect(session.requestedUrls).toHaveLength(1);
+    expect(requestFn).toHaveBeenCalledTimes(1);
 
     const resource = await resourcePromise;
     expect(resource.postData).toBeTruthy();
@@ -236,6 +238,8 @@ describe('basic MitM tests', () => {
 
     const session = createSession(mitmServer);
 
+    const requestFn = jest.fn();
+    session.on('request', requestFn)
     const proxyCredentials = session.getProxyCredentials();
     const buffers: Buffer[] = [];
     const copyBuffer = Buffer.from('ASDGASDFASDWERWER@#$%#$%#$%#$%#DSFSFGDBSDFGD$%^$%^$%');
@@ -261,7 +265,8 @@ describe('basic MitM tests', () => {
     );
 
     const resource = await resourcePromise;
-    expect(session.requestedUrls).toHaveLength(1);
+
+    expect(requestFn).toHaveBeenCalledTimes(1);
     expect(resource.postData.toString()).toBe(
       JSON.stringify({ largeBuffer: largeBuffer.toString('hex') }),
     );

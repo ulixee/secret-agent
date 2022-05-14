@@ -257,6 +257,7 @@ export default class MitmRequestContext {
     if (redirectUrl) {
       ctx.redirectedToUrl = redirectUrl.href;
       ctx.responseUrl = ctx.redirectedToUrl;
+      ctx.requestSession.trackResourceRedirects(ctx);
     }
   }
 
@@ -278,6 +279,7 @@ export default class MitmRequestContext {
     if (redirectUrl) {
       ctx.redirectedToUrl = redirectUrl.href;
       ctx.responseUrl = ctx.redirectedToUrl;
+      ctx.requestSession.trackResourceRedirects(ctx);
     }
   }
 }
