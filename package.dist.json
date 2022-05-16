@@ -3,6 +3,6 @@
   "private": true,
   "license": "MIT",
   "scripts": {
-    "postinstall": "yarn workspace @unblocked/agent-mitm-socket postinstall"
+    "postinstall": "yarn workspace @unblocked-web/agent-mitm-socket postinstall"
   }
 }

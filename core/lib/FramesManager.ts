@@ -144,7 +144,7 @@ export default class FramesManager extends TypedEventEmitter<IFrameManagerEvents
 
   public async addPageCallback(
     name: string,
-    onCallback: (payload: any, frameId: string) => any,
+    onCallback: (payload: string, frameId: string) => any,
     isolateFromWebPageEnvironment?: boolean,
   ): Promise<IRegisteredEventListener> {
     const params: Protocol.Runtime.AddBindingRequest = {

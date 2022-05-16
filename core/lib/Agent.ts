@@ -62,13 +62,12 @@ export default class Agent extends TypedEventEmitter<{ close: void }> {
     }
   }
 
-  constructor(private readonly options?: IAgentCreateOptions, readonly pool?: Pool) {
+  constructor(private readonly options: IAgentCreateOptions = {}, readonly pool?: Pool) {
     super();
-    this.options ??= {};
     this.id = options.id ?? nanoid();
     if (!this.pool) {
       this.pool = new Pool({ maxConcurrentAgents: 1 });
-      this.events.once(this, 'close', this.close);
+      this.events.once(this, 'close', () => this.pool.close());
       this.closeBrowserOnClose = true;
     }
 

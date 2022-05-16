@@ -591,7 +591,7 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 
 
-**Note:** Version bump only for package @unblocked/agent-mitm
+**Note:** Version bump only for package @unblocked-web/agent-mitm
 
 
 
@@ -693,7 +693,7 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 # [1.0.0-alpha.6](https://github.com/unblocked-web/agent/compare/v1.0.0-alpha.5...v1.0.0-alpha.6) (2020-07-22)
 
-**Note:** Version bump only for package @unblocked/agent-mitm
+**Note:** Version bump only for package @unblocked-web/agent-mitm
 
 
 
@@ -701,7 +701,7 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 # [1.0.0-alpha.5](https://github.com/unblocked-web/agent/compare/v1.0.0-alpha.4...v1.0.0-alpha.5) (2020-07-21)
 
-**Note:** Version bump only for package @unblocked/agent-mitm
+**Note:** Version bump only for package @unblocked-web/agent-mitm
 
 
 
@@ -753,7 +753,7 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 # 1.0.0-alpha.1 (2020-06-27)
 
-**Note:** Version bump only for package @unblocked/agent-mitm
+**Note:** Version bump only for package @unblocked-web/agent-mitm
 
 
 
@@ -761,4 +761,4 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 # 1.0.0-alpha.0 (2020-06-27)
 
-**Note:** Version bump only for package @unblocked/agent-mitm
+**Note:** Version bump only for package @unblocked-web/agent-mitm

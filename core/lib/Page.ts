@@ -265,7 +265,7 @@ export default class Page extends TypedEventEmitter<IPageLevelEvents> implements
 
   addPageCallback(
     name: string,
-    onCallback?: (payload: any, frameId: string) => any,
+    onCallback?: (payload: string, frameId: string) => any,
     isolateFromWebPageEnvironment?: boolean,
   ): Promise<IRegisteredEventListener> {
     return this.framesManager.addPageCallback(

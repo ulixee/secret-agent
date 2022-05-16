@@ -15,7 +15,10 @@ export default {
   isTest: process.env.NODE_ENV === 'test',
   defaultChromeId:
     process.env.UBK_DEFAULT_BROWSER_ID ??
-    Object.keys(pkgJson.dependencies).find(x => x.match('@ulixee/(chrome-\d+-0)')?.[1]),
+    Object.keys(pkgJson.dependencies)
+      .find(x => x.match(/^@ulixee\/chrome-\d+-0$/))
+      ?.split('@ulixee/')
+      ?.pop(),
 };
 
 function booleanOrUndefined(envValue): boolean | undefined {
