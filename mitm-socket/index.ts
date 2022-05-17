@@ -154,9 +154,11 @@ export default class MitmSocket
       }`,
     );
 
-    await session.requestSocket(this);
-
-    await Promise.all([this.connectPromise.promise, this.socketReadyPromise.promise]);
+    await Promise.all([
+      session.requestSocket(this),
+      this.connectPromise.promise,
+      this.socketReadyPromise.promise,
+    ]);
   }
 
   public onMessage(message: any): void {

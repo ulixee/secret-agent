@@ -51,8 +51,9 @@ const Agent = require('@ulixee/agent');
   - id `string` Optional id to track unique logs for this entry
   - browserEngine `IBrowserEngine` - A [BrowserEngine](./BrowserEngine.md) to launch.
   - agentPlugins `IAgentPluginClass[]` - A list of [AgentPlugin](https://github.com/unblocked-web/specifications/plugin/IAgentPlugin.ts) classes (`IAgentPluginClass`). These plugins will be installed into all hooks for the agent.
-  - commandMarker `ICommandMarker` - An optional module to track the markers between operations (ie, waitForLocation, interact, etc).
-  - ... Accepts all [EmulationProfile](https://github.com/unblocked-web/specifications#emulation-profile) settings.
+  - userAgentOptions `IUserAgentOptions` An optional object describing the operating system and browser version that should be emulated by any installed Agent Plugins.
+  - commandMarker `ICommandMarker` An optional module to track the markers between operations (ie, waitForLocation, interact, etc).
+  - options `IEmulationOptions` An optional configuration accepting all [EmulationProfile](https://github.com/unblocked-web/specifications#emulation-profile) settings.
 
 ## Properties
 
