@@ -90,7 +90,9 @@ export default class Agent extends TypedEventEmitter<{ close: void }> {
       id: this.id,
       incognito: this.isIncognito,
       hasHooks: !!this.plugins.hasHooks,
-      browserEngine: { fullVersion: this.plugins.profile.browserEngine.fullVersion },
+      browserEngine: this.plugins.profile.browserEngine
+        ? { fullVersion: this.plugins.profile.browserEngine.fullVersion }
+        : 'unassigned',
     });
   }
 

@@ -1,8 +1,6 @@
 import IEmulationProfile from '@unblocked-web/specifications/plugin/IEmulationProfile';
 import IAgentPlugins from '@unblocked-web/specifications/plugin/IAgentPlugins';
-import IAgentPlugin, {
-  IAgentPluginClass,
-} from '@unblocked-web/specifications/plugin/IAgentPlugin';
+import IAgentPlugin, { IAgentPluginClass } from '@unblocked-web/specifications/plugin/IAgentPlugin';
 import { URL } from 'url';
 import {
   IInteractionGroups,

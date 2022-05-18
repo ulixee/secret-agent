@@ -17,15 +17,22 @@ export default class DevtoolsSessionLogger extends TypedEventEmitter<IDevtoolsLo
     new Set(['Page.captureScreenshot', 'Network.getResponseBody']);
 
   public static defaultTruncateParams: DevtoolsSessionLogger['truncateParams'] = new Map([
-    ['Fetch.fulfillRequest', { maxLength: 50, path: 'body' }],
-    ['Page.screencastFrame', { maxLength: 0, path: 'data' }],
-    ['Page.addScriptToEvaluateOnNewDocument', { maxLength: 50, path: 'source' }],
-    ['Runtime.bindingCalled', { maxLength: 250, path: 'payload' }],
-    ['Runtime.evaluate', { maxLength: 250, path: 'expression' }],
+    ['Fetch.fulfillRequest', [{ maxLength: 50, path: 'body' }]],
+    ['Page.screencastFrame', [{ maxLength: 0, path: 'data' }]],
+    ['Page.addScriptToEvaluateOnNewDocument', [{ maxLength: 50, path: 'source' }]],
+    ['Runtime.bindingCalled', [{ maxLength: 250, path: 'payload' }]],
+    ['Runtime.evaluate', [{ maxLength: 250, path: 'expression' }]],
+    [
+      'Network.requestWillBeSent',
+      [
+        { maxLength: 100, path: ['request', 'postData'] },
+        { maxLength: 0, path: ['request', 'postDataEntries'] },
+      ],
+    ],
   ]);
 
   public readonly truncateMessageResponses: Set<string>;
-  public readonly truncateParams: Map<string, { maxLength: number; path: string }>;
+  public readonly truncateParams: Map<string, { maxLength: number; path: string | string[] }[]>;
 
   private events = new EventSubscriber();
   private fetchRequestIdToNetworkId = new Map<string, string>();
@@ -170,15 +177,32 @@ export default class DevtoolsSessionLogger extends TypedEventEmitter<IDevtoolsLo
     }
 
     if (params) {
-      const truncateLength = this.truncateParams.get(method);
-      if (truncateLength) {
+      const tuncaters = this.truncateParams.get(method);
+      if (tuncaters) {
         event.params = { ...params };
-        const { maxLength, path } = truncateLength;
-        const value = params[path];
-        if (value && typeof value === 'string' && value.length > maxLength) {
-          event.params[path] = `${value.substr(0, maxLength)}... [truncated ${
-            value.length - maxLength
-          } chars]`;
+        for (const truncPath of tuncaters) {
+          const { maxLength, path } = truncPath;
+          let value: any = params;
+          let propName = path as string;
+          let eventParent = event.params;
+          if (typeof path === 'string') {
+            value = value[path];
+          } else {
+            for (let i = 0; i < path.length; i += 1) {
+              const part = path[i];
+              eventParent = value;
+              value = value[part];
+              propName = part;
+            }
+          }
+
+          if (value && typeof value === 'string' && value.length > maxLength) {
+            eventParent[propName] = `${value.substr(0, maxLength)}... [truncated ${
+              value.length - maxLength
+            } chars]`;
+          } else if (value && typeof value !== 'string') {
+            eventParent[propName] = 'REMOVED FOR LOGS';
+          }
         }
       }
     }

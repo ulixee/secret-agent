@@ -26,6 +26,7 @@ export default class Resources
   public readonly browserRequestIdToResources = new Map<string, IResourceMeta[]>();
   public hasRegisteredMitm = false;
   public isCollecting = true;
+  public keepResourceBodies = false;
 
   public readonly resourcesById = new Map<number, IResourceMeta>();
   public readonly cookiesByDomain = new Map<string, Record<string, ICookie>>();
@@ -410,6 +411,9 @@ export default class Resources
     if (type.includes('response')) {
       const responseEvent = resourceEvent as IRequestSessionResponseEvent;
       this.recordCookies(tabId, responseEvent);
+      if (this.keepResourceBodies) {
+        resource.response.buffer = responseEvent.body;
+      }
     }
     return resource;
   }
