@@ -241,8 +241,9 @@ class Socks5ProxyConnectError extends Error {}
 class HttpProxyConnectError extends Error {}
 class SocketConnectError extends Error {}
 
-function buildConnectError(connectError = 'Error connecting to host', callStack: string): Error {
+function buildConnectError(connectError: string, callStack: string): Error {
   let error: Error;
+  connectError ??= 'Error connecting to host';
   if (connectError.includes('SOCKS5_PROXY_ERR')) {
     error = new Socks5ProxyConnectError(connectError.replace('SOCKS5_PROXY_ERR', '').trim());
   } else if (connectError.includes('HTTP_PROXY_ERR')) {
