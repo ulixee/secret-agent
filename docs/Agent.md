@@ -32,7 +32,7 @@ Each Agent implements the full Unblocked [Plugin Specification](https://github.c
 
 ### new Agent*(options)* {#constructor}
 
-Creates a new sandboxed browser window. An Agent wires together an isolated Browser Context and a Man-in-the-Middle session. It will create an [AgentPlugins](./AgentPlugins.md) context that implements the Unblocked Plugin specification.
+Creates a new sandboxed browser window. An Agent wires together an isolated Browser Context and a Man-in-the-Middle session. It will create an [UnblockedPlugins](./UnblockedPlugins.md) context that implements the Unblocked Plugin specification.
 
 ```js
 const Agent = require('@ulixee/agent');
@@ -40,7 +40,7 @@ const Agent = require('@ulixee/agent');
 (async () => {
   const agent = new Agent({
     locale: 'en-US,en',
-    agentPlugins: [LocalePlugin], // add plugins that implement locale!
+    unblockedPlugins: [LocalePlugin], // add plugins that implement locale!
   });
 })();
 ```
@@ -50,8 +50,8 @@ const Agent = require('@ulixee/agent');
 - options `IAgentCreateOptions`:
   - id `string` Optional id to track unique logs for this entry
   - browserEngine `IBrowserEngine` - A [BrowserEngine](./BrowserEngine.md) to launch.
-  - agentPlugins `IAgentPluginClass[]` - A list of [AgentPlugin](https://github.com/unblocked-web/specifications/plugin/IAgentPlugin.ts) classes (`IAgentPluginClass`). These plugins will be installed into all hooks for the agent.
-  - userAgentOptions `IUserAgentOptions` An optional object describing the operating system and browser version that should be emulated by any installed Agent Plugins.
+  - plugins `IPluginClass[]` - A list of [Plugins](https://github.com/unblocked-web/specifications/plugin/IUnblockedPlugin.ts) classes (`IPluginClass`). These plugins will be installed into all hooks for the agent.
+  - userAgentOptions `IUserAgentOptions` An optional object describing the operating system and browser version that should be emulated by any installed Unblocked Plugins.
   - commandMarker `ICommandMarker` An optional module to track the markers between operations (ie, waitForLocation, interact, etc).
   - options `IEmulationOptions` An optional configuration accepting all [EmulationProfile](https://github.com/unblocked-web/specifications#emulation-profile) settings.
 

@@ -33,7 +33,7 @@ Creates a new pool.
   - certificateStore `ICertificateStore` Optional caching layer to store and retrieve certificates.
   - dataDir `string` Optional directory to store/retrieve the Certificate Base Authority and Private Key.
   - defaultBrowserEngine `IBrowserEngine` Optional default [BrowserEngine](./BrowserEngine.md) to launch new Agents with if none is specified.
-  - agentPlugins `IAgentPluginClass[]` Optional list of [AgentPlugin](https://github.com/unblocked-web/specifications/plugin/IAgentPlugin.ts) classes (`IAgentPluginClass`). These plugins will be installed into all hooks for the agent.
+  - plugins `IUnblockedPluginClass[]` Optional list of Unblocked [Plugins](https://github.com/unblocked-web/specifications/plugin/IUnblockedPlugin.ts) classes (`IUnblockedPluginClass`). These plugins will be installed into all hooks for the agent.
   - logger `IBoundLog` Optional logger.
 
 ## Properties
@@ -44,7 +44,7 @@ Creates a new pool.
 - browsersById `Map<string, Browser>` Map of all created [Browsers](Browser.md) by id.
 - agentsById `Map<string, Agent>` Map of all created [Agents](Agent.md) by id.
 - sharedMitmProxy: `MitmProxy` The Browser-level MitmProxy used for Certificate Generation and non-incognito Mitm proxying.
-- agentPlugins `IAgentPluginClass[]` All installed AgentPluginClasses. You can manipulate this list to change the activate PluginClasses for future Agents.
+- plugins `IUnblockedPluginClass[]` All installed UnblockedPluginClasses. You can manipulate this list to change the activate PluginClasses for future Agents.
 
 ## Methods
 

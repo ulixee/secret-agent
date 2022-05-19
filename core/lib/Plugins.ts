@@ -1,6 +1,6 @@
 import IEmulationProfile from '@unblocked-web/specifications/plugin/IEmulationProfile';
-import IAgentPlugins from '@unblocked-web/specifications/plugin/IAgentPlugins';
-import IAgentPlugin, { IAgentPluginClass } from '@unblocked-web/specifications/plugin/IAgentPlugin';
+import IUnblockedPlugins from '@unblocked-web/specifications/plugin/IUnblockedPlugins';
+import IUnblockedPlugin, { IUnblockedPluginClass } from '@unblocked-web/specifications/plugin/IUnblockedPlugin';
 import { URL } from 'url';
 import {
   IInteractionGroups,
@@ -27,7 +27,7 @@ import Interactor from './Interactor';
 
 type ICallbackFn = (...[]) => Promise<void> | void;
 
-export default class AgentPlugins implements IAgentPlugins {
+export default class Plugins implements IUnblockedPlugins {
   public profile: IEmulationProfile = {};
   public isStarted = false;
 
@@ -36,9 +36,9 @@ export default class AgentPlugins implements IAgentPlugins {
     return false;
   }
 
-  public readonly plugins: IAgentPlugin[] = [];
+  public readonly instances: IUnblockedPlugin[] = [];
 
-  private hooksByName: Record<keyof IAgentPlugin, ICallbackFn[]> = {
+  private hooksByName: Record<keyof IUnblockedPlugin, ICallbackFn[]> = {
     configure: [],
     playInteractions: [],
     adjustStartingMousePoint: [],
@@ -58,7 +58,7 @@ export default class AgentPlugins implements IAgentPlugins {
     websiteHasFirstPartyInteraction: [],
   };
 
-  constructor(emulationProfile: IEmulationProfile, pluginClasses: IAgentPluginClass[]) {
+  constructor(emulationProfile: IEmulationProfile, pluginClasses: IUnblockedPluginClass[]) {
     this.profile = emulationProfile ?? {};
     this.profile.options ??= {};
     Object.assign(this.profile, this.profile.options);
@@ -68,10 +68,10 @@ export default class AgentPlugins implements IAgentPlugins {
     }
 
     if (pluginClasses?.length) {
-      const Plugins = pluginClasses.filter(x => x.shouldActivate?.(this.profile) ?? true);
-      for (const Plugin of Plugins) {
+      const PluginClasses = pluginClasses.filter(x => x.shouldActivate?.(this.profile) ?? true);
+      for (const Plugin of PluginClasses) {
         const plugin = new Plugin(this.profile);
-        this.plugins.push(plugin);
+        this.instances.push(plugin);
         this.hook(plugin, false);
       }
     }

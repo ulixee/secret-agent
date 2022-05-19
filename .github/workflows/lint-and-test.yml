@@ -24,13 +24,13 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: 'yarn'
 
-      - name: (TEMP) Clone Emulator Spec
-        run:  git clone https://github.com/unblocked-web/specifications.git
-        working-directory: ..
-
-      - name: (TEMP) Install Emulator Spec
-        run: yarn && yarn build
-        working-directory: ../specifications
+#      - name: (TEMP) Clone Emulator Spec
+#        run:  git clone https://github.com/unblocked-web/specifications.git
+#        working-directory: ..
+#
+#      - name: (TEMP) Install Emulator Spec
+#        run: yarn && yarn build
+#        working-directory: ../specifications
 
       - name: Install Dependencies
         run: yarn install --immutable --network-timeout 1000000
@@ -78,17 +78,17 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: 'yarn'
 
-      - name: (TEMP) Clone Emulator Spec
-        run:  git clone https://github.com/unblocked-web/specifications.git
-        working-directory: ..
-
-      - name: (TEMP) Install Emulator Spec
-        run: yarn && yarn build
-        working-directory: ../specifications
-
-      - name: (TEMP) Install Emulator Spec
-        run: yarn link
-        working-directory: ../specifications/build
+#      - name: (TEMP) Clone Emulator Spec
+#        run:  git clone https://github.com/unblocked-web/specifications.git
+#        working-directory: ..
+#
+#      - name: (TEMP) Install Emulator Spec
+#        run: yarn && yarn build
+#        working-directory: ../specifications
+#
+#      - name: (TEMP) Install Emulator Spec
+#        run: yarn link
+#        working-directory: ../specifications/build
 
       - uses: actions/setup-go@v2
         with:

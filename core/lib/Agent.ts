@@ -19,14 +19,14 @@ import Resolvable from '@ulixee/commons/lib/Resolvable';
 import IEmulationProfile, {
   IEmulationOptions,
 } from '@unblocked-web/specifications/plugin/IEmulationProfile';
-import AgentPlugins from './AgentPlugins';
-import { IAgentPluginClass } from '@unblocked-web/specifications/plugin/IAgentPlugin';
+import Plugins from './Plugins';
+import { IUnblockedPluginClass } from '@unblocked-web/specifications/plugin/IUnblockedPlugin';
 
 const { log } = Log(module);
 
 export interface IAgentCreateOptions extends Omit<IEmulationProfile, keyof IEmulationOptions> {
   id?: string;
-  agentPlugins?: IAgentPluginClass[];
+  plugins?: IUnblockedPluginClass[];
   commandMarker?: ICommandMarker;
 }
 
@@ -45,7 +45,7 @@ export default class Agent extends TypedEventEmitter<{ close: void }> {
   }
 
   private isOpen: Resolvable<BrowserContext>;
-  private readonly plugins: AgentPlugins;
+  private readonly plugins: Plugins;
   private isClosing: Resolvable<void>;
   private events = new EventSubscriber();
   private readonly enableMitm: boolean = true;
@@ -77,7 +77,7 @@ export default class Agent extends TypedEventEmitter<{ close: void }> {
         sessionId: this.id,
       });
 
-    this.plugins = new AgentPlugins(options, options.agentPlugins);
+    this.plugins = new Plugins(options, options.plugins);
     this.mitmRequestSession = new RequestSession(
       this.id,
       this.plugins,

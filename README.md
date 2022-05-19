@@ -1,6 +1,6 @@
 # Unblocked Agent
 
-Unblocked Agent is an automated web browser that's built to be controlled from every facet by a developer. It fully implements the Unblocked Agent [specifications][spec], which is a generic plug-in structure to support common Bot detection evasions. When combined with the Unblocked [Agent Plugins][plugins], the Unblocked Agent is very difficult to block.
+Unblocked Agent is an automated web browser that's built to be controlled from every facet by a developer. It fully implements the Unblocked Agent [specifications][spec], which is a generic plug-in structure to support common Bot detection evasions. When combined with the [Unblocked Plugins][plugins], the Unblocked Agent is very difficult to block.
 
 - [x] **Powered by Chrome** - The powerful Chrome engine sits under the hood, allowing for lightning fast rendering.
 - [x] **Hook in at Every Level of the Stack** - Hooks are defined in the network layer (TCP, TLS, HTTP, HTTP2), browser level and user interactions. You have full control of Chrome Devtools API all along the way.
@@ -44,7 +44,7 @@ Detailed documentation is available in `/docs`. A few high level classes are des
 
 ### Agent
 
-Agents are the primary interface to work with Unblocked Agent. An Agent will coordinate a Man-in-the-Middle proxy and an Incognito window to create a sandboxed web scraping session. Agents support [Agent Plugins][plugins] to enhance user interaction behavior or add bot evasions.
+Agents are the primary interface to work with Unblocked Agent. An Agent will coordinate a Man-in-the-Middle proxy and an Incognito window to create a sandboxed web scraping session. Agents support [Unblocked Plugins][plugins] to enhance user interaction behavior or add bot evasions.
 
 ### Pool
 
@@ -89,7 +89,7 @@ Chrome Devtools Protocol allows a developer to register "scripts" which should r
 
 ### Isolated Worlds
 
-The Devtools Protocol allows developers to create "isolated" javascript contexts to run code. These isolated environments have access to the same underlying HTML Document, but cannot be seen doing so by any other javascript environments. This allows Unblocked Agent querySelectors to run undetected. However, Unblocked Agent Plugins often have a need to hook into the "default" javascript environment to hide markers that indicate to a headless Chrome session might be in use.
+The Devtools Protocol allows developers to create "isolated" javascript contexts to run code. These isolated environments have access to the same underlying HTML Document, but cannot be seen doing so by any other javascript environments. This allows Unblocked Agent querySelectors to run undetected. However, [Unblocked Plugins][plugins] often have a need to hook into the "default" javascript environment to hide markers that indicate to a headless Chrome session might be in use.
 
 ### Man-in-the-Middle (Mitm)
 
@@ -110,8 +110,8 @@ We'd love your help in making Unblocked Agent a better tool. Please don't hesita
 
 [agent]: https://github.com/unblocked-web/agent
 [double-agent]: https://github.com/unblocked-web/double-agent
-[plugins]: https://github.com/unblocked-web/unblocked/agent-plugins
-[human]: https://github.com/unblocked-web/unblocked/agent-plugins/default-human-emulator
+[plugins]: https://github.com/unblocked-web/unblocked/plugins
+[human]: https://github.com/unblocked-web/unblocked/plugins/default-human-emulator
 [spec]: https://github.com/unblocked-web/specifications
 [jspath]: https://github.com/unblocked-web/js-path
 [vault]: https://github.com/ulixee/chrome-versions

@@ -17,7 +17,7 @@ import Browser from './Browser';
 import IResolvablePromise from '@ulixee/commons/interfaces/IResolvablePromise';
 import IBrowserLaunchArgs from '@unblocked-web/specifications/agent/browser/IBrowserLaunchArgs';
 import { IHooksProvider } from '@unblocked-web/specifications/agent/hooks/IHooks';
-import { IAgentPluginClass } from '@unblocked-web/specifications/plugin/IAgentPlugin';
+import { IUnblockedPluginClass } from '@unblocked-web/specifications/plugin/IUnblockedPlugin';
 
 const { log } = Log(module);
 
@@ -25,7 +25,7 @@ interface ICreatePoolOptions {
   maxConcurrentAgents?: number;
   certificateStore?: ICertificateStore;
   defaultBrowserEngine?: IBrowserEngine;
-  agentPlugins?: IAgentPluginClass[];
+  plugins?: IUnblockedPluginClass[];
   dataDir?: string;
   logger?: IBoundLog;
 }
@@ -48,7 +48,7 @@ export default class Pool extends TypedEventEmitter<{
   public readonly browsersById = new Map<string, Browser>();
   public readonly agentsById = new Map<string, Agent>();
   public sharedMitmProxy: MitmProxy;
-  public agentPlugins: IAgentPluginClass[] = [];
+  public plugins: IUnblockedPluginClass[] = [];
 
   #activeAgentsCount = 0;
   #waitingForAvailability: {
@@ -66,7 +66,7 @@ export default class Pool extends TypedEventEmitter<{
   constructor(readonly options: ICreatePoolOptions = {}) {
     super();
     this.maxConcurrentAgents = options.maxConcurrentAgents ?? 10;
-    this.agentPlugins = options.agentPlugins ?? [];
+    this.plugins = options.plugins ?? [];
     this.logger = options.logger?.createChild(module) ?? log.createChild(module, {});
   }
 
@@ -80,7 +80,7 @@ export default class Pool extends TypedEventEmitter<{
   public createAgent(options?: IAgentCreateOptions): Agent {
     options ??= {};
     options.browserEngine ??= this.options.defaultBrowserEngine;
-    options.agentPlugins ??= [...this.agentPlugins];
+    options.plugins ??= [...this.plugins];
     const agent = new Agent(options, this);
     this.agentsById.set(agent.id, agent);
     this.emit('agent-created', { agent });

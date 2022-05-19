@@ -6,7 +6,7 @@
   "dependencies": {
     "@ulixee/commons": "1.5.11",
     "@unblocked-web/agent-mitm-socket": "2.0.0-alpha.1",
-    "@unblocked-web/specifications": "2.0.0-alpha.1",
+    "@unblocked-web/specifications": "2.0.0-alpha.2",
     "dns-packet": "^5.2.4",
     "moment": "^2.24.1"
   },
