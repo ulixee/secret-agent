@@ -5,7 +5,7 @@
   "description": "The Unblocked Automated Web Browser",
   "scripts": {
     "prepare": "husky install",
-    "bump-version": "ulx-repo-bump-version",
+    "bump-version": "ulx-repo-version-bump",
     "build": "yarn tsc && cd build && yarn",
     "build:dist": "shx rm -rf build-dist && tsc -b tsconfig.dist.json && ulx-repo-after-build --dist",
     "build:dist-local": "yarn build:dist && cd build-dist && UBK_MITM_REBUILD_SOCKET=1 yarn",

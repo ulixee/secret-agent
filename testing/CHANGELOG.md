@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [2.0.0-alpha.2](https://github.com/unblocked-web/unblocked/compare/v2.0.0-alpha.1...v2.0.0-alpha.2) (2022-05-19)
+
+**Note:** Version bump only for package @unblocked-web/agent-testing
+
+
+
+
+
 ## [1.6.4](https://github.com/unblocked-web/agent/compare/v1.6.3...v1.6.4) (2022-01-24)
 
 **Note:** Version bump only for package @unblocked-web/agent-testing

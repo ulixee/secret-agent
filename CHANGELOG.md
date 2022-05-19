@@ -3,6 +3,23 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [2.0.0-alpha.2](https://github.com/unblocked-web/agent/compare/v2.0.0-alpha.1...v2.0.0-alpha.2) (2022-05-19)
+
+
+### Bug Fixes
+
+* build ([711467c](https://github.com/unblocked-web/agent/commit/711467c51fd020c292fc9f3373ba2d4719f6575e))
+* socket await ([dba7b72](https://github.com/unblocked-web/agent/commit/dba7b72f73ada2f2cd270667e84e5dd42c57eca9))
+
+
+### Features
+
+* add option to keep resource bodies ([3db2900](https://github.com/unblocked-web/agent/commit/3db2900efd02eb56e95028129faf970643913bb1))
+
+
+
+
+
 ## [1.6.4](https://github.com/unblocked-web/agent/compare/v1.6.3...v1.6.4) (2022-01-24)
 
 
