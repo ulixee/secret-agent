@@ -1,9 +1,9 @@
 {
   "name": "@secret-agent/puppet-chrome",
-  "version": "1.6.4",
+  "version": "1.6.5",
   "description": "Puppet driver for chrome",
   "dependencies": {
-    "@secret-agent/commons": "1.6.4",
+    "@secret-agent/commons": "1.6.5",
     "@secret-agent/interfaces": "1.6.4",
     "devtools-protocol": "^0.0.799653"
   }

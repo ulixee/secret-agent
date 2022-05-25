@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.6.5](https://github.com/ulixee/secret-agent/compare/v1.6.4...v1.6.5) (2022-05-25)
+
+
+### Bug Fixes
+
+* **cookies:** sub domain cookies not saving ([712808d](https://github.com/ulixee/secret-agent/commit/712808d745ab9057ed0ad66edb4e249de63b276f))
+
+
+
+
+
 ## [1.6.4](https://github.com/ulixee/secret-agent/compare/v1.6.3...v1.6.4) (2022-01-24)
 
 **Note:** Version bump only for package @secret-agent/puppet-chrome

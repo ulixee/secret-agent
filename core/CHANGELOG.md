@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.6.5](https://github.com/ulixee/secret-agent/compare/v1.6.4...v1.6.5) (2022-05-25)
+
+
+### Bug Fixes
+
+* **core:** file picker not working after profile ([4f7c737](https://github.com/ulixee/secret-agent/commit/4f7c737a50dc1b5683bdf551c27fea8368f26f31))
+* **core:** speed for many user profile sites ([54a4061](https://github.com/ulixee/secret-agent/commit/54a406141ff851875d14e3ae342e00f76d240b1e))
+
+
+
+
+
 ## [1.6.4](https://github.com/ulixee/secret-agent/compare/v1.6.3...v1.6.4) (2022-01-24)
 
 **Note:** Version bump only for package @secret-agent/core

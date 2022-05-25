@@ -3,6 +3,22 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.6.5](https://github.com/ulixee/secret-agent/compare/v1.6.4...v1.6.5) (2022-05-25)
+
+
+### Bug Fixes
+
+* **cookies:** sub domain cookies not saving ([712808d](https://github.com/ulixee/secret-agent/commit/712808d745ab9057ed0ad66edb4e249de63b276f))
+* **core:** file picker not working after profile ([4f7c737](https://github.com/ulixee/secret-agent/commit/4f7c737a50dc1b5683bdf551c27fea8368f26f31))
+* **core:** speed for many user profile sites ([54a4061](https://github.com/ulixee/secret-agent/commit/54a406141ff851875d14e3ae342e00f76d240b1e))
+* dependencies ([65cae71](https://github.com/ulixee/secret-agent/commit/65cae71af84e00d1dca4a74ac45318af43641a1c))
+* github no longer allowing git prefix ([9693c89](https://github.com/ulixee/secret-agent/commit/9693c89267eeaeb48f98f91a363658230010210b))
+* lint issues ([db3f353](https://github.com/ulixee/secret-agent/commit/db3f3535636707ed2fd9c7f5dcc29f7d4bd07cc7))
+
+
+
+
+
 ## [1.6.4](https://github.com/ulixee/secret-agent/compare/v1.6.3...v1.6.4) (2022-01-24)
 
 

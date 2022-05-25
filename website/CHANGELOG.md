@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.6.5](https://github.com/ulixee/secret-agent/compare/v1.6.4...v1.6.5) (2022-05-25)
+
+
+### Bug Fixes
+
+* dependencies ([65cae71](https://github.com/ulixee/secret-agent/commit/65cae71af84e00d1dca4a74ac45318af43641a1c))
+* github no longer allowing git prefix ([9693c89](https://github.com/ulixee/secret-agent/commit/9693c89267eeaeb48f98f91a363658230010210b))
+
+
+
+
+
 ## [1.6.4](https://github.com/ulixee/secret-agent/compare/v1.6.3...v1.6.4) (2022-01-24)
 
 **Note:** Version bump only for package @secret-agent/website
