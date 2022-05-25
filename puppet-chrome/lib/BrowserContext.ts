@@ -29,7 +29,8 @@ import TargetInfo = Protocol.Target.TargetInfo;
 
 export class BrowserContext
   extends TypedEventEmitter<IPuppetContextEvents>
-  implements IPuppetContext {
+  implements IPuppetContext
+{
   public logger: IBoundLog;
 
   public workersById = new Map<string, IPuppetWorker>();
@@ -244,7 +245,9 @@ export class BrowserContext
       .filter(c => {
         if (!url) return true;
 
-        if (url.hostname !== c.domain && !url.hostname.includes(c.domain)) return false;
+        let domain = c.domain;
+        if (!domain.startsWith('.')) domain = `.${domain}`;
+        if (!`.${url.hostname}`.endsWith(domain)) return false;
         if (!url.pathname.startsWith(c.path)) return false;
         if (c.secure === true && url.protocol !== 'https:') return false;
         return true;

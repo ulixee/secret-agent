@@ -438,12 +438,13 @@ describe('BrowserContext', () => {
           value: 'woofs',
         },
         {
-          url: 'https://bar.com',
+          url: 'https://baz.com',
           name: 'catto',
           value: 'purrs',
         },
         {
           url: 'https://baz.com',
+          domain: '.baz.com',
           name: 'birdo',
           value: 'tweets',
         },
@@ -462,6 +463,7 @@ describe('BrowserContext', () => {
           sameSite: 'None',
         },
       ]);
+      await expect(context.getCookies(new URL('https://baz.com'))).resolves.toHaveLength(2);
     });
   });
 });
