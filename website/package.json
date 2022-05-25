@@ -23,7 +23,7 @@
     "docsearch.js": "^2.6.3",
     "gridsome": "^0.7.23",
     "lodash.kebabcase": "^4.1.1",
-    "moment": "^2.24.1",
+    "moment": "^2.29.3",
     "remark-slug": "https://github.com/ulixee/remark-slug.git",
     "typography": "^0.16.19",
     "vue": "^2.6.12",
