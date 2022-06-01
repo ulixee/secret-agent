@@ -1,15 +1,29 @@
-<template lang="pug">
-BasicLayout.Home
-  Section(container="md" dots="true")
-    .post-header.container-md.mb-x2
-      h1 The Web Browser  Built for Scraping
-      p.
-        SecretAgent is a headless browser that’s nearly impossible to detect. It achieves this by emulating real users.
-        And it has powerful auto-replay functionality that lets you create and debug scripts in record setting time.
-      a.button(href="/docs") Get Started
+<template>
+  <BasicLayout class="Home">
+    <div class="notice">
+      <p>
+        NOTE: SecretAgent 2.0 is to be named <a href="https://ulixee.org/docs/hero">Hero</a> and
+        is currently in alpha testing. We're ready for developers to begin to switch over - it's a
+        pretty easy transition (<a href="https://ulixee.org/docs/hero/help/migration-guide"
+      >migration guide</a
+      >). Follow along with development of Hero
+        <a href="https://github.com/ulixee/hero">here</a> or check out the latest npm packages
+        `@ulixee/hero-fullstack`.
+      </p>
+    </div>
+    <Section container="md" dots="true">
+      <div class="post-header container-md mb-x2">
+        <h1>The Web Browser  Built for Scraping</h1>
+        <p>
+          SecretAgent is a headless browser that’s nearly impossible to detect. It achieves this by
+          emulating real users. And it has powerful auto-replay functionality that lets you create
+          and debug scripts in record setting time.
+        </p>
+        <a class="button" href="/docs"> Get Started</a>
+      </div>
+    </Section>
 
-    //.awards
-      .box Ranked #1 Headless Browser by the Bot Blocking Analyzer (psst... we created it)
+  </BasicLayout>
 </template>
 
 <script lang="ts">
@@ -40,28 +54,31 @@ export default class Home extends Vue {
     font-size: 1.3rem;
   }
   .el-row {
-    height: 100vh;
+    height: calc(100vh - 200px);
   }
   .Content {
     min-height: calc(100vh - 129px);
   }
-
-  a.button {
-    margin-top: 50px;
-    padding: 13px 70px;
-    font-size: 1.4rem;
+  .section {
+    padding:0;
   }
 
-  .awards {
-    margin-top: 80px;
-    .box {
-      display: inline-block;
+  a.button {
+    margin-top: 20px;
+    padding: 13px 70px;
+    font-size: 1.1rem;
+  }
+
+  .notice {
+    margin-bottom: 60px;
+    box-sizing: border-box;
+    background-color: #ebf4f1;
+    border-radius: 10px;
+    padding: 20px;
+    color: rgba(0, 0, 0, 0.8);
+    p {
       padding: 7px 45px;
-      background: rgba(0,0,0,0.1);
-      border-radius: 5px;
-      box-shadow: 1px 1px 0 rgba(255,255,255,0.1);
-      border: 1px solid rgba(0, 0, 0, 0.2);
-      color: rgba(255,255,255,0.5);
+
     }
   }
 }

@@ -1,6 +1,12 @@
+## SecretAgent 2.0 === Hero
+
+> :bell: SecretAgent 2.0 is named "[Hero](https://github.com/ulixee/hero)" and currently in alpha testing. We're ready for developers to begin to switch over - it's a pretty easy transition ([migration guide](https://ulixee.org/docs/hero/help/migration-guide)). Follow along with development of Hero [here](https://github.com/ulixee/hero) or check out the latest npm packages `@ulixee/hero-fullstack`.
+
+---
+
 # SecretAgent
 
-SecretAgent is a web browser that's built for scraping. 
+SecretAgent is a web browser that's built for scraping.
 
 - [x] **Built for scraping** - it's the first modern headless browsers designed specifically for scraping instead of just automated testing.
 - [x] **Designed for web developers** - We've recreated a fully compliant DOM directly in NodeJS allowing you bypass the headaches of previous scraper tools.
