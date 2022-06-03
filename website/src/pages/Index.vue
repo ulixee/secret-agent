@@ -2,7 +2,7 @@
   <BasicLayout class="Home">
     <div class="notice">
       <p>
-        NOTE: SecretAgent 2.0 is to be named <a href="https://ulixee.org/docs/hero">Hero</a> and
+        NOTE: SecretAgent 2.0 is named <a href="https://ulixee.org/docs/hero">Hero</a> and
         is currently in alpha testing. We're ready for developers to begin to switch over - it's a
         pretty easy transition (<a href="https://ulixee.org/docs/hero/help/migration-guide"
       >migration guide</a
