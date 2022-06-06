@@ -17,6 +17,7 @@ import IHttp2ConnectSettings from './IHttp2ConnectSettings';
 import IHttpSocketAgent from './IHttpSocketAgent';
 import ISessionCreateOptions from './ISessionCreateOptions';
 import { IPuppetFrame } from './IPuppetFrame';
+import IPuppetContext from './IPuppetContext';
 
 export default interface ICorePlugin
   extends ICorePluginMethods,
@@ -119,6 +120,7 @@ export interface IBrowserEmulatorMethods {
   beforeHttpRequest?(request: IHttpResourceLoadDetails): Promise<any> | void;
   beforeHttpResponse?(resource: IHttpResourceLoadDetails): Promise<any> | void;
 
+  onNewPuppetContext?(context: IPuppetContext): Promise<any>;
   onNewPuppetPage?(page: IPuppetPage): Promise<any>;
   onNewPuppetWorker?(worker: IPuppetWorker): Promise<any>;
 

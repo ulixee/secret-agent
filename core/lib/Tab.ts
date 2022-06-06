@@ -23,6 +23,10 @@ import IFrameMeta from '@secret-agent/interfaces/IFrameMeta';
 import { LoadStatus } from '@secret-agent/interfaces/INavigation';
 import IPuppetDialog from '@secret-agent/interfaces/IPuppetDialog';
 import IFileChooserPrompt from '@secret-agent/interfaces/IFileChooserPrompt';
+import IDownload, { IDownloadState } from '@secret-agent/interfaces/IDownload';
+import { encode } from 'querystring';
+import * as Fs from 'fs';
+import { existsAsync } from '@secret-agent/commons/fileUtils';
 import FrameNavigations from './FrameNavigations';
 import CommandRecorder from './CommandRecorder';
 import FrameEnvironment from './FrameEnvironment';
@@ -108,7 +112,7 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
     windowOpenParams?: { url: string; windowName: string; loaderId: string },
   ) {
     super();
-    this.setEventsToLog(['child-tab-created', 'close']);
+    this.setEventsToLog(['child-tab-created', 'close', 'dialog', 'download', 'download-progress']);
     this.id = session.nextTabId();
     this.logger = log.createChild(module, {
       tabId: this.id,
@@ -139,6 +143,7 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
     this.commandRecorder = new CommandRecorder(this, this.session, this.id, this.mainFrameId, [
       this.focus,
       this.dismissDialog,
+      this.deleteDownload,
       this.getFrameEnvironments,
       this.goto,
       this.goBack,
@@ -369,6 +374,18 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
       this.navigationsObserver.waitForNavigationResourceId(),
       timeoutMessage,
     );
+
+    const loaderId = this.puppetPage.mainFrame.activeLoader?.id;
+    if (loaderId === loader.loaderId) {
+      for (const [key, date] of Object.entries(this.puppetPage.mainFrame.activeLoader.lifecycle)) {
+        let status: LoadStatus;
+        if (key === 'load') status = LoadStatus.Load;
+        else if (key === 'DOMContentLoaded') status = LoadStatus.DomContentLoaded;
+        else continue;
+        this.mainFrameEnvironment.navigations.onLoadStateChanged(status, url, loaderId, date);
+      }
+    }
+
     return this.sessionState.getResourceMeta(resource);
   }
 
@@ -452,6 +469,12 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
     );
     await resolvable.promise;
     return this.puppetPage.dismissDialog(accept, promptText);
+  }
+
+  public async deleteDownload(id: string): Promise<void> {
+    const download = this.session.downloadsById.get(id);
+    if (!download) return;
+    if (await existsAsync(download.path)) await Fs.promises.unlink(download.path);
   }
 
   public async waitForNewTab(options: IWaitForOptions = {}): Promise<Tab> {
@@ -652,6 +675,9 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
     page.on('page-callback-triggered', this.onPageCallback.bind(this));
     page.on('dialog-opening', this.onDialogOpening.bind(this));
     page.on('filechooser', this.onFileChooser.bind(this));
+    page.on('download-started', this.onDownloadStarted.bind(this));
+    page.on('download-progress', this.onDownloadProgress.bind(this));
+    page.on('download-finished', this.onDownloadFinished.bind(this));
 
     // resource requested should registered before navigations so we can grab nav on new tab anchor clicks
     page.on('resource-will-be-requested', this.onResourceWillBeRequested.bind(this), true);
@@ -774,9 +800,8 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
         );
       }
       if (resourcesWithBrowserRequestId?.length) {
-        const { resourceId } = resourcesWithBrowserRequestId[
-          resourcesWithBrowserRequestId.length - 1
-        ];
+        const { resourceId } =
+          resourcesWithBrowserRequestId[resourcesWithBrowserRequestId.length - 1];
         frame.navigations.onResourceLoaded(resourceId, event.resource.status);
       }
     }
@@ -938,6 +963,42 @@ export default class Tab extends TypedEventEmitter<ITabEventParams> {
     this.sessionState.captureError(this.id, this.mainFrameId, `events.error`, error);
   }
 
+  /////// DOWNLOADS ////////////////////////////////////////////////////////////////////////////////
+
+  private onDownloadStarted(event: IPuppetPageEvents['download-started']): void {
+    const broadcast = event as IDownload;
+    broadcast.downloadPath = `/downloads?${encode({
+      id: event.id,
+      sessionId: this.sessionId,
+    })}`;
+    this.session.downloadsById.set(event.id, broadcast);
+    this.emit('download', broadcast);
+  }
+
+  private onDownloadProgress(event: IPuppetPageEvents['download-progress']): void {
+    const state = this.session.downloadsById.get(event.id);
+    const broadcast = {
+      ...event,
+      canceled: false,
+      complete: false,
+    };
+    if (state) Object.assign(state, broadcast);
+
+    this.emit('download-progress', broadcast);
+  }
+
+  private onDownloadFinished(event: IPuppetPageEvents['download-finished']): void {
+    const state = this.session.downloadsById.get(event.id);
+    const broadcast = {
+      ...event,
+      complete: true,
+      progress: 100,
+    };
+    if (state) Object.assign(state, broadcast);
+
+    this.emit('download-progress', broadcast);
+  }
+
   /////// DIALOGS //////////////////////////////////////////////////////////////////////////////////
 
   private onDialogOpening(event: IPuppetPageEvents['dialog-opening']): void {
@@ -971,6 +1032,8 @@ interface ITabEventParams {
   'resource-requested': IResourceMeta;
   resource: IResourceMeta;
   dialog: IPuppetDialog;
+  download: IDownload;
+  'download-progress': IDownloadState;
   'websocket-message': IWebsocketResourceMessage;
   'child-tab-created': Tab;
 }

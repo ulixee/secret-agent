@@ -2,6 +2,8 @@ import { IncomingMessage } from 'http';
 import Logger from '@secret-agent/commons/Logger';
 import { createPromise } from '@secret-agent/commons/utils';
 import { DomActionType } from '@secret-agent/interfaces/IDomChangeEvent';
+import IResourceMeta from '@secret-agent/interfaces/IResourceMeta';
+import IResolvablePromise from '@secret-agent/interfaces/IResolvablePromise';
 import DomChangesTable, { IFrontendDomChangeEvent } from '../models/DomChangesTable';
 import SessionDb, { ISessionLookup, ISessionLookupArgs } from '../dbs/SessionDb';
 import CommandFormatter from '../lib/CommandFormatter';
@@ -33,6 +35,7 @@ export default class ConnectionToReplay {
   private readonly mainFrames = new Set<number>();
 
   private lastScriptState: IScriptState;
+  private tabReadyPromise: IResolvablePromise<void>;
 
   constructor(readonly sendMessage: (data: string) => Promise<unknown>, request: IncomingMessage) {
     this.pendingPushes.push(this.sessionClosedPromise.promise);
@@ -120,29 +123,15 @@ export default class ConnectionToReplay {
       }
     });
 
-    const tabReadyPromise = createPromise<void>();
-    this.pendingPushes.push(tabReadyPromise.promise);
+    this.tabReadyPromise = createPromise<void>();
+    this.pendingPushes.push(this.tabReadyPromise.promise);
 
     db.domChanges.subscribe(changes => {
       for (const change of changes) {
         DomChangesTable.inflateRecord(change);
         const isMainFrame = this.mainFrames.has(change.frameId);
         if (isMainFrame && change.action === DomActionType.newDocument) {
-          this.addTabId(change.tabId, change.timestamp);
-          const tab = this.tabsById.get(change.tabId);
-          if (!tab.startOrigin) {
-            tab.startOrigin = change.textContent;
-          }
-          if (!tabReadyPromise.isResolved) {
-            this.send('session', {
-              ...this.session,
-              tabs: [...this.tabsById.values()],
-              dataLocation: this.sessionLookup.dataLocation,
-              relatedScriptInstances: this.sessionLookup.relatedScriptInstances,
-              relatedSessions: this.sessionLookup.relatedSessions,
-            });
-            tabReadyPromise.resolve();
-          }
+          this.tabHasUrl(change.tabId, change.timestamp, change.textContent);
         }
         (change as IFrontendDomChangeEvent).frameIdPath = db.frames.frameDomNodePathsById.get(
           change.frameId,
@@ -157,6 +146,21 @@ export default class ConnectionToReplay {
       for (const command of commandsWithResults) {
         command.frameIdPath = db.frames.frameDomNodePathsById.get(command.frameId);
         this.addTabId(command.tabId, command.startDate);
+        if (
+          command.name === 'goto' &&
+          (command as any).parsedResult &&
+          command.resultType === 'Object' &&
+          !this.tabReadyPromise.isResolved
+        ) {
+          // check if non-http response
+          const result = (command as any).parsedResult as IResourceMeta;
+          const responseHeaders = result.response?.headers;
+          if (!responseHeaders) continue;
+          const contentType = responseHeaders['content-type'] ?? responseHeaders['Content-Type'];
+          if (contentType && !contentType.includes('html')) {
+            this.tabHasUrl(command.tabId, result.response.timestamp, result.url);
+          }
+        }
       }
       this.send('commands', commandsWithResults);
       this.checkState();
@@ -217,6 +221,24 @@ export default class ConnectionToReplay {
     this.checkState();
     if (this.session.closeDate) {
       setImmediate(() => this.sessionClosedPromise.resolve());
+    }
+  }
+
+  private tabHasUrl(tabId: number, timestamp: number, url: string) {
+    this.addTabId(tabId, timestamp);
+    const tab = this.tabsById.get(tabId);
+    if (!tab.startOrigin) {
+      tab.startOrigin = url;
+    }
+    if (!this.tabReadyPromise.isResolved) {
+      this.send('session', {
+        ...this.session,
+        tabs: [...this.tabsById.values()],
+        dataLocation: this.sessionLookup.dataLocation,
+        relatedScriptInstances: this.sessionLookup.relatedScriptInstances,
+        relatedSessions: this.sessionLookup.relatedSessions,
+      });
+      this.tabReadyPromise.resolve();
     }
   }
 

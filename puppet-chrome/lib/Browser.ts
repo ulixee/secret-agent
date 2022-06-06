@@ -75,7 +75,9 @@ export class Browser extends TypedEventEmitter<IBrowserEvents> implements IPuppe
       ...proxySettings,
     });
 
-    return new BrowserContext(this, plugins, browserContextId, logger, proxy);
+    const context = new BrowserContext(this, plugins, browserContextId, logger, proxy);
+    if (plugins.onNewPuppetContext) await plugins.onNewPuppetContext(context);
+    return context;
   }
 
   public async close(): Promise<void> {

@@ -22,7 +22,10 @@ export interface IPuppetPage extends ITypedEventEmitter<IPuppetPageEvents> {
   opener?: IPuppetPage;
 
   isClosed: boolean;
-  navigate(url: string, options?: { referrer?: string }): Promise<{ loaderId: string }>;
+  navigate(
+    url: string,
+    options?: { referrer?: string },
+  ): Promise<{ loaderId: string; loaderType: 'page' | 'download' }>;
   dismissDialog(accept: boolean, promptText?: string): Promise<void>;
   goBack(): Promise<string>;
   goForward(): Promise<string>;
@@ -65,4 +68,12 @@ export interface IPuppetPageEvents extends IPuppetFrameManagerEvents, IPuppetNet
   filechooser: { frameId: string; selectMultiple: boolean; objectId: string };
   'page-error': { frameId: string; error: Error };
   'page-callback-triggered': { name: string; frameId: string; payload: any };
+  'download-started': {
+    id: string;
+    path: string;
+    suggestedFilename: string;
+    url: string;
+  };
+  'download-progress': { id: string; totalBytes: number; progress: number };
+  'download-finished': { id: string; totalBytes: number; canceled: boolean };
 }

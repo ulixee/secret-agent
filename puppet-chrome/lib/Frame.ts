@@ -305,6 +305,14 @@ export default class Frame extends TypedEventEmitter<IPuppetFrameEvents> impleme
     this.emit('frame-navigated', { frame: this, navigatedInDocument: true, loaderId });
   }
 
+  public onDownloadNavigation(url: string, loaderId: string): void {
+    this.url = url;
+    this.setLoader(loaderId, url);
+    this.navigationLoadersById[loaderId].navigationResolver.resolve(url);
+    this.onStoppedLoading();
+    this.emit('frame-navigated', { frame: this, loaderId });
+  }
+
   /////// LIFECYCLE ////////////////////////////////////////////////////////////////////////////////////////////////////
 
   public onStoppedLoading(): void {

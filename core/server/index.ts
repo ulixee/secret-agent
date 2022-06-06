@@ -5,7 +5,9 @@ import * as http from 'http';
 import { IncomingMessage, ServerResponse } from 'http';
 import { createPromise } from '@secret-agent/commons/utils';
 import TypeSerializer from '@secret-agent/commons/TypeSerializer';
-import Core, { GlobalPool } from '../index';
+import * as Url from 'url';
+import * as Fs from 'fs';
+import Core, { GlobalPool, Session } from '../index';
 import ConnectionToReplay from './ConnectionToReplay';
 import InjectedScripts from '../lib/InjectedScripts';
 import * as pkg from '../package.json';
@@ -51,6 +53,7 @@ export default class CoreServer {
     this.routes = [
       ['/replay/domReplayer.js', this.handleReplayerScriptRequest.bind(this)],
       [/\/replay\/([\d\w-]+)\/resource\/(\d+)/, this.handleResourceRequest.bind(this)],
+      [/\/downloads?.+/, this.handleDownloadRequest.bind(this)],
     ];
   }
 
@@ -175,6 +178,36 @@ export default class CoreServer {
     res.end(InjectedScripts.getReplayScript());
   }
 
+  private async handleDownloadRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    const url = Url.parse(req.url, true);
+    const sessionId = url.query.sessionId as string;
+    const id = url.query.id as string;
+
+    const session = Session.get(sessionId);
+    if (!session) {
+      return res.writeHead(404).end('Session not found');
+    }
+
+    const download = session.downloadsById.get(id);
+    if (!download) {
+      return res.writeHead(404).end('Download not found');
+    }
+
+    try {
+      res.writeHead(200, {
+        'content-disposition': `attachment; filename="${download.suggestedFilename ?? id}"`,
+      });
+      await new Promise((resolve, reject) => {
+        Fs.createReadStream(download.path, { autoClose: true })
+          .pipe(res, { end: true })
+          .on('finish', resolve)
+          .on('error', reject);
+      });
+    } catch (err) {
+      return res.writeHead(500).end(String(err));
+    }
+  }
+
   private async handleResourceRequest(
     req: IncomingMessage,
     res: ServerResponse,
@@ -191,12 +224,16 @@ export default class CoreServer {
         const headers = JSON.parse(resource.responseHeaders ?? '{}');
         const responseHeaders: any = {
           connection: 'keep-alive',
-          'content-encoding': resource.responseEncoding,
         };
+        if (resource.responseEncoding) {
+          responseHeaders['content-encoding'] = resource.responseEncoding;
+        }
         const location = headers.location ?? headers.Location;
         if (location) responseHeaders.location = location;
         const contentType = headers['content-type'] || headers['Content-Type'];
         if (contentType) responseHeaders['content-type'] = contentType;
+        const contentLength = headers['content-length'] || headers['Content-Length'];
+        if (contentLength) responseHeaders['content-length'] = contentLength;
 
         res.writeHead(resource.statusCode, '', responseHeaders);
         res.end(resource.responseData);

@@ -154,7 +154,14 @@ export default class CommandFormatter {
     }
 
     if (command.result && command.name.startsWith('go')) {
+      const result = command.result;
       command.result = undefined;
+      Object.defineProperty(command, 'parsedResult', {
+        enumerable: false,
+        get(): any {
+          return result;
+        },
+      });
     }
 
     // we have shell objects occasionally coming back. hide from ui

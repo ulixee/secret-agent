@@ -1,7 +1,6 @@
 import { Helpers } from '@secret-agent/testing';
 import { InteractionCommand } from '@secret-agent/interfaces/IInteractions';
 import IUserProfile from '@secret-agent/interfaces/IUserProfile';
-import HttpRequestHandler from '@secret-agent/mitm/handlers/HttpRequestHandler';
 import { ITestKoaServer } from '@secret-agent/testing/helpers';
 import { createPromise } from '@secret-agent/commons/utils';
 import MitmRequestAgent from '@secret-agent/mitm/lib/MitmRequestAgent';

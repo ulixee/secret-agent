@@ -1,12 +1,9 @@
 import IUserProfile from '@secret-agent/interfaces/IUserProfile';
 import IDomStorage from '@secret-agent/interfaces/IDomStorage';
-import Log from '@secret-agent/commons/Logger';
 import { IPuppetPage } from '@secret-agent/interfaces/IPuppetPage';
 import { assert } from '@secret-agent/commons/utils';
 import Session from './Session';
 import InjectedScripts from './InjectedScripts';
-
-const { log } = Log(module);
 
 export default class UserProfile {
   public static async export(session: Session) {
