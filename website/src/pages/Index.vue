@@ -8,7 +8,7 @@
       >migration guide</a
       >). Follow along with development of Hero
         <a href="https://github.com/ulixee/hero">here</a> or check out the latest npm packages
-        `@ulixee/hero-fullstack`.
+        `@ulixee/hero-playground`.
       </p>
     </div>
     <Section container="md" dots="true">
