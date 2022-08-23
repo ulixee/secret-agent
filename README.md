@@ -1,6 +1,6 @@
 ## SecretAgent 2.0 === Hero
 
-> :bell: SecretAgent 2.0 is named "[Hero](https://github.com/ulixee/hero)" and currently in alpha testing. We're ready for developers to begin to switch over - it's a pretty easy transition ([migration guide](https://ulixee.org/docs/hero/help/migration-guide)). Follow along with development of Hero [here](https://github.com/ulixee/hero) or check out the latest npm packages `@ulixee/hero-fullstack`.
+> :bell: SecretAgent 2.0 is named "[Hero](https://github.com/ulixee/hero)" and currently in alpha testing. We're ready for developers to begin to switch over - it's a pretty easy transition ([migration guide](https://ulixee.org/docs/hero/help/migration-guide)). Follow along with development of Hero [here](https://github.com/ulixee/hero) or check out the latest npm packages `@ulixee/hero-playground`.
 
 ---
 
