@@ -34,6 +34,7 @@ import CoreFrameEnvironment from './CoreFrameEnvironment';
 import IAwaitedOptions from '../interfaces/IAwaitedOptions';
 import Dialog from './Dialog';
 import FileChooser from './FileChooser';
+import Download from './Download';
 
 const awaitedPathState = StateMachine<
   any,
@@ -52,6 +53,7 @@ export interface IState {
 interface IEventType {
   resource: Resource | WebsocketResource;
   dialog: Dialog;
+  download: Download;
 }
 
 const propertyKeys: (keyof Tab)[] = [

@@ -4,6 +4,7 @@ import IDnsSettings from '@secret-agent/interfaces/IDnsSettings';
 import ITcpSettings from '@secret-agent/interfaces/ITcpSettings';
 import ITlsSettings from '@secret-agent/interfaces/ITlsSettings';
 import { IPuppetPage } from '@secret-agent/interfaces/IPuppetPage';
+import IPuppetContext from '@secret-agent/interfaces/IPuppetContext';
 import {
   BrowserEmulatorClassDecorator,
   IBrowserEmulatorConfig,
@@ -16,6 +17,7 @@ import BrowserEngine from '@secret-agent/plugin-utils/lib/BrowserEngine';
 import IGeolocation from '@secret-agent/interfaces/IGeolocation';
 import IHttp2ConnectSettings from '@secret-agent/interfaces/IHttp2ConnectSettings';
 import IHttpSocketAgent from '@secret-agent/interfaces/IHttpSocketAgent';
+import * as Fs from 'fs';
 import Viewports from './lib/Viewports';
 import setWorkerDomOverrides from './lib/setWorkerDomOverrides';
 import setPageDomOverrides from './lib/setPageDomOverrides';
@@ -140,6 +142,12 @@ export default class DefaultBrowserEmulator extends BrowserEmulator {
     configureHttp2Session(this, this.data, request, settings);
   }
 
+  public async onNewPuppetContext(context: IPuppetContext): Promise<any> {
+    const userDataDir = this.browserEngine.userDataDir;
+    await Fs.promises.mkdir(`${userDataDir}/downloads`, { recursive: true });
+    await context.enableDownloads(`${userDataDir}/downloads`);
+  }
+
   public onNewPuppetPage(page: IPuppetPage): Promise<any> {
     // Don't await here! we want to queue all these up to run before the debugger resumes
     const devtools = page.devtoolsSession;
@@ -162,9 +170,10 @@ export default class DefaultBrowserEmulator extends BrowserEmulator {
     ]);
   }
 
-  public static selectBrowserMeta(
-    userAgentSelector?: string,
-  ): { browserEngine: BrowserEngine; userAgentOption: IUserAgentOption } {
+  public static selectBrowserMeta(userAgentSelector?: string): {
+    browserEngine: BrowserEngine;
+    userAgentOption: IUserAgentOption;
+  } {
     const userAgentOption = selectUserAgentOption(userAgentSelector, dataLoader.userAgentOptions);
 
     const { browserName, browserVersion } = userAgentOption;

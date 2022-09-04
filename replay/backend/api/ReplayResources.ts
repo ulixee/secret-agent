@@ -68,6 +68,9 @@ export default class ReplayResources {
           'Content-Type': contentType,
           'X-Replay-Agent': `Secret Agent Replay v${packageJson.version}`,
         };
+        if (!encoding && res.headers['content-length']) {
+          headers['Content-Length'] = res.headers['content-length'];
+        }
         if (res.headers.location) {
           headers.location = res.headers.location;
         }
@@ -83,7 +86,7 @@ export default class ReplayResources {
           body = await decompress(body, encoding);
         }
 
-        if (resource.type === 'Document' && !isAllowedDocumentContentType(contentType)) {
+        if (resource.type === 'Document' && !isReplayabledDocumentContentType(contentType)) {
           const first100 = body.slice(0, 200).toString();
 
           let doctype = '';
@@ -118,9 +121,7 @@ export default class ReplayResources {
   }
 }
 
-function isAllowedDocumentContentType(contentType: string) {
+function isReplayabledDocumentContentType(contentType: string) {
   if (!contentType) return false;
-  return (
-    contentType.includes('json') || contentType.includes('svg') || contentType.includes('font')
-  );
+  return !contentType.includes('html');
 }

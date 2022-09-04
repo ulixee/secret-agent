@@ -22,6 +22,8 @@ export default interface IPuppetContext extends ITypedEventEmitter<IPuppetContex
     cookies: (Omit<ICookie, 'expires'> & { expires?: string | Date | number })[],
     origins?: string[],
   ): Promise<void>;
+
+  enableDownloads(downloadsPath: string): Promise<void>;
 }
 
 export interface IPuppetPageOptions {

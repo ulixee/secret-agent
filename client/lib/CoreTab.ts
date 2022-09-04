@@ -8,6 +8,8 @@ import IWaitForOptions from '@secret-agent/interfaces/IWaitForOptions';
 import IScreenshotOptions from '@secret-agent/interfaces/IScreenshotOptions';
 import IFrameMeta from '@secret-agent/interfaces/IFrameMeta';
 import IFileChooserPrompt from '@secret-agent/interfaces/IFileChooserPrompt';
+import IDownload from '@secret-agent/interfaces/IDownload';
+import { URL } from 'url';
 import CoreCommandQueue from './CoreCommandQueue';
 import CoreEventHeap from './CoreEventHeap';
 import IWaitForResourceFilter from '../interfaces/IWaitForResourceFilter';
@@ -17,6 +19,7 @@ import ConnectionToCore from '../connections/ConnectionToCore';
 import CoreFrameEnvironment from './CoreFrameEnvironment';
 import { createDialog } from './Dialog';
 import CoreSession from './CoreSession';
+import Download, { createDownload } from './Download';
 
 export default class CoreTab implements IJsPathEventTarget {
   public tabId: number;
@@ -32,6 +35,7 @@ export default class CoreTab implements IJsPathEventTarget {
   private readonly connection: ConnectionToCore;
   private readonly mainFrameId: number;
   private readonly coreSession: CoreSession;
+  private readonly downloadsById = new Map<string, Download>();
 
   constructor(
     meta: ISessionMeta & { sessionName: string },
@@ -60,6 +64,7 @@ export default class CoreTab implements IJsPathEventTarget {
     this.eventHeap.registerEventInterceptors({
       resource: createResource.bind(null, resolvedThis),
       dialog: createDialog.bind(null, resolvedThis),
+      download: this.createDownload.bind(this),
     });
   }
 
@@ -179,5 +184,21 @@ export default class CoreTab implements IJsPathEventTarget {
     await this.commandQueue.run('Tab.close');
     const session = this.connection.getSession(this.sessionId);
     session?.removeTab(this);
+  }
+
+  public async deleteDownload(id: string): Promise<void> {
+    await this.commandQueue.run('Tab.deleteDownload', id);
+  }
+
+  private createDownload(download: IDownload): Download {
+    const newDownload = createDownload(this, download);
+    this.downloadsById.set(download.id, newDownload);
+    newDownload.downloadUrl = this.connection.hostOrError.then(host => {
+      if (host instanceof Error) return null;
+      const hostUrl = new URL(download.downloadPath, host);
+      hostUrl.protocol = 'http:';
+      return hostUrl.href;
+    });
+    return newDownload;
   }
 }

@@ -20,6 +20,7 @@ import {
   IDevtoolsEventMessage,
   IDevtoolsResponseMessage,
 } from '@secret-agent/interfaces/IDevtoolsSession';
+import * as Fs from 'fs';
 import { Page } from './Page';
 import { Browser } from './Browser';
 import { DevtoolsSession } from './DevtoolsSession';
@@ -38,6 +39,7 @@ export class BrowserContext
   public plugins: ICorePlugins;
   public proxy: IProxyConnectionOptions;
   public readonly id: string;
+  public downloadsPath?: string;
 
   private attachedTargetIds = new Set<string>();
   private pageOptionsByTargetId = new Map<string, IPuppetPageOptions>();
@@ -108,6 +110,15 @@ export class BrowserContext
     await page.isReady;
     if (page.isClosed) throw new Error('Page has been closed.');
     return page;
+  }
+
+  async enableDownloads(downloadsPath: string): Promise<any> {
+    this.downloadsPath = downloadsPath;
+    await this.sendWithBrowserDevtoolsSession('Browser.setDownloadBehavior', {
+      behavior: 'allowAndName',
+      browserContextId: this.id,
+      downloadPath: downloadsPath,
+    });
   }
 
   initializePage(page: Page): Promise<any> {
@@ -225,6 +236,9 @@ export class BrowserContext
       });
     }
     this.eventSubscriber.close();
+    if (this.downloadsPath) {
+      await Fs.promises.rmdir(this.downloadsPath, { recursive: true }).catch(() => null);
+    }
     this.browser.browserContextsById.delete(this.id);
   }
 

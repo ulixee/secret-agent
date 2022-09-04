@@ -54,6 +54,14 @@ export default class AwaitedEventListener {
         // need to give client time to register function sending events
         process.nextTick(() => tab.sessionState.onWebsocketMessages(resourceId, listener.listenFn));
       }
+      if (listener.jsPath && listener.jsPath[0] === 'downloads') {
+        const downloadId = listener.jsPath[1] as string;
+        listener.listenFn = download => {
+          if (download.id === downloadId) this.triggerListenersWithId(listenerId, download);
+        };
+        tab.on('download-progress', listener.listenFn);
+        process.nextTick(() => listener.listenFn(tab.session.downloadsById.get(downloadId)));
+      }
     } else if (type && tab) {
       if (type !== 'close') {
         listener.listenFn = this.triggerListenersWithType.bind(this, type);

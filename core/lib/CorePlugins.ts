@@ -27,6 +27,7 @@ import requirePlugins from '@secret-agent/plugin-utils/lib/utils/requirePlugins'
 import IHttp2ConnectSettings from '@secret-agent/interfaces/IHttp2ConnectSettings';
 import IDeviceProfile from '@secret-agent/interfaces/IDeviceProfile';
 import IHttpSocketAgent from '@secret-agent/interfaces/IHttpSocketAgent';
+import IPuppetContext from '@secret-agent/interfaces/IPuppetContext';
 import Core from '../index';
 
 const DefaultBrowserEmulatorId = 'default-browser-emulator';
@@ -142,6 +143,12 @@ export default class CorePlugins implements ICorePlugins {
       this.instances
         .filter(p => p.onHttpAgentInitialized)
         .map(p => p.onHttpAgentInitialized(agent)),
+    );
+  }
+
+  public async onNewPuppetContext(context: IPuppetContext): Promise<void> {
+    await Promise.all(
+      this.instances.filter(p => p.onNewPuppetContext).map(p => p.onNewPuppetContext(context)),
     );
   }
 

@@ -69,8 +69,6 @@ describe('Filechooser tests', () => {
   });
 
   it('can trigger file upload when a user profile is set', async () => {
-    const didSubmit = createPromise<void>();
-
     koaServer.get('/get-upload-profile', ctx => {
       ctx.body = `<html>
 <body>

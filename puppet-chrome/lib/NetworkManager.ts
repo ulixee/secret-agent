@@ -41,7 +41,10 @@ export class NetworkManager extends TypedEventEmitter<IPuppetNetworkEvents> {
   private readonly requestsById = new Map<string, IPuppetResourceRequest>();
   private readonly requestPublishingById = new Map<string, IResourcePublishing>();
 
-  private readonly navigationRequestIdsToLoaderId = new Map<string, string>();
+  private readonly navigationRequestsById = new Map<
+    string,
+    { loaderId: string; url: string; wasCanceled: boolean }
+  >();
 
   private parentManager?: NetworkManager;
   private readonly eventSubscriber = new EventSubscriber();
@@ -86,6 +89,20 @@ export class NetworkManager extends TypedEventEmitter<IPuppetNetworkEvents> {
       'Network.requestServedFromCache',
       this.onNetworkRequestServedFromCache.bind(this),
     );
+  }
+
+  public getCanceledNavigationRequests(): { requestId: string; loaderId: string; url: string }[] {
+    const response: { requestId: string; loaderId: string; url: string }[] = [];
+    for (const [requestId, navigation] of this.navigationRequestsById) {
+      if (navigation.wasCanceled) {
+        response.push({
+          requestId,
+          loaderId: navigation.loaderId,
+          url: navigation.url,
+        });
+      }
+    }
+    return response;
   }
 
   public emit<
@@ -267,7 +284,11 @@ export class NetworkManager extends TypedEventEmitter<IPuppetNetworkEvents> {
     const isNavigation =
       networkRequest.requestId === networkRequest.loaderId && networkRequest.type === 'Document';
     if (isNavigation) {
-      this.navigationRequestIdsToLoaderId.set(networkRequest.requestId, networkRequest.loaderId);
+      this.navigationRequestsById.set(networkRequest.requestId, {
+        loaderId: networkRequest.loaderId,
+        wasCanceled: false,
+        url: networkRequest.request.url,
+      });
     }
     let resource: IPuppetResourceRequest;
     try {
@@ -397,10 +418,10 @@ export class NetworkManager extends TypedEventEmitter<IPuppetNetworkEvents> {
 
     const event = <IPuppetNetworkEvents['resource-will-be-requested']>{
       resource,
-      isDocumentNavigation: this.navigationRequestIdsToLoaderId.has(browserRequestId),
+      isDocumentNavigation: this.navigationRequestsById.has(browserRequestId),
       frameId: resource.frameId,
       redirectedFromUrl: resource.redirectedFromUrl,
-      loaderId: this.navigationRequestIdsToLoaderId.get(browserRequestId),
+      loaderId: this.navigationRequestsById.get(browserRequestId)?.loaderId,
     };
 
     // NOTE: same requestId will be used in devtools for redirected resources
@@ -465,27 +486,30 @@ export class NetworkManager extends TypedEventEmitter<IPuppetNetworkEvents> {
   private onLoadingFailed(event: LoadingFailedEvent): void {
     const { requestId, canceled, blockedReason, errorText } = event;
 
-    const resource = this.requestsById.get(requestId);
-    if (resource) {
-      if (!resource.url || !resource.requestTime) {
-        return;
-      }
-
-      if (canceled) resource.browserCanceled = true;
-      if (blockedReason) resource.browserBlockedReason = blockedReason;
-      if (errorText) resource.browserLoadFailure = errorText;
-
-      if (!this.requestPublishingById.get(requestId)?.isPublished) {
-        this.doEmitResourceRequested(requestId);
-      }
-
-      this.emit('resource-failed', {
-        resource,
-      });
-      this.redirectsById.delete(requestId);
-      this.requestsById.delete(requestId);
-      this.requestPublishingById.delete(requestId);
+    if (this.navigationRequestsById.has(requestId)) {
+      this.navigationRequestsById.get(requestId).wasCanceled = canceled;
+      return;
     }
+
+    const resource = this.requestsById.get(requestId);
+    if (!resource || !resource.url || !resource.requestTime) {
+      return;
+    }
+
+    if (canceled) resource.browserCanceled = true;
+    if (blockedReason) resource.browserBlockedReason = blockedReason;
+    if (errorText) resource.browserLoadFailure = errorText;
+
+    if (!this.requestPublishingById.get(requestId)?.isPublished) {
+      this.doEmitResourceRequested(requestId);
+    }
+
+    this.emit('resource-failed', {
+      resource,
+    });
+    this.redirectsById.delete(requestId);
+    this.requestsById.delete(requestId);
+    this.requestPublishingById.delete(requestId);
   }
 
   private onLoadingFinished(event: LoadingFinishedEvent): void {
@@ -499,7 +523,7 @@ export class NetworkManager extends TypedEventEmitter<IPuppetNetworkEvents> {
       if (!this.requestPublishingById.get(id)?.isPublished) this.emitResourceRequested(id);
       this.requestsById.delete(id);
       this.requestPublishingById.delete(id);
-      const loaderId = this.navigationRequestIdsToLoaderId.get(id);
+      const loaderId = this.navigationRequestsById.get(id)?.loaderId;
       if (this.redirectsById.has(id)) {
         for (const redirect of this.redirectsById.get(id)) {
           this.emit('resource-loaded', {

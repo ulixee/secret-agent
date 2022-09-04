@@ -58,6 +58,13 @@ export default class BrowserRequestMatcher {
     if (fetchDest === 'sharedworker' || fetchDest === 'serviceworker') {
       browserRequest.browserRequestedPromise.resolve(null);
     }
+    // if navigate and empty, this is likely a download - it won't trigger in chrome
+    if (
+      HeadersHandler.getRequestHeader(mitmResource, 'sec-fetch-mode') === 'navigate' &&
+      fetchDest === 'empty'
+    ) {
+      browserRequest.browserRequestedPromise.resolve(null);
+    }
 
     mitmResource.browserHasRequested = browserRequest.browserRequestedPromise.promise
       .then(() => {
