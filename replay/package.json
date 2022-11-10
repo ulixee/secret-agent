@@ -87,7 +87,7 @@
     "concurrently": "^5.2.0",
     "core-js": "^3.6.5",
     "cross-env": "^7.0.3",
-    "electron": "12.1.2",
+    "electron": "18.3.7",
     "electron-builder": "^22.10.5",
     "electron-icon-builder": "^1.0.2",
     "shx": "^0.3.3",
