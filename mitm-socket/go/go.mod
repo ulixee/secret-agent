@@ -11,5 +11,5 @@ require (
 require (
 	github.com/andybalholm/brotli v1.0.3 // indirect
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
-	golang.org/x/sys v0.0.0-20211025112917-711f33c9992c // indirect
+	golang.org/x/sys v0.1.0 // indirect
 )
