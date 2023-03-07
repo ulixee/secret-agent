@@ -13420,9 +13420,9 @@ modularscale@^1.0.2:
     lodash.isnumber "^3.0.0"
 
 moment@^2.24.0, moment@^2.29.3:
-  version "2.29.3"
-  resolved "https://registry.yarnpkg.com/moment/-/moment-2.29.3.tgz#edd47411c322413999f7a5940d526de183c031f3"
-  integrity sha512-c6YRvhEo//6T2Jz/vVtYzqBzwvPT95JBQ+smCytzf7c50oMZRsR/a4w88aD34I+/QVSfnoAnSBFPJHItlOMJVw==
+  version "2.29.4"
+  resolved "https://registry.yarnpkg.com/moment/-/moment-2.29.4.tgz#3dbe052889fe7c1b2ed966fcb3a77328964ef108"
+  integrity sha512-5LC9SOxjSc2HF6vO2CyuTDNivEdoz2IvyJJGj6X8DJ0eFyfszE0QiEd+iXmBvUP3WHxSjFH/vIsA0EN00cgr8w==
 
 move-concurrently@^1.0.1:
   version "1.0.1"
@@ -19395,14 +19395,7 @@ w3c-hr-time@^1.0.2:
   dependencies:
     browser-process-hrtime "^1.0.0"
 
-w3c-xmlserializer@^2.0.0:
-  version "2.0.0"
-  resolved "https://registry.yarnpkg.com/w3c-xmlserializer/-/w3c-xmlserializer-2.0.0.tgz#3e7104a05b75146cc60f564380b7f683acf1020a"
-  integrity sha512-4tzD0mF8iSiMiNs30BiLO3EpfGLZUT2MSX/G+o7ZywDzliWQ3OPtTZ0PTC3B3ca1UAf4cJMHB+2Bf56EriJuRA==
-  dependencies:
-    xml-name-validator "^3.0.0"
-
-"w3c-xmlserializer@https://github.com/ulixee/w3c-xmlserializer.git":
+w3c-xmlserializer@^2.0.0, "w3c-xmlserializer@https://github.com/ulixee/w3c-xmlserializer.git":
   version "2.0.0"
   resolved "https://github.com/ulixee/w3c-xmlserializer.git#74efc6b7211319a6a14a2c12d86028ca60f4f559"
   dependencies:
